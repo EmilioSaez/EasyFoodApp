@@ -29,7 +29,8 @@ class GoalsPlannerTest {
         // 0,5 kg/sem = 550 kcal/día
         assertEquals(2759 - 550, GoalsPlanner.plan(profile(Goal.LOSE), 2).targetKcal)
         assertEquals(2759 + 550, GoalsPlanner.plan(profile(Goal.GAIN), 2).targetKcal)
-        assertEquals(2759 - 1100, GoalsPlanner.plan(profile(Goal.LOSE), 4).targetKcal)
+        // 2759 − 1100 = 1659 < TMB (1780): se limita al TMB
+        assertEquals(1780, GoalsPlanner.plan(profile(Goal.LOSE), 4).targetKcal)
     }
 
     @Test
