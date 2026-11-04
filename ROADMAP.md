@@ -34,7 +34,7 @@ Riesgo: escáner distinto en cada plataforma.
 - [ ] Módulo `androidApp`
 - [ ] Escáner de códigos de barras con CameraX y ML Kit (`expect`/`actual`)
 - [ ] Permiso de cámara y manejo de errores
-- [ ] Entrada manual de EAN en escritorio
+- [x] Entrada manual de EAN en escritorio
 - [ ] (Opcional) Flujo Maestro de escaneo en emulador
 
 ## Fase 4: Alimentos sin código (~2-3 sem)
