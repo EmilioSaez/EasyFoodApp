@@ -11,6 +11,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.easyfood.data.GoalStore
 import com.easyfood.data.ProductRepository
+import com.easyfood.data.SqlDelightCustomFoodStore
+import com.easyfood.data.SqlDelightProductSearchStore
+import com.easyfood.db.EasyFoodDatabase
 import com.easyfood.ui.navigation.Navigator
 import com.easyfood.ui.navigation.PlatformBackHandler
 import com.easyfood.ui.navigation.Route
@@ -35,9 +38,14 @@ fun App(repository: ProductRepository, goalStore: GoalStore) {
                 Box(Modifier.widthIn(max = 600.dp).fillMaxSize()) {
                     when (val route = navigator.current) {
                         Route.Diary -> DiaryScreen(navigator)
-                        is Route.Add -> AddFoodScreen(navigator, route)
+                        is Route.Add -> AddFoodScreen(
+                            navigator,
+                            route,
+                            searchStore = remember(database) { database?.let { SqlDelightProductSearchStore(it.productSearchQueries) } },
+                            customFoods = remember(database) { database?.let { SqlDelightCustomFoodStore(it.customFoodQueries) } },
+                        )
                         is Route.Scanner -> ScannerScreen(navigator, route, repository)
-                        is Route.CustomFood -> CustomFoodScreen(navigator, route)
+                        is Route.CustomFood -> CustomFoodScreen(navigator, route, customFoodStore)
                         is Route.ProductDetail -> ProductDetailScreen(navigator, route)
                         Route.Goals -> GoalsScreen(navigator, goalStore)
                     }
