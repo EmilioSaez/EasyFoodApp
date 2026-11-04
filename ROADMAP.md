@@ -60,7 +60,7 @@ Riesgo: mover datos entre dispositivos sin servidor ni cuentas.
 - [x] Formato JSON versionado y exportación
 - [x] Importación con fusión y detección de duplicados
 - [ ] Transferencia por QR
-- [ ] Transferencia por red local
+- [x] Transferencia por red local (protocolo en `shared`; falta la UI)
 
 ## Fase 7: iOS (~1-2 sem + Mac)
 
