@@ -32,8 +32,8 @@ Riesgo: calidad de datos de Open Food Facts.
 Riesgo: escáner distinto en cada plataforma.
 
 - [x] Módulo `androidApp`
-- [ ] Escáner de códigos de barras con CameraX y ML Kit (`expect`/`actual`)
-- [ ] Permiso de cámara y manejo de errores
+- [x] Escáner de códigos de barras con CameraX y ML Kit (`expect`/`actual`)
+- [x] Permiso de cámara y manejo de errores
 - [x] Entrada manual de EAN en escritorio
 - [ ] (Opcional) Flujo Maestro de escaneo en emulador
 
@@ -41,15 +41,15 @@ Riesgo: escáner distinto en cada plataforma.
 
 Riesgo: productos sin código de barras (fruta, pan, carne).
 
-- [ ] Alimentos propios con entrada manual
+- [x] Alimentos propios con entrada manual (almacén; UI pendiente)
 - [ ] Importar base genérica BEDCA/USDA embebida
 - [x] Búsqueda por texto (FTS)
 - [ ] Mostrar el origen del dato en la UI (Open Food Facts, genérico, propio)
 
 ## Fase 5: Objetivos (~1-2 sem)
 
-- [ ] Objetivo diario de kcal
-- [ ] Objetivo de macros (proteína, hidratos, grasa)
+- [x] Objetivo diario de kcal
+- [x] Objetivo de macros (proteína, hidratos, grasa)
 - [x] Calculadora de necesidades (TDEE) a partir de edad, peso, altura y meta
 - [ ] Progreso frente al objetivo en el diario
 
@@ -57,7 +57,7 @@ Riesgo: productos sin código de barras (fruta, pan, carne).
 
 Riesgo: mover datos entre dispositivos sin servidor ni cuentas.
 
-- [ ] Formato JSON versionado y exportación
+- [x] Formato JSON versionado y exportación
 - [ ] Importación con fusión y detección de duplicados
 - [ ] Transferencia por QR
 - [ ] Transferencia por red local
