@@ -11,6 +11,7 @@ sqldelight {
     databases {
         create("EasyFoodDatabase") {
             packageName.set("com.easyfood.db")
+            dialect("app.cash.sqldelight:sqlite-3-35-dialect:${libs.versions.sqldelight.get()}")
         }
     }
 }

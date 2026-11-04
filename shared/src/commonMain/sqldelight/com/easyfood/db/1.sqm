@@ -1,21 +1,24 @@
--- Migración 1 -> 2: alimentos propios del usuario.
-CREATE TABLE CustomFoodEntity (
-    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    brand TEXT,
-    kcal REAL NOT NULL CHECK (kcal >= 0),
-    protein_g REAL NOT NULL CHECK (protein_g >= 0),
-    carbs_g REAL NOT NULL CHECK (carbs_g >= 0),
-    fat_g REAL NOT NULL CHECK (fat_g >= 0),
-    sugars_g REAL,
-    saturated_fat_g REAL,
-    fiber_g REAL,
-    salt_g REAL,
-    serving_size_g REAL CHECK (serving_size_g IS NULL OR serving_size_g > 0),
-    serving_label TEXT,
-    source TEXT NOT NULL DEFAULT 'CUSTOM' CHECK (source = 'CUSTOM'),
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
+-- Migración v1 -> v2: índice FTS5 de productos (ver ProductSearch.sq).
+CREATE VIRTUAL TABLE ProductFts USING fts5(
+    name,
+    brand,
+    barcode UNINDEXED,
+    tokenize = 'unicode61 remove_diacritics 2'
 );
 
-CREATE INDEX custom_food_name_idx ON CustomFoodEntity(name);
+CREATE TRIGGER product_fts_insert AFTER INSERT ON ProductEntity BEGIN
+    DELETE FROM ProductFts WHERE barcode = new.barcode;
+    INSERT INTO ProductFts(name, brand, barcode) VALUES (new.name, new.brand, new.barcode);
+END;
+
+CREATE TRIGGER product_fts_update AFTER UPDATE ON ProductEntity BEGIN
+    DELETE FROM ProductFts WHERE barcode = old.barcode;
+    INSERT INTO ProductFts(name, brand, barcode) VALUES (new.name, new.brand, new.barcode);
+END;
+
+CREATE TRIGGER product_fts_delete AFTER DELETE ON ProductEntity BEGIN
+    DELETE FROM ProductFts WHERE barcode = old.barcode;
+END;
+
+-- Indexa los productos que ya estaban en la caché.
+INSERT INTO ProductFts(name, brand, barcode) SELECT name, brand, barcode FROM ProductEntity;
