@@ -28,6 +28,9 @@ CREATE INDEX diary_entry_date_idx ON DiaryEntryEntity(date, meal);
 selectByDate:
 SELECT * FROM DiaryEntryEntity WHERE date = ? ORDER BY meal, created_at, id;
 
+selectAll:
+SELECT * FROM DiaryEntryEntity ORDER BY date, meal, created_at, id;
+
 selectById:
 SELECT * FROM DiaryEntryEntity WHERE id = ?;
 
