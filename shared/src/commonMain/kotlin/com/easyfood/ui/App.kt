@@ -38,7 +38,7 @@ fun App(repository: ProductRepository, diaryStore: DiaryStore, goalStore: GoalSt
                         Route.Diary -> DiaryScreen(navigator, diaryStore, goalStore, today())
                         is Route.Add -> AddFoodScreen(navigator, route)
                         is Route.Scanner -> ScannerScreen(navigator, route, repository)
-                        is Route.CustomFood -> CustomFoodScreen(navigator, route)
+                        is Route.CustomFood -> CustomFoodScreen(navigator, route, customFoodStore)
                         is Route.ProductDetail -> ProductDetailScreen(navigator, route)
                         Route.Goals -> GoalsScreen(navigator)
                     }

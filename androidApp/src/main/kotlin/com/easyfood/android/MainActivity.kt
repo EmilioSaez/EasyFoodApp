@@ -27,6 +27,7 @@ class MainActivity : ComponentActivity() {
             nowMillis = System::currentTimeMillis,
         )
     }
+    private val customFoodStore by lazy { SqlDelightCustomFoodStore(database.customFoodQueries) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
