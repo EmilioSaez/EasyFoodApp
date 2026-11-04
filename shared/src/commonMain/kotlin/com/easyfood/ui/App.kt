@@ -9,6 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.easyfood.data.CustomFoodStore
 import com.easyfood.data.ProductRepository
 import com.easyfood.ui.navigation.Navigator
 import com.easyfood.ui.navigation.PlatformBackHandler
@@ -23,7 +24,7 @@ import com.easyfood.ui.theme.EasyFoodTheme
 
 /** Raíz de la app: tema + navegación entre pantallas (docs/design.md §4). */
 @Composable
-fun App(repository: ProductRepository) {
+fun App(repository: ProductRepository, customFoodStore: CustomFoodStore) {
     EasyFoodTheme {
         Surface(Modifier.fillMaxSize()) {
             val navigator = remember { Navigator() }
@@ -36,7 +37,7 @@ fun App(repository: ProductRepository) {
                         Route.Diary -> DiaryScreen(navigator)
                         is Route.Add -> AddFoodScreen(navigator, route)
                         is Route.Scanner -> ScannerScreen(navigator, route, repository)
-                        is Route.CustomFood -> CustomFoodScreen(navigator, route)
+                        is Route.CustomFood -> CustomFoodScreen(navigator, route, customFoodStore)
                         is Route.ProductDetail -> ProductDetailScreen(navigator, route)
                         Route.Goals -> GoalsScreen(navigator)
                     }

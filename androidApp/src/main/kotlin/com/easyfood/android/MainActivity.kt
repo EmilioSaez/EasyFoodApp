@@ -9,24 +9,28 @@ import androidx.compose.ui.Modifier
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import com.easyfood.data.OpenFoodFactsClient
 import com.easyfood.data.ProductRepository
+import com.easyfood.data.SqlDelightCustomFoodStore
 import com.easyfood.data.SqlDelightProductStore
 import com.easyfood.db.EasyFoodDatabase
 import com.easyfood.ui.App
 
 class MainActivity : ComponentActivity() {
+    private val database by lazy {
+        EasyFoodDatabase(AndroidSqliteDriver(EasyFoodDatabase.Schema, applicationContext, "easyfood.db"))
+    }
     private val repository by lazy {
-        val driver = AndroidSqliteDriver(EasyFoodDatabase.Schema, applicationContext, "easyfood.db")
         ProductRepository(
             remote = OpenFoodFactsClient(),
-            local = SqlDelightProductStore(EasyFoodDatabase(driver).productQueries),
+            local = SqlDelightProductStore(database.productQueries),
             nowMillis = System::currentTimeMillis,
         )
     }
+    private val customFoodStore by lazy { SqlDelightCustomFoodStore(database.customFoodQueries) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            Box(Modifier.safeDrawingPadding()) { App(repository) }
+            Box(Modifier.safeDrawingPadding()) { App(repository, customFoodStore) }
         }
     }
 }
