@@ -6,10 +6,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.ComposeUIViewController
 import app.cash.sqldelight.driver.native.NativeSqliteDriver
-import app.luxion.fitarchiveapp.data.GoalStore
 import app.luxion.fitarchiveapp.data.OpenFoodFactsClient
 import app.luxion.fitarchiveapp.data.ProductRepository
+import app.luxion.fitarchiveapp.data.SqlDelightCustomFoodStore
+import app.luxion.fitarchiveapp.data.SqlDelightDiaryStore
 import app.luxion.fitarchiveapp.data.SqlDelightGoalStore
+import app.luxion.fitarchiveapp.data.SqlDelightProductSearchStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductStore
 import app.luxion.fitarchiveapp.db.EasyFoodDatabase
 import app.luxion.fitarchiveapp.ui.App
@@ -18,20 +20,28 @@ import platform.Foundation.NSDateFormatter
 import platform.Foundation.timeIntervalSince1970
 import platform.UIKit.UIViewController
 
-private fun createStores(): Pair<ProductRepository, GoalStore> {
-    val driver = NativeSqliteDriver(EasyFoodDatabase.Schema, "easyfood.db")
-    val db = EasyFoodDatabase(driver)
-    val repository = ProductRepository(
-        remote = OpenFoodFactsClient(),
-        local = SqlDelightProductStore(db.productQueries),
-        nowMillis = { (NSDate().timeIntervalSince1970 * 1000).toLong() },
-    )
-    return repository to SqlDelightGoalStore(db.dailyGoalQueries)
-}
+/** Fecha de hoy en formato ISO (`YYYY-MM-DD`). */
+private fun todayIso(): String = NSDateFormatter().apply { dateFormat = "yyyy-MM-dd" }.stringFromDate(NSDate())
 
 /** Punto de entrada para iOS: devuelve el `UIViewController` con la UI compartida (lo usa `iosApp`). */
 @Suppress("FunctionName")
 fun MainViewController(): UIViewController = ComposeUIViewController {
-    val (repository, goalStore) = remember { createStores() }
-    Box(Modifier.safeDrawingPadding()) { App(repository, goalStore) }
+    val db = remember { EasyFoodDatabase(NativeSqliteDriver(EasyFoodDatabase.Schema, "easyfood.db")) }
+    val repository = remember(db) {
+        ProductRepository(
+            remote = OpenFoodFactsClient(),
+            local = SqlDelightProductStore(db.productQueries),
+            nowMillis = { (NSDate().timeIntervalSince1970 * 1000).toLong() },
+        )
+    }
+    Box(Modifier.safeDrawingPadding()) {
+        App(
+            repository = repository,
+            diaryStore = remember(db) { SqlDelightDiaryStore(db.diaryEntryQueries) },
+            goalStore = remember(db) { SqlDelightGoalStore(db.dailyGoalQueries) },
+            searchStore = remember(db) { SqlDelightProductSearchStore(db.productSearchQueries) },
+            customFoodStore = remember(db) { SqlDelightCustomFoodStore(db.customFoodQueries) },
+            today = ::todayIso,
+        )
+    }
 }
