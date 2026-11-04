@@ -6,6 +6,10 @@ data class Nutrients(
     val proteinG: Double?,
     val carbsG: Double?,
     val fatG: Double?,
+    val saturatedFatG: Double? = null,
+    val sugarsG: Double? = null,
+    val fiberG: Double? = null,
+    val saltG: Double? = null,
 ) {
     /** Falta la energía o es absurda (>900 kcal/100 g): el usuario debería revisarla. */
     val needsReview: Boolean
@@ -22,4 +26,8 @@ data class Product(
     val brand: String?,
     val imageUrl: String?,
     val nutrients: Nutrients,
+    /** Tamaño de una porción en g (o ml), si el producto lo indica. */
+    val servingSizeG: Double? = null,
+    /** Texto original de la porción en OFF (p. ej. "30 g"). */
+    val servingLabel: String? = null,
 )
