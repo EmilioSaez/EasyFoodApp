@@ -4,11 +4,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -25,6 +28,10 @@ import com.easyfood.data.ProductRepository
 import com.easyfood.data.ProductResult
 import com.easyfood.model.EanValidation
 import com.easyfood.model.EanValidator
+import com.easyfood.scanner.BarcodeScanner
+import com.easyfood.scanner.ScanError
+import com.easyfood.scanner.isBarcodeScannerSupported
+import com.easyfood.scanner.message
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -38,6 +45,8 @@ fun App(repository: ProductRepository) {
             var result by remember { mutableStateOf<ProductResult?>(null) }
             var validationError by remember { mutableStateOf<String?>(null) }
             var loading by remember { mutableStateOf(false) }
+            var scanning by remember { mutableStateOf(false) }
+            var scanError by remember { mutableStateOf<ScanError?>(null) }
 
             fun search() {
                 if (loading) return
@@ -64,6 +73,12 @@ fun App(repository: ProductRepository) {
                 }
             }
 
+            fun onScanned(code: String) {
+                scanning = false
+                barcode = code
+                search()
+            }
+
             Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("EasyFood", style = MaterialTheme.typography.headlineMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -81,6 +96,19 @@ fun App(repository: ProductRepository) {
                         Text(if (loading) "Buscando…" else "Buscar")
                     }
                 }
+                if (isBarcodeScannerSupported) {
+                    OutlinedButton(onClick = { scanError = null; scanning = !scanning }) {
+                        Text(if (scanning) "Cerrar escáner" else "Escanear código")
+                    }
+                }
+                if (scanning) {
+                    BarcodeScanner(
+                        onBarcode = ::onScanned,
+                        onError = { scanning = false; scanError = it },
+                        modifier = Modifier.fillMaxWidth().height(280.dp),
+                    )
+                }
+                scanError?.let { Text(it.message(), color = MaterialTheme.colorScheme.error) }
                 when (val r = result) {
                     null -> Unit
                     ProductResult.NotFound -> Text("Producto no encontrado")
