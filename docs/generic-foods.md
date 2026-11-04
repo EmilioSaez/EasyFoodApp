@@ -23,4 +23,20 @@ Se regenera con `python tools/generate_generic_foods.py <carpeta del CSV de SR L
 
 `GenericFoodImporter` (`shared/.../data/generic`) lee el recurso (`readEmbeddedGenericFoods()`) y lo guarda en `ProductEntity` con `source = 'GENERIC'` y clave `generic:<fdcId>` (no choca con un EAN), en una sola transacción. Los triggers de `ProductFts` lo indexan para la búsqueda de texto existente. Es idempotente. Las filas mal formadas se descartan y se cuentan en `GenericFoodImportResult.skipped`.
 
-Pendiente (fuera de este cambio): invocar la importación al primer arranque en cada plataforma y mostrar el origen en la UI.
+### Carga al arrancar
+
+`GenericFoodSeeder` (`shared/.../data/generic`) la lanza desde `App` (`genericSeeder`) en segundo plano: si ya hay alimentos `GENERIC` no hace nada (ni lee el recurso); si no, parsea e importa fuera del hilo de UI y publica `state` (`Running(done, total)` → `Done` / `Failed`). `App` muestra una franja con el avance (`SeedProgressBanner`). Llamadas simultáneas se serializan y un fallo se puede reintentar. Es una sola transacción: no queda una carga a medias.
+
+### Rendimiento (7 793 alimentos, SQLite en memoria, JVM)
+
+Medido con `GenericFoodBenchmarkTest`:
+
+| | antes | después |
+|---|---|---|
+| primera importación | 6 466 ms | ~850 ms |
+| reimportación | 14 354 ms | ~890 ms |
+| búsqueda FTS (media) | 3,8 ms | 2,8 ms |
+
+La causa era que los triggers de `ProductFts` borraban por `barcode` (columna `UNINDEXED`), recorriendo toda la tabla FTS en cada fila (O(n²)). Ahora `ProductFts.rowid` = `ProductEntity.rowid` y se borra por rowid; para conservar el rowid, `ProductEntity.upsert` usa `ON CONFLICT DO UPDATE` en vez de `INSERT OR REPLACE`. La migración `2.sqm` reconstruye el índice y añade `product_source_idx` (para `countBySource`). **No ejecutar `VACUUM`**: puede renumerar los rowids y desincronizar el índice.
+
+Pendiente: mostrar el origen en la UI.

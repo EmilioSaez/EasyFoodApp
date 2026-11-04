@@ -13,6 +13,8 @@ import app.luxion.fitarchiveapp.data.SqlDelightDiaryStore
 import app.luxion.fitarchiveapp.data.SqlDelightGoalStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductSearchStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductStore
+import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
+import app.luxion.fitarchiveapp.data.generic.GenericFoodSeeder
 import app.luxion.fitarchiveapp.db.EasyFoodDatabase
 import app.luxion.fitarchiveapp.ui.App
 import platform.Foundation.NSDate
@@ -42,6 +44,12 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
             searchStore = remember(db) { SqlDelightProductSearchStore(db.productSearchQueries) },
             customFoodStore = remember(db) { SqlDelightCustomFoodStore(db.customFoodQueries) },
             today = ::todayIso,
+            genericSeeder = remember(db) {
+                GenericFoodSeeder(
+                    GenericFoodImporter(db.productQueries),
+                    nowMillis = { (NSDate().timeIntervalSince1970 * 1000).toLong() },
+                )
+            },
         )
     }
 }

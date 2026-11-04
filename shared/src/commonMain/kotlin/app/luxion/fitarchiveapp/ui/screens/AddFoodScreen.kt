@@ -148,7 +148,7 @@ fun AddFoodScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 is SearchState.Done -> {
-                    val shown = s.results.filteredBy(filter)
+                    val shown = remember(s, filter) { s.results.filteredBy(filter) }
                     if (shown.isEmpty()) {
                         EmptyState(
                             icon = "⌕",
