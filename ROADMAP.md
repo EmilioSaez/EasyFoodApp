@@ -48,8 +48,8 @@ Riesgo: productos sin código de barras (fruta, pan, carne).
 
 ## Fase 5: Objetivos (~1-2 sem)
 
-- [ ] Objetivo diario de kcal
-- [ ] Objetivo de macros (proteína, hidratos, grasa)
+- [x] Objetivo diario de kcal
+- [x] Objetivo de macros (proteína, hidratos, grasa)
 - [x] Calculadora de necesidades (TDEE) a partir de edad, peso, altura y meta
 - [ ] Progreso frente al objetivo en el diario
 
