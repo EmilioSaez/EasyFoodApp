@@ -40,6 +40,7 @@ import app.luxion.fitarchiveapp.ui.navigation.Route
 import app.luxion.fitarchiveapp.ui.theme.Spacing
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 /**
@@ -65,7 +66,13 @@ fun CustomFoodScreen(
 
     LaunchedEffect(foodId) {
         if (foodId != null) {
-            val food = store.find(foodId)
+            val food = try {
+                store.find(foodId)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                null
+            }
             if (food == null) {
                 snackbar.showSnackbar("El alimento ya no existe.")
                 navigator.pop()

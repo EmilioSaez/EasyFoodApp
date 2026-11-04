@@ -11,6 +11,7 @@ import app.luxion.fitarchiveapp.model.Quantity
 import app.luxion.fitarchiveapp.model.QuantityUnit
 import app.luxion.fitarchiveapp.ui.components.DataSource
 import app.luxion.fitarchiveapp.ui.components.formatGrams
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -50,6 +51,10 @@ data class DiaryUiState(
     val macros: List<MacroProgress> = emptyList(),
     val meals: List<MealUi> = emptyList(),
     val loading: Boolean = true,
+    /** La carga del día falló (base de datos ilegible): se muestra un estado de error con «Reintentar». */
+    val loadFailed: Boolean = false,
+    /** Fallo puntual de una acción (editar, borrar, deshacer); la UI lo enseña una vez y llama a [DiaryPresenter.consumeMessage]. */
+    val message: String? = null,
 ) {
     val isEmpty: Boolean get() = meals.all { it.entries.isEmpty() }
 }
@@ -126,16 +131,37 @@ class DiaryPresenter(
 
     fun load(date: String = _state.value.date) {
         scope.launch {
-            _state.value = buildDiaryUiState(date, diary.entriesForDate(date), goals.get())
+            _state.value = try {
+                buildDiaryUiState(date, diary.entriesForDate(date), goals.get())
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                DiaryUiState(date = date, loading = false, loadFailed = true)
+            }
         }
+    }
+
+    fun consumeMessage() {
+        _state.value = _state.value.copy(message = null)
+    }
+
+    private fun fail(message: String) {
+        _state.value = _state.value.copy(message = message)
     }
 
     fun shiftDay(days: Int) = load(IsoDate.plusDays(_state.value.date, days))
 
     fun updateQuantity(id: Long, quantity: Quantity) {
         scope.launch {
-            val entry = diary.find(id) ?: return@launch
-            diary.update(id, entry.meal, quantity)
+            try {
+                val entry = diary.find(id) ?: return@launch
+                diary.update(id, entry.meal, quantity)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                fail(SAVE_ERROR)
+                return@launch
+            }
             load()
         }
     }
@@ -143,11 +169,18 @@ class DiaryPresenter(
     /** Borra la entrada y recuerda sus datos para [undoDelete]. */
     fun delete(id: Long) {
         scope.launch {
-            val entry = diary.find(id) ?: return@launch
-            diary.delete(id)
-            removed = NewDiaryEntry(
-                entry.date, entry.meal, entry.barcode, entry.name, entry.quantity, entry.servingSizeG, entry.nutrients,
-            ) to entry.createdAtMillis
+            try {
+                val entry = diary.find(id) ?: return@launch
+                diary.delete(id)
+                removed = NewDiaryEntry(
+                    entry.date, entry.meal, entry.barcode, entry.name, entry.quantity, entry.servingSizeG, entry.nutrients,
+                ) to entry.createdAtMillis
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                fail(DELETE_ERROR)
+                return@launch
+            }
             load()
         }
     }
@@ -156,9 +189,23 @@ class DiaryPresenter(
         val (entry, createdAt) = removed ?: return
         removed = null
         scope.launch {
-            diary.add(entry, createdAt)
+            try {
+                diary.add(entry, createdAt)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                removed = entry to createdAt
+                fail(UNDO_ERROR)
+                return@launch
+            }
             load()
         }
+    }
+
+    companion object {
+        const val SAVE_ERROR = "No se pudo guardar el cambio. Inténtalo de nuevo."
+        const val DELETE_ERROR = "No se pudo borrar. Inténtalo de nuevo."
+        const val UNDO_ERROR = "No se pudo deshacer el borrado."
     }
 }
 

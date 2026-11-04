@@ -46,6 +46,7 @@ import app.luxion.fitarchiveapp.ui.components.CalorieRing
 import app.luxion.fitarchiveapp.ui.components.DiaryEntryRow
 import app.luxion.fitarchiveapp.ui.components.EmptyState
 import app.luxion.fitarchiveapp.ui.components.EmptyStateAction
+import app.luxion.fitarchiveapp.ui.components.EmptyStateTone
 import app.luxion.fitarchiveapp.ui.components.MacroProgressRow
 import app.luxion.fitarchiveapp.ui.components.MealSection
 import app.luxion.fitarchiveapp.ui.components.QuantitySelector
@@ -73,6 +74,13 @@ fun DiaryScreen(navigator: Navigator, diaryStore: DiaryStore, goalStore: GoalSto
     var editing by remember { mutableStateOf<EntryUi?>(null) }
 
     LaunchedEffect(presenter) { presenter.load() }
+    LaunchedEffect(state.message) {
+        state.message?.let {
+            snackbar.currentSnackbarData?.dismiss()
+            snackbar.showSnackbar(it)
+            presenter.consumeMessage()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -113,7 +121,18 @@ fun DiaryScreen(navigator: Navigator, diaryStore: DiaryStore, goalStore: GoalSto
         },
         bottomBar = { EasyFoodNavigationBar(TopLevelTab.Diary, navigator) },
     ) { padding ->
-        if (!state.loading && state.isEmpty) {
+        if (state.loadFailed) {
+            Column(Modifier.fillMaxSize().padding(padding), horizontalAlignment = Alignment.CenterHorizontally) {
+                EmptyState(
+                    icon = "!",
+                    title = "No se pudo cargar el diario",
+                    message = "Ha fallado la lectura de los datos guardados.",
+                    tone = EmptyStateTone.Error,
+                    primaryAction = EmptyStateAction("Reintentar") { presenter.load() },
+                    modifier = Modifier.padding(top = Spacing.xxxl),
+                )
+            }
+        } else if (!state.loading && state.isEmpty) {
             Column(Modifier.fillMaxSize().padding(padding), horizontalAlignment = Alignment.CenterHorizontally) {
                 EmptyState(
                     icon = "▤",

@@ -54,11 +54,15 @@ import app.luxion.fitarchiveapp.ui.components.formatKcal
 import app.luxion.fitarchiveapp.ui.components.label
 import app.luxion.fitarchiveapp.ui.components.parseNumber
 import app.luxion.fitarchiveapp.ui.components.toRows
+import app.luxion.fitarchiveapp.ui.components.EmptyState
+import app.luxion.fitarchiveapp.ui.components.EmptyStateAction
+import app.luxion.fitarchiveapp.ui.components.EmptyStateTone
 import app.luxion.fitarchiveapp.ui.navigation.Navigator
 import app.luxion.fitarchiveapp.ui.navigation.Route
 import app.luxion.fitarchiveapp.ui.theme.EanTextStyle
 import app.luxion.fitarchiveapp.ui.theme.Spacing
 import app.luxion.fitarchiveapp.ui.theme.easyFoodColors
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 /** Lo que muestra la ficha, venga de un producto (alta) o de una entrada del diario (edición). */
@@ -102,7 +106,8 @@ fun ProductDetailScreen(
         state = try {
             load(route, repository, diaryStore)
         } catch (e: Exception) {
-            LoadState.Failed(e.message ?: "No se pudo cargar el producto")
+            if (e is CancellationException) throw e
+            LoadState.Failed("No se pudo cargar el producto.")
         }
     }
 
@@ -132,8 +137,23 @@ fun ProductDetailScreen(
         Box(Modifier.fillMaxSize().padding(padding)) {
             when (val s = state) {
                 LoadState.Loading -> CenteredMessage("Cargando…")
-                LoadState.NotFound -> CenteredMessage("Producto no encontrado", "Volver") { navigator.pop() }
-                is LoadState.Failed -> CenteredMessage(s.message, "Reintentar") { reloadKey++ }
+                LoadState.NotFound -> EmptyState(
+                    icon = "?",
+                    title = "Producto no encontrado",
+                    message = "No hay datos para este producto. Puede que se haya borrado.",
+                    tone = EmptyStateTone.Warning,
+                    primaryAction = EmptyStateAction("Volver") { navigator.pop() },
+                    modifier = Modifier.fillMaxSize(),
+                )
+                is LoadState.Failed -> EmptyState(
+                    icon = "!",
+                    title = "Sin conexión",
+                    message = s.message,
+                    tone = EmptyStateTone.Warning,
+                    primaryAction = EmptyStateAction("Reintentar") { reloadKey++ },
+                    secondaryAction = EmptyStateAction("Volver") { navigator.pop() },
+                    modifier = Modifier.fillMaxSize(),
+                )
                 is LoadState.Ready -> DetailContent(navigator, route, s, diaryStore, today)
             }
         }
@@ -159,7 +179,7 @@ private suspend fun load(route: Route.ProductDetail, repository: ProductReposito
     val barcode = route.barcode ?: return LoadState.NotFound
     return when (val result = repository.getByBarcode(barcode)) {
         ProductResult.NotFound -> LoadState.NotFound
-        is ProductResult.Failure -> LoadState.Failed("Sin conexión o error al consultar el producto")
+        is ProductResult.Failure -> LoadState.Failed("Open Food Facts no responde y no hay una copia guardada. Comprueba la conexión.")
         is ProductResult.Found -> {
             val p = result.product
             val note = when {
@@ -353,7 +373,7 @@ private fun DetailContent(
                                     }
                                     navigator.popToDiary()
                                 } catch (e: Exception) {
-                                    error = "No se pudo guardar: ${e.message ?: "error desconocido"}"
+                                    error = "No se pudo guardar. Inténtalo de nuevo."
                                     saving = false
                                 }
                             }
@@ -370,7 +390,7 @@ private fun DetailContent(
                                         diaryStore.delete(route.entryId!!)
                                         navigator.popToDiary()
                                     } catch (e: Exception) {
-                                        error = "No se pudo borrar: ${e.message ?: "error desconocido"}"
+                                        error = "No se pudo borrar. Inténtalo de nuevo."
                                         saving = false
                                     }
                                 }
