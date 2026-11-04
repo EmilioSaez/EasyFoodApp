@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.androidKotlinMultiplatformLibrary)
     alias(libs.plugins.sqldelight)
 }
 
@@ -16,6 +17,13 @@ sqldelight {
 
 kotlin {
     jvm()
+    androidLibrary {
+        namespace = "com.easyfood.shared"
+        compileSdk = 36
+        minSdk = 26
+    }
+    iosArm64()
+    iosSimulatorArm64()
 
     sourceSets {
         commonMain.dependencies {
@@ -37,6 +45,14 @@ kotlin {
         jvmMain.dependencies {
             implementation(libs.ktor.client.cio)
             implementation(libs.sqldelight.driver.sqlite)
+        }
+        androidMain.dependencies {
+            implementation(libs.ktor.client.okhttp)
+            implementation(libs.sqldelight.driver.android)
+        }
+        iosMain.dependencies {
+            implementation(libs.ktor.client.darwin)
+            implementation(libs.sqldelight.driver.native)
         }
     }
 }
