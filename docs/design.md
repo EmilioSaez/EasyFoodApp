@@ -5,54 +5,56 @@ Mockups a 390 dp de ancho (teléfono). En escritorio se usan las mismas pantalla
 
 ## 1. Tokens
 
-### 1.1 Color: `lightColorScheme` / `darkColorScheme` (semilla verde #386A20)
+### 1.1 Color: tema rojo y negro (oscuro por defecto)
+El tema principal es oscuro: fondos casi negros y el rojo como acento. Se pasa a `darkColorScheme(...)`. El esquema claro es opcional; si se quiere, sale de la misma semilla roja (#C00010).
 
-| Rol M3 | Claro | Oscuro |
-|---|---|---|
-| primary | #386A20 | #9DD67D |
-| onPrimary | #FFFFFF | #0B3900 |
-| primaryContainer | #B8F397 | #205107 |
-| onPrimaryContainer | #042100 | #B8F397 |
-| secondary | #55624C | #BDCBB0 |
-| onSecondary | #FFFFFF | #283420 |
-| secondaryContainer | #D9E7CB | #3E4A35 |
-| onSecondaryContainer | #131F0D | #D9E7CB |
-| tertiary | #386666 | #A0CFCF |
-| tertiaryContainer | #BBEBEB | #1E4E4E |
-| onTertiaryContainer | #002020 | #BBEBEB |
-| error | #BA1A1A | #FFB4AB |
-| errorContainer | #FFDAD6 | #93000A |
-| onErrorContainer | #410002 | #FFDAD6 |
-| surface / background | #F8FAF0 | #11140F |
-| surfaceContainerLowest | #FFFFFF | #0C0F0A |
-| surfaceContainerLow | #F2F5EA | #191D16 |
-| surfaceContainer | #ECEFE4 | #1D211A |
-| surfaceContainerHigh | #E6E9DF | #282B24 |
-| surfaceContainerHighest | #E1E4D9 | #33362F |
-| onSurface | #191D16 | #E1E4D9 |
-| onSurfaceVariant | #43483E | #C3C8BB |
-| outline | #74796D | #8D9286 |
-| outlineVariant | #C3C8BB | #43483E |
-| inverseSurface | #2E312B | #E1E4D9 |
-| inverseOnSurface | #EFF2E7 | #2E312B |
-| inversePrimary | #9DD67D | #386A20 |
+| Rol M3 | Valor |
+|---|---|
+| primary | #FF5449 |
+| onPrimary | #1A0000 (los botones rojos llevan texto casi negro) |
+| primaryContainer | #8C0009 |
+| onPrimaryContainer | #FFDAD5 |
+| secondary | #E7BDB7 |
+| secondaryContainer | #4A1C19 (chips seleccionados, indicador de NavigationBar) |
+| onSecondaryContainer | #FFDAD5 |
+| tertiaryContainer | #333333 |
+| onTertiaryContainer | #F2F2F2 |
+| error | #FFB4AB |
+| errorContainer | #690005 |
+| onErrorContainer | #FFDAD6 |
+| surface / background | #0E0E0E |
+| surfaceContainerLowest | #141414 |
+| surfaceContainerLow | #1A1A1A |
+| surfaceContainer | #1F1F1F |
+| surfaceContainerHigh | #2A2A2A |
+| surfaceContainerHighest | #353535 |
+| onSurface | #F2F2F2 |
+| onSurfaceVariant | #BDBDBD |
+| outline | #8A8A8A |
+| outlineVariant | #3D3D3D |
+| scrim (fondo del escáner) | #000000 |
+| inverseSurface | #F2F2F2 |
+| inverseOnSurface | #1A1A1A |
+| inversePrimary | #C00010 |
 
 ### 1.2 Colores extendidos (no existen en M3)
 Van en un `data class EasyFoodColors` y se exponen con `staticCompositionLocalOf` (`LocalEasyFoodColors`).
 
-| Token | Claro | Oscuro | Uso |
-|---|---|---|---|
-| macroProtein | #2F5DA8 | #ADC6FF | barra, punto y segmento de proteína |
-| macroCarbs | #D9822B | #FFB77C | hidratos |
-| macroFat | #8E4B8F | #F0B0F0 | grasa |
-| warningContainer | #FFDF9E | #5C4300 | aviso de datos dudosos, chip «Dudoso» |
-| onWarningContainer | #261A00 | #FFDF9E | texto e icono sobre warningContainer |
-| warning | #7A5900 | #F5BF48 | valor «Sin dato» en la tabla |
+| Token | Valor | Uso |
+|---|---|---|
+| macroProtein | #FF5449 | barra, punto y segmento de proteína |
+| macroCarbs | #FFB067 | hidratos |
+| macroFat | #BDBDBD | grasa |
+| warningContainer | #4D3800 | aviso de datos dudosos, chip «Dudoso» |
+| onWarningContainer | #FFDF9E | texto e icono sobre warningContainer |
+| warning | #FFC94D | valor «Sin dato» en la tabla |
+
+El aviso se queda en ámbar para no confundirlo con el rojo principal ni con los errores.
 
 Origen del dato (avatar y chip):
-- Genérico → secondaryContainer / onSecondaryContainer, inicial «G»
-- Open Food Facts → tertiaryContainer / onTertiaryContainer, «OFF», icono de globo
-- Propio → warningContainer / onWarningContainer, «P», icono de lápiz
+- Genérico → secondaryContainer / onSecondaryContainer (rojo oscuro), inicial «G»
+- Open Food Facts → tertiaryContainer / onTertiaryContainer (gris), «OFF», icono de globo
+- Propio → warningContainer / onWarningContainer (ámbar), «P», icono de lápiz
 
 Cada macro va siempre con su texto, nunca se distingue solo por el color.
 
@@ -126,10 +128,10 @@ LazyColumn de FoodResultRow (ListItem 72): SourceAvatar 40 · nombre / «marca �
 
 ### 2.3 Escáner + EAN manual (`ScannerScreen`)
 ```
-Box fondo #11140F
+Box fondo scrim #000000
 ├─ vista previa de cámara (expect/actual: CameraX+ML Kit / AVFoundation)
 ├─ barra superior transparente: IconButton cerrar · «Escanear código» · IconButton linterna
-├─ marco 300×190, radio 16, borde 2 dp inversePrimary + línea guía horizontal
+├─ marco 300×190, radio 16, borde 2 dp primary + línea guía horizontal
 ├─ ayuda bodyMedium centrada
 └─ hoja fija inferior (surfaceContainerLow, extraLarge arriba, asa 32×4)
    «¿No se lee el código?» (titleLarge) · ayuda
