@@ -5,6 +5,7 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.easyfood.data.OpenFoodFactsClient
+import com.easyfood.data.DiaryStore
 import com.easyfood.data.ProductRepository
 import com.easyfood.data.SqlDelightCustomFoodStore
 import com.easyfood.data.SqlDelightProductStore
