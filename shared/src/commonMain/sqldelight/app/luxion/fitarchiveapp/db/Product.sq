@@ -21,6 +21,7 @@ CREATE TABLE ProductEntity (
 );
 
 CREATE INDEX product_name_idx ON ProductEntity(name);
+CREATE INDEX product_source_idx ON ProductEntity(source);
 
 selectByBarcode:
 SELECT * FROM ProductEntity WHERE barcode = ?;
@@ -28,11 +29,18 @@ SELECT * FROM ProductEntity WHERE barcode = ?;
 selectAll:
 SELECT * FROM ProductEntity ORDER BY name;
 
+-- ON CONFLICT DO UPDATE (no INSERT OR REPLACE): conserva el rowid, del que depende el índice ProductFts.
 upsert:
-INSERT OR REPLACE INTO ProductEntity(
+INSERT INTO ProductEntity(
     barcode, name, brand, image_url, kcal, protein_g, carbs_g, sugars_g, fat_g,
     saturated_fat_g, fiber_g, salt_g, serving_size_g, serving_label, source, cached_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(barcode) DO UPDATE SET
+    name = excluded.name, brand = excluded.brand, image_url = excluded.image_url, kcal = excluded.kcal,
+    protein_g = excluded.protein_g, carbs_g = excluded.carbs_g, sugars_g = excluded.sugars_g,
+    fat_g = excluded.fat_g, saturated_fat_g = excluded.saturated_fat_g, fiber_g = excluded.fiber_g,
+    salt_g = excluded.salt_g, serving_size_g = excluded.serving_size_g, serving_label = excluded.serving_label,
+    source = excluded.source, cached_at = excluded.cached_at;
 
 deleteByBarcode:
 DELETE FROM ProductEntity WHERE barcode = ?;

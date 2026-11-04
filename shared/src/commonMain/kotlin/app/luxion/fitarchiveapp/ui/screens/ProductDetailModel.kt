@@ -29,10 +29,14 @@ fun Nutrients.perServingRows(servingG: Double): List<NutritionRow> = scaledTo(se
 
 /** Texto de cada motivo de [DataWarning] que ve el usuario en el aviso de datos dudosos. */
 fun DataWarning.reason(): String? = when (this) {
-    is DataWarning.ImplausibleKcal -> "${formatKcal(kcal)} kcal/100 g supera lo posible (900)"
+    is DataWarning.ImplausibleKcal -> "${formatKcal(kcal)} kcal/100 g supera lo posible (≈ 900)"
     is DataWarning.InconsistentMacros ->
         "Las ${formatKcal(declaredKcal)} kcal no cuadran con los macros (≈ ${formatKcal(estimatedKcal)} kcal)"
     is DataWarning.MacrosExceed100g -> "Proteína + hidratos + grasa suman ${formatNumber(totalG, 0)} g por 100 g"
+    is DataWarning.SaturatedExceedsFat ->
+        "Las saturadas (${formatNumber(saturatedG, 1)} g) superan a las grasas (${formatNumber(fatG, 1)} g)"
+    is DataWarning.SugarsExceedCarbs ->
+        "Los azúcares (${formatNumber(sugarsG, 1)} g) superan a los hidratos (${formatNumber(carbsG, 1)} g)"
     is DataWarning.MissingField -> when (field) {
         "kcal" -> "Falta la energía"
         "proteinG" -> "Falta la proteína"

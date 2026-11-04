@@ -1,10 +1,15 @@
 package app.luxion.fitarchiveapp.ui
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -14,6 +19,8 @@ import app.luxion.fitarchiveapp.data.DiaryStore
 import app.luxion.fitarchiveapp.data.GoalStore
 import app.luxion.fitarchiveapp.data.ProductRepository
 import app.luxion.fitarchiveapp.data.ProductSearchStore
+import app.luxion.fitarchiveapp.data.generic.GenericFoodSeeder
+import app.luxion.fitarchiveapp.ui.components.SeedProgressBanner
 import app.luxion.fitarchiveapp.ui.navigation.Navigator
 import app.luxion.fitarchiveapp.ui.navigation.PlatformBackHandler
 import app.luxion.fitarchiveapp.ui.navigation.Route
@@ -28,6 +35,7 @@ import app.luxion.fitarchiveapp.ui.theme.EasyFoodTheme
 /**
  * Raíz de la app: tema + navegación entre pantallas (docs/design.md §4).
  * [today] devuelve la fecha ISO (`YYYY-MM-DD`) del día actual.
+ * [genericSeeder], si se indica, carga la base genérica en segundo plano al arrancar y muestra su progreso.
  */
 @Composable
 fun App(
@@ -37,6 +45,7 @@ fun App(
     searchStore: ProductSearchStore,
     customFoodStore: CustomFoodStore,
     today: () -> String,
+    genericSeeder: GenericFoodSeeder? = null,
 ) {
     EasyFoodTheme {
         Surface(Modifier.fillMaxSize()) {
@@ -45,22 +54,33 @@ fun App(
 
             // En escritorio, las mismas pantallas en una columna de 600 dp como máximo, centrada.
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-                Box(Modifier.widthIn(max = 600.dp).fillMaxSize()) {
-                    when (val route = navigator.current) {
-                        Route.Diary -> DiaryScreen(navigator, diaryStore, goalStore, today())
-                        is Route.Add -> AddFoodScreen(
-                            navigator,
-                            route,
-                            searchStore = searchStore,
-                            customFoods = customFoodStore,
-                        )
-                        is Route.Scanner -> ScannerScreen(navigator, route, repository)
-                        is Route.CustomFood -> CustomFoodScreen(navigator, route, customFoodStore)
-                        is Route.ProductDetail -> ProductDetailScreen(navigator, route, repository, diaryStore, today)
-                        Route.Goals -> GoalsScreen(navigator, goalStore)
+                Column(Modifier.widthIn(max = 600.dp).fillMaxSize()) {
+                    if (genericSeeder != null) GenericSeedProgress(genericSeeder)
+                    Box(Modifier.weight(1f).fillMaxWidth()) {
+                        when (val route = navigator.current) {
+                            Route.Diary -> DiaryScreen(navigator, diaryStore, goalStore, today())
+                            is Route.Add -> AddFoodScreen(
+                                navigator,
+                                route,
+                                searchStore = searchStore,
+                                customFoods = customFoodStore,
+                            )
+                            is Route.Scanner -> ScannerScreen(navigator, route, repository)
+                            is Route.CustomFood -> CustomFoodScreen(navigator, route, customFoodStore)
+                            is Route.ProductDetail -> ProductDetailScreen(navigator, route, repository, diaryStore, today)
+                            Route.Goals -> GoalsScreen(navigator, goalStore)
+                        }
                     }
                 }
             }
         }
     }
+}
+
+/** Lanza la carga inicial de la base genérica (fuera del hilo de UI) y pinta su avance. */
+@Composable
+private fun GenericSeedProgress(seeder: GenericFoodSeeder) {
+    LaunchedEffect(seeder) { seeder.ensureSeeded() }
+    val state by seeder.state.collectAsState()
+    SeedProgressBanner(state)
 }

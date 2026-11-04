@@ -1,0 +1,31 @@
+-- Migración v2 -> v3: el índice FTS5 pasa a usar el rowid de ProductEntity (borrado O(log n); ver ProductSearch.sq)
+-- y se añade un índice por origen para countBySource.
+DROP TRIGGER product_fts_insert;
+DROP TRIGGER product_fts_update;
+DROP TRIGGER product_fts_delete;
+DROP TABLE ProductFts;
+
+CREATE VIRTUAL TABLE ProductFts USING fts5(
+    name,
+    brand,
+    barcode UNINDEXED,
+    tokenize = 'unicode61 remove_diacritics 2'
+);
+
+CREATE TRIGGER product_fts_insert AFTER INSERT ON ProductEntity BEGIN
+    DELETE FROM ProductFts WHERE rowid = new.rowid;
+    INSERT INTO ProductFts(rowid, name, brand, barcode) VALUES (new.rowid, new.name, new.brand, new.barcode);
+END;
+
+CREATE TRIGGER product_fts_update AFTER UPDATE ON ProductEntity BEGIN
+    DELETE FROM ProductFts WHERE rowid = old.rowid;
+    INSERT INTO ProductFts(rowid, name, brand, barcode) VALUES (new.rowid, new.name, new.brand, new.barcode);
+END;
+
+CREATE TRIGGER product_fts_delete AFTER DELETE ON ProductEntity BEGIN
+    DELETE FROM ProductFts WHERE rowid = old.rowid;
+END;
+
+INSERT INTO ProductFts(rowid, name, brand, barcode) SELECT rowid, name, brand, barcode FROM ProductEntity;
+
+CREATE INDEX product_source_idx ON ProductEntity(source);

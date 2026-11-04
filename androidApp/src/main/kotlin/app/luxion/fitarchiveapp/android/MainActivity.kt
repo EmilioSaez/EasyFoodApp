@@ -14,6 +14,8 @@ import app.luxion.fitarchiveapp.data.SqlDelightDiaryStore
 import app.luxion.fitarchiveapp.data.SqlDelightGoalStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductSearchStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductStore
+import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
+import app.luxion.fitarchiveapp.data.generic.GenericFoodSeeder
 import app.luxion.fitarchiveapp.db.EasyFoodDatabase
 import app.luxion.fitarchiveapp.ui.App
 import java.time.LocalDate
@@ -33,6 +35,9 @@ class MainActivity : ComponentActivity() {
     private val goalStore by lazy { SqlDelightGoalStore(database.dailyGoalQueries) }
     private val searchStore by lazy { SqlDelightProductSearchStore(database.productSearchQueries) }
     private val customFoodStore by lazy { SqlDelightCustomFoodStore(database.customFoodQueries) }
+    private val genericSeeder by lazy {
+        GenericFoodSeeder(GenericFoodImporter(database.productQueries), nowMillis = System::currentTimeMillis)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,6 +50,7 @@ class MainActivity : ComponentActivity() {
                     searchStore = searchStore,
                     customFoodStore = customFoodStore,
                     today = { LocalDate.now().toString() },
+                    genericSeeder = genericSeeder,
                 )
             }
         }
