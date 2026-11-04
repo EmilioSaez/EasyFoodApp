@@ -6,6 +6,7 @@ coroutines = "1.11.0"
 serialization = "1.12.0"
 agp = "9.5.0"
 sqldelight = "2.4.1"
+activity-compose = "1.11.0"
 
 [libraries]
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
@@ -23,6 +24,7 @@ sqldelight-coroutines = { module = "app.cash.sqldelight:coroutines-extensions", 
 sqldelight-driver-android = { module = "app.cash.sqldelight:android-driver", version.ref = "sqldelight" }
 sqldelight-driver-native = { module = "app.cash.sqldelight:native-driver", version.ref = "sqldelight" }
 sqldelight-driver-sqlite = { module = "app.cash.sqldelight:sqlite-driver", version.ref = "sqldelight" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }
 
 [plugins]
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
@@ -31,3 +33,4 @@ composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "compose" }
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 androidKotlinMultiplatformLibrary = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 sqldelight = { id = "app.cash.sqldelight", version.ref = "sqldelight" }
+androidApplication = { id = "com.android.application", version.ref = "agp" }
