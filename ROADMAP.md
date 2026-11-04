@@ -57,7 +57,7 @@ Riesgo: productos sin código de barras (fruta, pan, carne).
 
 Riesgo: mover datos entre dispositivos sin servidor ni cuentas.
 
-- [ ] Formato JSON versionado y exportación
+- [x] Formato JSON versionado y exportación
 - [ ] Importación con fusión y detección de duplicados
 - [ ] Transferencia por QR
 - [ ] Transferencia por red local
