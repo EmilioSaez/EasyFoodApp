@@ -77,6 +77,6 @@ Riesgo: no hay Mac local. La ruta es la que sigue FitArchiveApp (sesión hermana
 
 ## Fase 8: Pulido (~1 sem)
 
-- [ ] Estados vacíos y mensajes de error
+- [x] Estados vacíos y mensajes de error
 - [ ] Rendimiento y revisión de datos dudosos
 - [ ] Actualizar el README con el estado real

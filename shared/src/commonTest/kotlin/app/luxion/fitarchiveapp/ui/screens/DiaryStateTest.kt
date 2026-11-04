@@ -37,9 +37,11 @@ private fun entry(
 
 private class FakeDiary(initial: List<DiaryEntry> = emptyList()) : DiaryStore {
     val rows = initial.toMutableList()
+    var failing = false
+    private fun check() { if (failing) throw IllegalStateException("db") }
     private var nextId = (initial.maxOfOrNull { it.id } ?: 0L) + 1
 
-    override suspend fun entriesForDate(date: String) = rows.filter { it.date == date }
+    override suspend fun entriesForDate(date: String): List<DiaryEntry> { check(); return rows.filter { it.date == date } }
     override suspend fun find(id: Long) = rows.firstOrNull { it.id == id }
     override suspend fun add(entry: NewDiaryEntry, createdAtMillis: Long): Long {
         val id = nextId++
@@ -51,13 +53,14 @@ private class FakeDiary(initial: List<DiaryEntry> = emptyList()) : DiaryStore {
     }
 
     override suspend fun update(id: Long, meal: MealType, quantity: Quantity): Boolean {
+        check()
         val i = rows.indexOfFirst { it.id == id }
         if (i < 0) return false
         rows[i] = rows[i].copy(meal = meal, quantity = quantity)
         return true
     }
 
-    override suspend fun delete(id: Long) = rows.removeAll { it.id == id }
+    override suspend fun delete(id: Long): Boolean { check(); return rows.removeAll { it.id == id } }
 }
 
 private class FakeGoals(var goals: DailyGoals = DailyGoals()) : GoalStore {
@@ -216,5 +219,42 @@ class DiaryPresenterTest {
         p.load()
         p.delete(1)
         assertTrue(p.state.value.isEmpty)
+    }
+
+    @Test
+    fun failedLoadShowsErrorStateAndRecoversOnRetry() = runTest {
+        val diary = FakeDiary(listOf(entry(1)))
+        val p = presenter(diary)
+        diary.failing = true
+        p.load()
+        assertTrue(p.state.value.loadFailed)
+        assertFalse(p.state.value.loading)
+        diary.failing = false
+        p.load()
+        assertFalse(p.state.value.loadFailed)
+        assertEquals(1, p.state.value.meals.sumOf { it.entries.size })
+    }
+
+    @Test
+    fun failedDeleteReportsMessageAndKeepsTheDay() = runTest {
+        val diary = FakeDiary(listOf(entry(1)))
+        val p = presenter(diary)
+        p.load()
+        diary.failing = true
+        p.delete(1)
+        assertEquals(DiaryPresenter.DELETE_ERROR, p.state.value.message)
+        assertFalse(p.state.value.loadFailed)
+        p.consumeMessage()
+        assertNull(p.state.value.message)
+    }
+
+    @Test
+    fun failedUpdateReportsMessage() = runTest {
+        val diary = FakeDiary(listOf(entry(1)))
+        val p = presenter(diary)
+        p.load()
+        diary.failing = true
+        p.updateQuantity(1, Quantity(50.0, QuantityUnit.GRAMS))
+        assertEquals(DiaryPresenter.SAVE_ERROR, p.state.value.message)
     }
 }
