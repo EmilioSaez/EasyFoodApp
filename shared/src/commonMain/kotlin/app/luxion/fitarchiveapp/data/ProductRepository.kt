@@ -1,5 +1,6 @@
 package app.luxion.fitarchiveapp.data
 
+import app.luxion.fitarchiveapp.data.generic.GenericFoodFormat
 import app.luxion.fitarchiveapp.model.Product
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
@@ -42,6 +43,10 @@ class ProductRepository(
             local.find(ean)
         } catch (e: Exception) {
             null // una BD ilegible no debe impedir consultar la red
+        }
+        // Los genéricos viven solo en local (se siembran con la app): nunca caducan ni existen en Open Food Facts.
+        if (ean.startsWith(GenericFoodFormat.KEY_PREFIX)) {
+            return cached?.let { ProductResult.Found(it.product, fromCache = true) } ?: ProductResult.NotFound
         }
         val now = nowMillis()
         if (cached != null && now - cached.fetchedAtMillis < ttl.inWholeMilliseconds) {

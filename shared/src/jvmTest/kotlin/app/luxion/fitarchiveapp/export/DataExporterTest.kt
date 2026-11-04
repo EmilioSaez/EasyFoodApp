@@ -2,6 +2,7 @@ package app.luxion.fitarchiveapp.export
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import app.luxion.fitarchiveapp.data.SqlDelightDiaryStore
+import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
 import app.luxion.fitarchiveapp.data.SqlDelightProductStore
 import app.luxion.fitarchiveapp.db.EasyFoodDatabase
 import app.luxion.fitarchiveapp.model.MealType
@@ -80,6 +81,23 @@ class DataExporterTest {
         )
         assertEquals(listOf(1_234L), file.products.filter { it.barcode == nutella.barcode }.map { it.updatedAtMillis })
         assertEquals(listOf(diary.find(id2)!!, diary.find(id1)!!), file.diaryEntries.map { it.toDomain() })
+    }
+
+    @Test
+    fun excludesEmbeddedGenericFoodsButKeepsOtherSources() = runTest {
+        products.save(nutella, 1L)
+        // La base genérica se siembra en cada dispositivo: no debe viajar en la exportación.
+        val tsv = listOf(
+            "#easyfood-generic-foods v1",
+            listOf("id", "name", "kcal", "protein_g", "carbs_g", "fat_g", "saturated_fat_g", "sugars_g", "fiber_g", "salt_g").joinToString("\t"),
+            listOf("1", "Apple", "52", "0.3", "14", "0.2", "", "10", "2.4", "0").joinToString("\t"),
+        ).joinToString("\n")
+        GenericFoodImporter(db.productQueries).import(tsv, 9L)
+        assertEquals(1, GenericFoodImporter(db.productQueries).importedCount().toInt())
+
+        val file = ExportCodec.decode(exporter.exportToJson())
+
+        assertEquals(listOf(nutella.barcode), file.products.map { it.barcode })
     }
 
     @Test

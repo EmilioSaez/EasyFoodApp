@@ -127,7 +127,7 @@ class DataImporterTest {
     @Test
     fun productsKeepTheirSource() = runTest {
         importer.import(file(products = listOf(exportedNutella().copy(source = "GENERIC"))))
-        assertEquals("GENERIC", exporter.buildFile().products.single().source)
+        assertEquals("GENERIC", db.productQueries.selectAll().executeAsList().single().source)
     }
 
     @Test

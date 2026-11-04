@@ -81,4 +81,25 @@ class ProductRepositoryTest {
         assertEquals(ProductResult.NotFound, repo(FakeRemote(ProductLookup.NotFound), store).getByBarcode("999"))
         assertEquals(null, store.entry)
     }
+
+    @Test
+    fun genericKeyNeverExpiresAndNeverHitsNetwork() = runTest {
+        val generic = product.copy(barcode = "generic:174988", name = "Croissants, apple")
+        val remote = FakeRemote(ProductLookup.NotFound)
+        // Caducado de sobra: un EAN se refrescaría, un genérico se sirve siempre de local.
+        val store = FakeStore(CachedProduct(generic, now - 400.days.inWholeMilliseconds))
+
+        val found = assertIs<ProductResult.Found>(repo(remote, store).getByBarcode("generic:174988"))
+
+        assertEquals(generic, found.product)
+        assertTrue(found.fromCache && !found.stale)
+        assertEquals(0, remote.calls)
+    }
+
+    @Test
+    fun missingGenericKeyIsNotFoundWithoutNetwork() = runTest {
+        val remote = FakeRemote(ProductLookup.Found(product))
+        assertEquals(ProductResult.NotFound, repo(remote, FakeStore()).getByBarcode("generic:1"))
+        assertEquals(0, remote.calls)
+    }
 }
