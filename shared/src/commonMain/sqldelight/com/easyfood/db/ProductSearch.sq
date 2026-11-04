@@ -1,0 +1,33 @@
+-- Índice de búsqueda por texto (FTS5) sobre ProductEntity.
+-- Tabla FTS independiente (no external-content): INSERT OR REPLACE no dispara triggers de borrado
+-- (recursive_triggers está desactivado), así que el trigger de alta limpia antes cualquier fila previa
+-- del mismo código de barras. Cualquier cambio aquí debe replicarse en una migración numerada (.sqm).
+CREATE VIRTUAL TABLE ProductFts USING fts5(
+    name,
+    brand,
+    barcode UNINDEXED,
+    tokenize = 'unicode61 remove_diacritics 2'
+);
+
+CREATE TRIGGER product_fts_insert AFTER INSERT ON ProductEntity BEGIN
+    DELETE FROM ProductFts WHERE barcode = new.barcode;
+    INSERT INTO ProductFts(name, brand, barcode) VALUES (new.name, new.brand, new.barcode);
+END;
+
+CREATE TRIGGER product_fts_update AFTER UPDATE ON ProductEntity BEGIN
+    DELETE FROM ProductFts WHERE barcode = old.barcode;
+    INSERT INTO ProductFts(name, brand, barcode) VALUES (new.name, new.brand, new.barcode);
+END;
+
+CREATE TRIGGER product_fts_delete AFTER DELETE ON ProductEntity BEGIN
+    DELETE FROM ProductFts WHERE barcode = old.barcode;
+END;
+
+-- `query` debe ser una expresión FTS5 ya saneada (ver ProductSearchQuery); mejores coincidencias primero.
+search:
+SELECT p.*
+FROM ProductFts
+JOIN ProductEntity AS p ON p.barcode = ProductFts.barcode
+WHERE ProductFts MATCH ?
+ORDER BY bm25(ProductFts, 10.0, 3.0), p.name
+LIMIT ?;

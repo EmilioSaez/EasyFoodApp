@@ -1,0 +1,24 @@
+-- Migración v1 -> v2: índice FTS5 de productos (ver ProductSearch.sq).
+CREATE VIRTUAL TABLE ProductFts USING fts5(
+    name,
+    brand,
+    barcode UNINDEXED,
+    tokenize = 'unicode61 remove_diacritics 2'
+);
+
+CREATE TRIGGER product_fts_insert AFTER INSERT ON ProductEntity BEGIN
+    DELETE FROM ProductFts WHERE barcode = new.barcode;
+    INSERT INTO ProductFts(name, brand, barcode) VALUES (new.name, new.brand, new.barcode);
+END;
+
+CREATE TRIGGER product_fts_update AFTER UPDATE ON ProductEntity BEGIN
+    DELETE FROM ProductFts WHERE barcode = old.barcode;
+    INSERT INTO ProductFts(name, brand, barcode) VALUES (new.name, new.brand, new.barcode);
+END;
+
+CREATE TRIGGER product_fts_delete AFTER DELETE ON ProductEntity BEGIN
+    DELETE FROM ProductFts WHERE barcode = old.barcode;
+END;
+
+-- Indexa los productos que ya estaban en la caché.
+INSERT INTO ProductFts(name, brand, barcode) SELECT name, brand, barcode FROM ProductEntity;

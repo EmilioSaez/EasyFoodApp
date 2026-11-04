@@ -43,7 +43,7 @@ Riesgo: productos sin código de barras (fruta, pan, carne).
 
 - [ ] Alimentos propios con entrada manual
 - [ ] Importar base genérica BEDCA/USDA embebida
-- [ ] Búsqueda por texto (FTS)
+- [x] Búsqueda por texto (FTS)
 - [ ] Mostrar el origen del dato en la UI (Open Food Facts, genérico, propio)
 
 ## Fase 5: Objetivos (~1-2 sem)
