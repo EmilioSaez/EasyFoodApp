@@ -10,6 +10,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.easyfood.data.ProductRepository
+import com.easyfood.data.SqlDelightCustomFoodStore
+import com.easyfood.data.SqlDelightProductSearchStore
+import com.easyfood.db.EasyFoodDatabase
 import com.easyfood.ui.navigation.Navigator
 import com.easyfood.ui.navigation.PlatformBackHandler
 import com.easyfood.ui.navigation.Route
@@ -23,7 +26,7 @@ import com.easyfood.ui.theme.EasyFoodTheme
 
 /** Raíz de la app: tema + navegación entre pantallas (docs/design.md §4). */
 @Composable
-fun App(repository: ProductRepository) {
+fun App(repository: ProductRepository, database: EasyFoodDatabase? = null) {
     EasyFoodTheme {
         Surface(Modifier.fillMaxSize()) {
             val navigator = remember { Navigator() }
@@ -34,7 +37,12 @@ fun App(repository: ProductRepository) {
                 Box(Modifier.widthIn(max = 600.dp).fillMaxSize()) {
                     when (val route = navigator.current) {
                         Route.Diary -> DiaryScreen(navigator)
-                        is Route.Add -> AddFoodScreen(navigator, route)
+                        is Route.Add -> AddFoodScreen(
+                            navigator,
+                            route,
+                            searchStore = remember(database) { database?.let { SqlDelightProductSearchStore(it.productSearchQueries) } },
+                            customFoods = remember(database) { database?.let { SqlDelightCustomFoodStore(it.customFoodQueries) } },
+                        )
                         is Route.Scanner -> ScannerScreen(navigator, route, repository)
                         is Route.CustomFood -> CustomFoodScreen(navigator, route)
                         is Route.ProductDetail -> ProductDetailScreen(navigator, route)

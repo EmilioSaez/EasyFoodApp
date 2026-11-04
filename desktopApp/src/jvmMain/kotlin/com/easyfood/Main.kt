@@ -12,22 +12,25 @@ import com.easyfood.ui.App
 import java.io.File
 
 /** Abre la BD en `~/.easyfood/easyfood.db` (creando el esquema la primera vez). */
-private fun createRepository(): ProductRepository {
+private fun createDatabase(): EasyFoodDatabase {
     val dir = File(System.getProperty("user.home"), ".easyfood").apply { mkdirs() }
     val dbFile = File(dir, "easyfood.db")
     val isNew = !dbFile.exists()
     val driver = JdbcSqliteDriver("jdbc:sqlite:${dbFile.absolutePath}")
     if (isNew) EasyFoodDatabase.Schema.create(driver)
-    return ProductRepository(
-        remote = OpenFoodFactsClient(),
-        local = SqlDelightProductStore(EasyFoodDatabase(driver).productQueries),
-        nowMillis = System::currentTimeMillis,
-    )
+    return EasyFoodDatabase(driver)
 }
 
+private fun createRepository(database: EasyFoodDatabase): ProductRepository = ProductRepository(
+    remote = OpenFoodFactsClient(),
+    local = SqlDelightProductStore(database.productQueries),
+    nowMillis = System::currentTimeMillis,
+)
+
 fun main() = application {
-    val repository = remember { createRepository() }
+    val database = remember { createDatabase() }
+    val repository = remember { createRepository(database) }
     Window(onCloseRequest = ::exitApplication, title = "EasyFood") {
-        App(repository)
+        App(repository, database)
     }
 }

@@ -14,11 +14,14 @@ import com.easyfood.db.EasyFoodDatabase
 import com.easyfood.ui.App
 
 class MainActivity : ComponentActivity() {
+    private val database by lazy {
+        EasyFoodDatabase(AndroidSqliteDriver(EasyFoodDatabase.Schema, applicationContext, "easyfood.db"))
+    }
+
     private val repository by lazy {
-        val driver = AndroidSqliteDriver(EasyFoodDatabase.Schema, applicationContext, "easyfood.db")
         ProductRepository(
             remote = OpenFoodFactsClient(),
-            local = SqlDelightProductStore(EasyFoodDatabase(driver).productQueries),
+            local = SqlDelightProductStore(database.productQueries),
             nowMillis = System::currentTimeMillis,
         )
     }
@@ -26,7 +29,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            Box(Modifier.safeDrawingPadding()) { App(repository) }
+            Box(Modifier.safeDrawingPadding()) { App(repository, database) }
         }
     }
 }
