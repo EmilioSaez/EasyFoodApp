@@ -68,10 +68,10 @@ Riesgo: mover datos entre dispositivos sin servidor ni cuentas.
 Riesgo: no hay Mac local. La ruta es la que sigue FitArchiveApp (sesión hermana): comprobar tipos de Kotlin/Native desde Windows, compilar y probar en CI de macOS y distribuir por TestFlight. Referencia: PRs #69, #70 y #71 de FitArchiveApp; no copiar workflows hasta que su CI pase en verde.
 
 - [x] Módulo `iosApp` (proyecto Xcode mínimo, `docs/ios.md`)
-- [ ] Generar el proyecto Xcode con XcodeGen (`iosApp/project.yml`, `.xcodeproj` fuera del repo, build phase `embedAndSignAppleFrameworkForXcode`)
-- [ ] Comprobación local desde Windows: `./gradlew :shared:compileKotlinIosSimulatorArm64` y `compileKotlinIosArm64`
+- [x] Generar el proyecto Xcode con XcodeGen (`iosApp/project.yml`, `.xcodeproj` fuera del repo, build phase `embedAndSignAppleFrameworkForXcode`)
+- [x] Comprobación local desde Windows: `./gradlew :shared:compileKotlinIosSimulatorArm64` y `compileKotlinIosArm64`
 - [ ] CI en macOS (GitHub Actions `macos-latest`, repo público = minutos gratis): framework, tests iOS y `xcodebuild` al simulador con `CODE_SIGNING_ALLOWED=NO`
-- [ ] Escáner con AVFoundation (se comprueba tipado en Windows y en CI; la cámara solo se prueba en iPhone)
+- [x] Escáner con AVFoundation (se comprueba tipado en Windows y en CI; la cámara solo se prueba en iPhone)
 - [ ] Anotar lo no verificado en `docs/ios-pendiente.md`
 - [ ] Firma y distribución por TestFlight con fastlane y clave API de App Store Connect (requiere cuenta de Apple Developer de pago; decidir si compensa)
 - [ ] Prueba en iPhone real vía TestFlight, o en un Mac prestado como alternativa, y ajustes
