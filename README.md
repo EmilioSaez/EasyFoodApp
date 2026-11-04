@@ -2,46 +2,82 @@
 
 App multiplataforma (Kotlin Multiplatform + Compose Multiplatform) para **contar calorías con productos de supermercados españoles** (Mercadona/Hacendado, Carrefour, Dia, Lidl…).
 
-## Qué busca
+## Qué hace
 
-- Que registrar lo que comes sea rápido: **escaneas el código de barras** del producto y ves sus calorías y macros.
-- Cubrir los supermercados españoles sin depender de scraping frágil: los datos salen de [Open Food Facts](https://world.openfoodfacts.org) (consulta por EAN, gratuita y abierta).
-- **Sin cuentas ni servidor**: los datos viven en tu dispositivo (offline-first). Para moverlos entre dispositivos se exportan/importan (archivo JSON; más adelante QR / transferencia por red local).
-- Android, iOS y escritorio con una sola base de código.
+- **Diario del día**: totales de kcal y macros, secciones por comida, progreso frente al objetivo, edición y borrado de entradas.
+- **Añadir alimento**: búsqueda de texto en la base local, filtro por origen y accesos rápidos.
+- **Escáner de códigos de barras** (solo Android) y entrada manual de EAN. La consulta por EAN va a [Open Food Facts](https://world.openfoodfacts.org).
+- **Ficha de producto**: cantidad, tabla nutricional por 100 g y aviso cuando los datos faltan o parecen erróneos.
+- **Alimento propio**: crear, editar y borrar alimentos introducidos a mano.
+- **Objetivos y TDEE**: cálculo del gasto energético, ritmo y ajuste manual de kcal/macros.
+- **Sin cuentas ni servidor**: los datos viven en el dispositivo (offline-first, SQLDelight).
 
-## Alcance del MVP
+## Plataformas
 
-1. Buscar un producto por EAN y mostrar kcal/macros por 100 g. **(esqueleto hecho)**
-2. Aviso cuando faltan datos o parecen erróneos (p. ej. >900 kcal/100 g).
-3. Diario de comidas y objetivo diario, guardados en local (SQLDelight).
-4. Escáner de códigos de barras (cámara) por plataforma.
-5. Productos sin código (fruta, pan, carne): base genérica (BEDCA/USDA) y entrada manual.
-6. Exportar/importar el perfil (JSON → QR / red local).
+| Plataforma | Estado |
+|---|---|
+| Android | Funciona, con escáner de cámara (CameraX + ML Kit). |
+| Escritorio (JVM) | Funciona. Sin escáner: se introduce el EAN a mano. |
+| iOS | El proyecto Xcode existe pero **no se ha compilado nunca**: falta un Mac o CI con macOS. Sin escáner todavía. Ver [docs/ios.md](docs/ios.md). |
 
-Fuera del MVP: cuentas y sincronización en la nube, foto de comida o etiqueta con IA, catálogo de Mercadona (precios).
+## Estado de las funciones de datos
 
-## Estructura
+Existen en `shared` y tienen tests, pero **aún no están conectadas a la interfaz**:
+
+- Exportar/importar el perfil en JSON versionado, con fusión y detección de duplicados (`export/`).
+- Transferencia por QR (`export/qr`) y por red local con código de emparejamiento de un solo uso (`transfer/`).
+- Importación de la base genérica de alimentos al primer arranque (`GenericFoodImporter`).
+
+El seguimiento de lo que falta está en [ROADMAP.md](ROADMAP.md).
+
+## Arquitectura
+
+Casi todo el código está en `shared`: una sola base de código para las tres plataformas.
 
 | Módulo | Contenido |
 |---|---|
-| `shared` | Modelo, cliente de Open Food Facts (Ktor) y UI (Compose). Código común. |
-| `desktopApp` | Aplicación de escritorio (JVM). |
+| `shared` | Modelo, dominio (TDEE), datos (Open Food Facts con Ktor, repositorios y stores SQLDelight), exportación/transferencia y toda la UI en Compose Multiplatform. Con código específico por plataforma (`androidMain`, `jvmMain`, `iosMain`) para escáner, ajustes, aleatoriedad segura y drivers de base de datos. |
+| `desktopApp` | Aplicación de escritorio (JVM). Solo arranca `App` de `shared`. |
 | `androidApp` | Aplicación Android. |
-| `iosApp` | Proyecto Xcode que embebe `shared` (sin probar aún; ver [docs/ios.md](docs/ios.md)). |
+| `iosApp` | Proyecto Xcode que embebe el framework `Shared`. |
 
-Android necesita el SDK instalado; iOS, un Mac con Xcode.
+Tecnologías: Kotlin Multiplatform, Compose Multiplatform (Material 3), SQLDelight (esquema en `shared/src/commonMain/sqldelight`), Ktor y kotlinx.serialization.
 
-## Ejecutar
+Paquete: `app.luxion.fitarchiveapp` (applicationId de Android: `app.luxion.fitarchiveapp.android`).
 
-Requiere JDK 17 o superior.
+## Compilar y ejecutar
+
+Requiere JDK 17 o superior. Android necesita el SDK instalado; iOS, un Mac con Xcode.
 
 ```
-./gradlew :desktopApp:run     # abre la app de escritorio
-./gradlew :shared:jvmTest     # tests
+./gradlew :desktopApp:run                  # escritorio: abre la app
+./gradlew :androidApp:assembleDebug        # Android: genera el APK de depuración
+./gradlew :androidApp:installDebug         # Android: instala en un dispositivo o emulador
 ```
 
-## Datos y privacidad
+iOS: abrir `iosApp/iosApp.xcodeproj` en Xcode y ejecutar el esquema `iosApp`. Los pasos completos están en [docs/ios.md](docs/ios.md).
 
-Los alimentos genéricos proceden de [USDA FoodData Central](https://fdc.nal.usda.gov/) (SR Legacy, dominio público CC0); ver [docs/generic-foods.md](docs/generic-foods.md).
+## Tests
 
-Los datos nutricionales son aportados por la comunidad de Open Food Facts y pueden ser incorrectos o estar incompletos. La app los marca para revisión cuando detecta valores dudosos.
+```
+./gradlew :shared:jvmTest                  # tests comunes y de JVM (SQLDelight, exportación, red local)
+```
+
+Para comprobar que compilan los targets de iOS sin Mac (solo klibs, no enlaza el framework):
+
+```
+./gradlew :shared:compileKotlinIosSimulatorArm64 :shared:compileKotlinIosArm64
+```
+
+## Datos y licencias
+
+- **Productos con código de barras**: [Open Food Facts](https://world.openfoodfacts.org), base abierta aportada por la comunidad bajo licencia ODbL. Los datos pueden ser incorrectos o estar incompletos; la app los marca para revisión cuando detecta valores dudosos.
+- **Alimentos genéricos** (fruta, pan, carne…): [USDA FoodData Central](https://fdc.nal.usda.gov/), conjunto SR Legacy, dominio público (CC0 1.0). Los nombres están en inglés. Detalles en [docs/generic-foods.md](docs/generic-foods.md).
+- BEDCA se descartó por no ofrecer licencia de redistribución.
+
+## Documentación
+
+- [docs/design.md](docs/design.md): especificación de diseño (tokens, pantallas, componentes y navegación).
+- [docs/generic-foods.md](docs/generic-foods.md): base genérica de alimentos, fuente, licencia y formato.
+- [docs/ios.md](docs/ios.md): app de iOS, cómo compilarla y problemas probables.
+- [ROADMAP.md](ROADMAP.md): fases y tareas pendientes.
