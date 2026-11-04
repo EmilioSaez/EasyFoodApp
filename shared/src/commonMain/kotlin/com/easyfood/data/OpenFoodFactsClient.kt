@@ -24,8 +24,8 @@ sealed interface ProductLookup {
 class OpenFoodFactsClient(
     private val http: HttpClient = defaultHttpClient(),
     private val baseUrl: String = "https://world.openfoodfacts.org",
-) {
-    suspend fun findByBarcode(barcode: String): ProductLookup {
+) : ProductRemoteSource {
+    override suspend fun findByBarcode(barcode: String): ProductLookup {
         val ean = barcode.trim()
         if (ean.isEmpty() || !ean.all { it.isDigit() }) return ProductLookup.NotFound
         return try {
