@@ -9,3 +9,6 @@ local.properties
 xcuserdata/
 *.xcuserstate
 DerivedData/
+
+# Proyecto Xcode generado por XcodeGen (iosApp/project.yml)
+*.xcodeproj/
