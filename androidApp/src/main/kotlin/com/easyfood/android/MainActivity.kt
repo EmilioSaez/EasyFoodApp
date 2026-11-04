@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.ui.Modifier
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import com.easyfood.data.OpenFoodFactsClient
+import com.easyfood.data.SqlDelightGoalStore
 import com.easyfood.data.ProductRepository
 import com.easyfood.data.SqlDelightDiaryStore
 import com.easyfood.data.SqlDelightGoalStore
@@ -20,7 +21,6 @@ class MainActivity : ComponentActivity() {
     private val database by lazy {
         EasyFoodDatabase(AndroidSqliteDriver(EasyFoodDatabase.Schema, applicationContext, "easyfood.db"))
     }
-
     private val repository by lazy {
         ProductRepository(
             remote = OpenFoodFactsClient(),
@@ -28,12 +28,12 @@ class MainActivity : ComponentActivity() {
             nowMillis = System::currentTimeMillis,
         )
     }
-    private val customFoodStore by lazy { SqlDelightCustomFoodStore(database.customFoodQueries) }
+    private val goalStore by lazy { SqlDelightGoalStore(database.dailyGoalQueries) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            Box(Modifier.safeDrawingPadding()) { App(repository, database) }
+            Box(Modifier.safeDrawingPadding()) { App(repository, goalStore) }
         }
     }
 }
