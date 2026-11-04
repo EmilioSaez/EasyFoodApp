@@ -115,7 +115,9 @@ fun CustomFoodScreen(
         scope.launch {
             try {
                 store.delete(foodId)
+                // Se llega desde la ficha del alimento, que ya no existe: se vuelve a la pantalla anterior a ella.
                 navigator.pop()
+                if (navigator.current is Route.ProductDetail) navigator.pop()
             } catch (e: Exception) {
                 snackbar.showSnackbar("No se pudo borrar. Inténtalo de nuevo.")
             } finally {

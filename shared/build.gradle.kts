@@ -51,6 +51,10 @@ kotlin {
             implementation(libs.kotlinx.coroutines.test)
         }
         jvmTest.dependencies {
+            // Tests de UI de la App integrada (Compose Desktop, sin ventana real).
+            implementation(compose.desktop.currentOs)
+            @OptIn(org.jetbrains.compose.ExperimentalComposeLibrary::class)
+            implementation(compose.uiTest)
             // Solo para comprobar que los QR generados se decodifican con una librería independiente.
             implementation(libs.zxing.core)
         }

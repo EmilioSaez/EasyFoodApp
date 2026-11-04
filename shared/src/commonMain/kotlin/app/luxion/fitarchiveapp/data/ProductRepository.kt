@@ -1,5 +1,6 @@
 package app.luxion.fitarchiveapp.data
 
+import app.luxion.fitarchiveapp.data.generic.GenericFoodFormat
 import app.luxion.fitarchiveapp.model.Product
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
@@ -44,7 +45,9 @@ class ProductRepository(
             null // una BD ilegible no debe impedir consultar la red
         }
         val now = nowMillis()
-        if (cached != null && now - cached.fetchedAtMillis < ttl.inWholeMilliseconds) {
+        // Los genéricos no existen en Open Food Facts ni caducan: solo se actualizan con la app.
+        val neverExpires = ean.startsWith(GenericFoodFormat.KEY_PREFIX)
+        if (cached != null && (neverExpires || now - cached.fetchedAtMillis < ttl.inWholeMilliseconds)) {
             return ProductResult.Found(cached.product, fromCache = true)
         }
         return when (val lookup = remote.findByBarcode(ean)) {

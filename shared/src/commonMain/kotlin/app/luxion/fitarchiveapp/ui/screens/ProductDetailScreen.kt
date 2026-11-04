@@ -35,7 +35,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.data.DiaryStore
+import app.luxion.fitarchiveapp.data.CustomFoodStore
 import app.luxion.fitarchiveapp.data.ProductRepository
+import app.luxion.fitarchiveapp.data.generic.GenericFoodFormat
 import app.luxion.fitarchiveapp.data.ProductResult
 import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.model.NewDiaryEntry
@@ -76,7 +78,12 @@ private data class FoodDetail(
     val source: DataSource?,
     val sourceNote: String?,
     val product: Product?,
-)
+    /** Id del alimento propio, si la ficha es de uno (permite editarlo). */
+    val customFoodId: Long? = null,
+) {
+    /** Código de barras real para mostrar o copiar; la clave interna de un genérico (`generic:<id>`) no lo es. */
+    val displayBarcode: String? get() = barcode?.takeUnless { it.startsWith(GenericFoodFormat.KEY_PREFIX) }
+}
 
 private sealed interface LoadState {
     data object Loading : LoadState
@@ -96,6 +103,7 @@ fun ProductDetailScreen(
     route: Route.ProductDetail,
     repository: ProductRepository,
     diaryStore: DiaryStore,
+    customFoods: CustomFoodStore,
     today: () -> String,
 ) {
     var state by remember(route) { mutableStateOf<LoadState>(LoadState.Loading) }
@@ -104,7 +112,7 @@ fun ProductDetailScreen(
     LaunchedEffect(route, reloadKey) {
         state = LoadState.Loading
         state = try {
-            load(route, repository, diaryStore)
+            load(route, repository, diaryStore, customFoods)
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             LoadState.Failed("No se pudo cargar el producto.")
@@ -123,8 +131,14 @@ fun ProductDetailScreen(
                     ) { Text("←", style = MaterialTheme.typography.titleLarge) }
                 },
                 actions = {
-                    val barcode = ready?.detail?.barcode
-                    if (barcode != null) {
+                    val barcode = ready?.detail?.displayBarcode
+                    val customId = ready?.detail?.customFoodId
+                    if (customId != null) {
+                        IconButton(
+                            onClick = { navigator.push(Route.CustomFood(meal = route.meal, foodId = customId)) },
+                            modifier = Modifier.semantics { contentDescription = "Editar alimento propio" },
+                        ) { Text("✎", style = MaterialTheme.typography.titleLarge) }
+                    } else if (barcode != null) {
                         IconButton(
                             onClick = { navigator.push(Route.CustomFood(barcode, route.meal)) },
                             modifier = Modifier.semantics { contentDescription = "Copiar como alimento propio" },
@@ -160,7 +174,12 @@ fun ProductDetailScreen(
     }
 }
 
-private suspend fun load(route: Route.ProductDetail, repository: ProductRepository, diaryStore: DiaryStore): LoadState {
+private suspend fun load(
+    route: Route.ProductDetail,
+    repository: ProductRepository,
+    diaryStore: DiaryStore,
+    customFoods: CustomFoodStore,
+): LoadState {
     if (route.entryId != null) {
         val entry = diaryStore.find(route.entryId) ?: return LoadState.NotFound
         val detail = FoodDetail(
@@ -177,6 +196,7 @@ private suspend fun load(route: Route.ProductDetail, repository: ProductReposito
         return LoadState.Ready(detail, entry.meal, entry.quantity.unit, entry.quantity.amount)
     }
     val barcode = route.barcode ?: return LoadState.NotFound
+    if (barcode.startsWith(CUSTOM_FOOD_KEY_PREFIX)) return loadCustomFood(barcode, route.meal, customFoods)
     return when (val result = repository.getByBarcode(barcode)) {
         ProductResult.NotFound -> LoadState.NotFound
         is ProductResult.Failure -> LoadState.Failed("Open Food Facts no responde y no hay una copia guardada. Comprueba la conexión.")
@@ -190,7 +210,8 @@ private suspend fun load(route: Route.ProductDetail, repository: ProductReposito
             val detail = FoodDetail(
                 barcode = p.barcode, name = p.name, brand = p.brand, nutrients = p.nutrients,
                 servingSizeG = p.servingSizeG, servingLabel = p.servingLabel,
-                source = DataSource.OpenFoodFacts, sourceNote = note, product = p,
+                source = if (p.barcode.startsWith(GenericFoodFormat.KEY_PREFIX)) DataSource.Generic else DataSource.OpenFoodFacts,
+                sourceNote = note, product = p,
             )
             val servings = p.servingSizeG != null
             LoadState.Ready(
@@ -200,6 +221,23 @@ private suspend fun load(route: Route.ProductDetail, repository: ProductReposito
             )
         }
     }
+}
+
+/** Ficha de un alimento propio: se guarda en el diario sin código de barras (así se reconoce como «Propio»). */
+private suspend fun loadCustomFood(key: String, meal: MealType, customFoods: CustomFoodStore): LoadState {
+    val id = key.removePrefix(CUSTOM_FOOD_KEY_PREFIX).toLongOrNull() ?: return LoadState.NotFound
+    val food = customFoods.find(id) ?: return LoadState.NotFound
+    val servings = food.servingSizeG != null
+    val detail = FoodDetail(
+        barcode = null, name = food.name, brand = food.brand, nutrients = food.nutrients,
+        servingSizeG = food.servingSizeG, servingLabel = food.servingLabel,
+        source = DataSource.Custom, sourceNote = null, product = null, customFoodId = id,
+    )
+    return LoadState.Ready(
+        detail, meal,
+        if (servings) QuantityUnit.SERVINGS else QuantityUnit.GRAMS,
+        if (servings) 1.0 else 100.0,
+    )
 }
 
 @Composable
@@ -252,12 +290,12 @@ private fun DetailContent(
                         detail.brand,
                         detail.servingLabel?.let { "porción $it" },
                     ).joinToString(" · ")
-                    if (meta.isNotEmpty() || detail.barcode != null) {
+                    if (meta.isNotEmpty() || detail.displayBarcode != null) {
                         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                             if (meta.isNotEmpty()) {
                                 Text(meta, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            detail.barcode?.let {
+                            detail.displayBarcode?.let {
                                 Text(it, style = EanTextStyle.copy(fontSize = MaterialTheme.typography.bodyMedium.fontSize), color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
@@ -269,7 +307,7 @@ private fun DetailContent(
                 item {
                     DoubtfulDataBanner(
                         reasons = reasons,
-                        onCorrect = detail.barcode?.let { code -> { navigator.push(Route.CustomFood(code, route.meal)) } },
+                        onCorrect = detail.displayBarcode?.let { code -> { navigator.push(Route.CustomFood(code, route.meal)) } },
                     )
                 }
             }

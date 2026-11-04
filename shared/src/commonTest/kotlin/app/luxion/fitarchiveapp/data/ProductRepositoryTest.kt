@@ -41,6 +41,16 @@ class ProductRepositoryTest {
     }
 
     @Test
+    fun genericFoodNeverExpiresNorHitsTheNetwork() = runTest {
+        val generic = product.copy(barcode = "generic:169", name = "Manzana")
+        val remote = FakeRemote(ProductLookup.NotFound)
+        val store = FakeStore(CachedProduct(generic, now - 400.days.inWholeMilliseconds))
+        val found = assertIs<ProductResult.Found>(repo(remote, store).getByBarcode("generic:169"))
+        assertTrue(found.fromCache && !found.stale)
+        assertEquals(0, remote.calls)
+    }
+
+    @Test
     fun cacheMissFetchesAndStores() = runTest {
         val remote = FakeRemote(ProductLookup.Found(product))
         val store = FakeStore()
