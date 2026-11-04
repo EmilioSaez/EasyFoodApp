@@ -11,13 +11,9 @@ data class Nutrients(
     val fiberG: Double? = null,
     val saltG: Double? = null,
 ) {
-    /** Falta la energía o es absurda (>900 kcal/100 g): el usuario debería revisarla. */
+    /** Falta la energía o es absurda (más de ~900 kcal/100 g): el usuario debería revisarla. */
     val needsReview: Boolean
-        get() = kcal == null || kcal < 0 || kcal > MAX_PLAUSIBLE_KCAL_PER_100G
-
-    private companion object {
-        const val MAX_PLAUSIBLE_KCAL_PER_100G = 900.0
-    }
+        get() = kcal == null || kcal < 0 || kcal > ProductValidator.MAX_PLAUSIBLE_KCAL_PER_100G
 }
 
 data class Product(
