@@ -20,6 +20,7 @@ class MainActivity : ComponentActivity() {
     private val database by lazy {
         EasyFoodDatabase(AndroidSqliteDriver(EasyFoodDatabase.Schema, applicationContext, "easyfood.db"))
     }
+
     private val repository by lazy {
         ProductRepository(
             remote = OpenFoodFactsClient(),
@@ -32,13 +33,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            Box(Modifier.safeDrawingPadding()) { App(
-                    repository,
-                    SqlDelightDiaryStore(database.diaryEntryQueries),
-                    SqlDelightGoalStore(database.dailyGoalQueries),
-                    today = { LocalDate.now().toString() },
-                )
-            }
+            Box(Modifier.safeDrawingPadding()) { App(repository, database) }
         }
     }
 }

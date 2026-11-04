@@ -25,21 +25,16 @@ private fun createDatabase(): EasyFoodDatabase {
     return EasyFoodDatabase(driver)
 }
 
+private fun createRepository(database: EasyFoodDatabase): ProductRepository = ProductRepository(
+    remote = OpenFoodFactsClient(),
+    local = SqlDelightProductStore(database.productQueries),
+    nowMillis = System::currentTimeMillis,
+)
+
 fun main() = application {
     val database = remember { createDatabase() }
-    val repository = remember {
-        ProductRepository(
-            remote = OpenFoodFactsClient(),
-            local = SqlDelightProductStore(database.productQueries),
-            nowMillis = System::currentTimeMillis,
-        )
-    }
+    val repository = remember { createRepository(database) }
     Window(onCloseRequest = ::exitApplication, title = "EasyFood") {
-        App(
-            repository,
-            remember { SqlDelightDiaryStore(database.diaryEntryQueries) },
-            remember { SqlDelightGoalStore(database.dailyGoalQueries) },
-            today = { LocalDate.now().toString() },
-        )
+        App(repository, database)
     }
 }

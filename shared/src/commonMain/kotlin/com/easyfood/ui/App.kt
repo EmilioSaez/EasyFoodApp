@@ -12,6 +12,9 @@ import androidx.compose.ui.unit.dp
 import com.easyfood.data.DiaryStore
 import com.easyfood.data.GoalStore
 import com.easyfood.data.ProductRepository
+import com.easyfood.data.SqlDelightCustomFoodStore
+import com.easyfood.data.SqlDelightProductSearchStore
+import com.easyfood.db.EasyFoodDatabase
 import com.easyfood.ui.navigation.Navigator
 import com.easyfood.ui.navigation.PlatformBackHandler
 import com.easyfood.ui.navigation.Route
@@ -25,7 +28,7 @@ import com.easyfood.ui.theme.EasyFoodTheme
 
 /** Raíz de la app: tema + navegación entre pantallas (docs/design.md §4). */
 @Composable
-fun App(repository: ProductRepository, diaryStore: DiaryStore, goalStore: GoalStore, today: () -> String) {
+fun App(repository: ProductRepository, database: EasyFoodDatabase? = null) {
     EasyFoodTheme {
         Surface(Modifier.fillMaxSize()) {
             val navigator = remember { Navigator() }
@@ -35,8 +38,13 @@ fun App(repository: ProductRepository, diaryStore: DiaryStore, goalStore: GoalSt
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
                 Box(Modifier.widthIn(max = 600.dp).fillMaxSize()) {
                     when (val route = navigator.current) {
-                        Route.Diary -> DiaryScreen(navigator, diaryStore, goalStore, today())
-                        is Route.Add -> AddFoodScreen(navigator, route)
+                        Route.Diary -> DiaryScreen(navigator)
+                        is Route.Add -> AddFoodScreen(
+                            navigator,
+                            route,
+                            searchStore = remember(database) { database?.let { SqlDelightProductSearchStore(it.productSearchQueries) } },
+                            customFoods = remember(database) { database?.let { SqlDelightCustomFoodStore(it.customFoodQueries) } },
+                        )
                         is Route.Scanner -> ScannerScreen(navigator, route, repository)
                         is Route.CustomFood -> CustomFoodScreen(navigator, route, customFoodStore)
                         is Route.ProductDetail -> ProductDetailScreen(navigator, route)
