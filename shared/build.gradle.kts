@@ -23,8 +23,13 @@ kotlin {
         compileSdk = 36
         minSdk = 26
     }
-    iosArm64()
-    iosSimulatorArm64()
+    listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
+        target.binaries.framework {
+            baseName = "Shared"
+            isStatic = true
+            linkerOpts("-lsqlite3")
+        }
+    }
 
     sourceSets {
         commonMain.dependencies {

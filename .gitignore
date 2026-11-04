@@ -6,3 +6,6 @@ build/
 local.properties
 *.log
 .DS_Store
+xcuserdata/
+*.xcuserstate
+DerivedData/
