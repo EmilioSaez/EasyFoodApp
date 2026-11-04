@@ -1,0 +1,56 @@
+name: iOS
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Cache Kotlin/Native
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-${{ runner.os }}-
+
+      - name: Instalar XcodeGen
+        run: brew install xcodegen
+
+      - name: Compilar klibs iOS
+        run: ./gradlew :shared:compileKotlinIosSimulatorArm64 :shared:compileKotlinIosArm64 --console=plain
+
+      - name: Framework Shared para simulador
+        run: ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64 --console=plain
+
+      - name: Tests iOS (simulador)
+        run: ./gradlew :shared:iosSimulatorArm64Test --console=plain
+
+      - name: Generar proyecto Xcode
+        working-directory: iosApp
+        run: xcodegen generate
+
+      - name: xcodebuild (simulador, sin firma)
+        working-directory: iosApp
+        run: |
+          xcodebuild -project iosApp.xcodeproj -scheme iosApp \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build
