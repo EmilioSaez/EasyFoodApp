@@ -12,7 +12,7 @@ import kotlinx.serialization.Serializable
  * - Cambiar o quitar el significado de un campo existente SÍ lo incrementa.
  * - Los campos desconocidos se ignoran al leer; las colecciones ausentes se leen como vacías.
  *
- * Pendiente de que existan sus almacenes: alimentos propios y objetivos (se añadirán como campos opcionales).
+ * Pendiente: los objetivos (se añadirán como campo opcional).
  */
 @Serializable
 data class ExportFile(
@@ -20,6 +20,21 @@ data class ExportFile(
     val exportedAtMillis: Long,
     val products: List<ExportedProduct> = emptyList(),
     val diaryEntries: List<ExportedDiaryEntry> = emptyList(),
+    /** Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como vacío. */
+    val customFoods: List<ExportedCustomFood> = emptyList(),
+)
+
+@Serializable
+data class ExportedCustomFood(
+    /** Id local del dispositivo de origen; solo sirve para reconocer el mismo alimento al reimportar. */
+    val id: Long,
+    val name: String,
+    val brand: String? = null,
+    val nutrients: ExportedNutrients = ExportedNutrients(),
+    val servingSizeG: Double? = null,
+    val servingLabel: String? = null,
+    val createdAtMillis: Long = 0,
+    val updatedAtMillis: Long = 0,
 )
 
 @Serializable

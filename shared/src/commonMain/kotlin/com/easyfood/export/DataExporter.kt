@@ -3,8 +3,10 @@ package com.easyfood.export
 import com.easyfood.data.CachedProduct
 import com.easyfood.data.toCached
 import com.easyfood.data.toDomain
+import com.easyfood.db.CustomFoodQueries
 import com.easyfood.db.DiaryEntryQueries
 import com.easyfood.db.ProductQueries
+import com.easyfood.model.CustomFood
 import com.easyfood.model.DiaryEntry
 import com.easyfood.model.Product
 import kotlinx.coroutines.CoroutineDispatcher
@@ -15,6 +17,7 @@ import kotlinx.coroutines.withContext
 interface ExportSource {
     suspend fun products(): List<ExportedProduct>
     suspend fun diaryEntries(): List<DiaryEntry>
+    suspend fun customFoods(): List<ExportedCustomFood> = emptyList()
 }
 
 /** Genera el JSON de exportación a partir de [source]. */
@@ -27,6 +30,7 @@ class DataExporter(
         exportedAtMillis = nowMillis(),
         products = source.products(),
         diaryEntries = source.diaryEntries().map { it.toExported() },
+        customFoods = source.customFoods(),
     )
 
     suspend fun exportToJson(): String = ExportCodec.encode(buildFile())
@@ -36,6 +40,11 @@ fun DiaryEntry.toExported() = ExportedDiaryEntry(
     id = id, date = date, meal = meal, barcode = barcode, name = name,
     quantity = quantity.amount, unit = quantity.unit, servingSizeG = servingSizeG,
     nutrients = nutrients.toExported(), createdAtMillis = createdAtMillis,
+)
+
+fun CustomFood.toExported() = ExportedCustomFood(
+    id = id, name = name, brand = brand, nutrients = nutrients.toExported(), servingSizeG = servingSizeG,
+    servingLabel = servingLabel, createdAtMillis = createdAtMillis, updatedAtMillis = updatedAtMillis,
 )
 
 fun ExportedDiaryEntry.toDomain() = DiaryEntry(
@@ -56,8 +65,13 @@ fun ExportedProduct.toCachedProduct() = CachedProduct(
 class SqlDelightExportSource(
     private val productQueries: ProductQueries,
     private val diaryQueries: DiaryEntryQueries,
+    private val customFoodQueries: CustomFoodQueries? = null,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : ExportSource {
+    override suspend fun customFoods(): List<ExportedCustomFood> = withContext(dispatcher) {
+        customFoodQueries?.selectAll()?.executeAsList().orEmpty().map { it.toDomain().toExported() }
+    }
+
     override suspend fun products(): List<ExportedProduct> = withContext(dispatcher) {
         productQueries.selectAll().executeAsList().map {
             val p = it.toCached().product
