@@ -108,6 +108,10 @@ fun DiaryScreen(navigator: Navigator, diaryStore: DiaryStore, goalStore: GoalSto
                         onClick = { presenter.shiftDay(1) },
                         modifier = Modifier.semantics { contentDescription = "Día siguiente" },
                     ) { Text("›", style = MaterialTheme.typography.titleLarge) }
+                    IconButton(
+                        onClick = { navigator.push(Route.Data) },
+                        modifier = Modifier.semantics { contentDescription = "Datos: exportar e importar" },
+                    ) { Text("⇅", style = MaterialTheme.typography.titleLarge) }
                 },
             )
         },

@@ -31,6 +31,9 @@ sealed interface Route {
 
     /** Objetivos y TDEE. */
     data object Goals : Route
+
+    /** Datos: exportar, importar y transferir por QR o red local. */
+    data object Data : Route
 }
 
 /** Pestañas de la barra inferior. */

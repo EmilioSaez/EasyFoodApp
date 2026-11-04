@@ -10,4 +10,5 @@ actual fun BarcodeScanner(
     onBarcode: (String) -> Unit,
     onError: (ScanError) -> Unit,
     modifier: Modifier,
+    mode: ScanMode,
 ) = UnsupportedBarcodeScanner(onError)

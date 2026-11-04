@@ -93,8 +93,8 @@ class LanTransferHost(
     /** Abre la oferta en [port] (0 = puerto libre). Una oferta anterior se cierra. */
     suspend fun start(port: Int = 0): LanOffer {
         stop()
-        val sel = SelectorManager(Dispatchers.IO)
-        val sc = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val sel = SelectorManager(Dispatchers.Default)
+        val sc = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         val srv = try {
             aSocket(sel).tcp().bind("0.0.0.0", port)
         } catch (e: Throwable) {
@@ -196,7 +196,7 @@ object LanTransferClient {
 
     /** Descarga y valida el JSON ofrecido en [host]:[port] con [code]. */
     suspend fun fetch(host: String, port: Int, code: String, maxBytes: Int = DEFAULT_MAX_BYTES): String {
-        val selector = SelectorManager(Dispatchers.IO)
+        val selector = SelectorManager(Dispatchers.Default)
         try {
             val text = try {
                 withTimeout(TIMEOUT_MS) { download(selector, host, port, code.trim(), maxBytes) }

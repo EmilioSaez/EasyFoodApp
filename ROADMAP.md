@@ -59,8 +59,9 @@ Riesgo: mover datos entre dispositivos sin servidor ni cuentas.
 
 - [x] Formato JSON versionado y exportación
 - [x] Importación con fusión y detección de duplicados
-- [x] Transferencia por QR (lógica en `shared`; falta la UI)
-- [x] Transferencia por red local (protocolo en `shared`; falta la UI)
+- [x] Transferencia por QR (lógica en `shared`)
+- [x] Transferencia por red local (protocolo en `shared`)
+- [x] Pantalla «Datos»: exportar e importar JSON con vista previa de duplicados y fusión, QR (emitir con generador propio, recibir con la cámara en Android) y red local (código de emparejamiento, enviar y recibir). Acceso desde el diario y Objetivos. En iOS, guardar/abrir archivos queda como stub y la IP local no se detecta (`docs/ios.md`)
 
 ## Fase 7: iOS sin Mac (~1-2 sem)
 
@@ -77,8 +78,6 @@ Riesgo: no hay Mac local. La ruta es la que sigue FitArchiveApp (sesión hermana
 
 ## Fase 8: Pulido (~1 sem)
 
-- [ ] Estados vacíos y mensajes de error
-- [x] Rendimiento y revisión de datos dudosos
 - [x] Estados vacíos y mensajes de error
-- [ ] Rendimiento y revisión de datos dudosos
-- [ ] Actualizar el README con el estado real
+- [x] Rendimiento y revisión de datos dudosos
+- [x] Actualizar el README con el estado real
