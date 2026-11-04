@@ -64,7 +64,7 @@ Riesgo: mover datos entre dispositivos sin servidor ni cuentas.
 
 ## Fase 7: iOS (~1-2 sem + Mac)
 
-- [ ] Módulo `iosApp`
+- [x] Módulo `iosApp`
 - [ ] Escáner con AVFoundation
 - [ ] Sesión de prueba en un Mac prestado y ajustes
 

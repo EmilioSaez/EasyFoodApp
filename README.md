@@ -26,8 +26,10 @@ Fuera del MVP: cuentas y sincronización en la nube, foto de comida o etiqueta c
 |---|---|
 | `shared` | Modelo, cliente de Open Food Facts (Ktor) y UI (Compose). Código común. |
 | `desktopApp` | Aplicación de escritorio (JVM). |
+| `androidApp` | Aplicación Android. |
+| `iosApp` | Proyecto Xcode que embebe `shared` (sin probar aún; ver [docs/ios.md](docs/ios.md)). |
 
-Android e iOS se añadirán como módulos aparte (Android necesita el SDK instalado; iOS, un Mac).
+Android necesita el SDK instalado; iOS, un Mac con Xcode.
 
 ## Ejecutar
 
