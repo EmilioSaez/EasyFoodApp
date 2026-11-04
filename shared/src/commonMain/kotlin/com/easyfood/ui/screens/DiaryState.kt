@@ -23,6 +23,7 @@ data class MacroProgress(val label: String, val consumedG: Double, val goalG: Do
 /** Una fila del diario ya lista para pintar. */
 data class EntryUi(
     val id: Long,
+    val barcode: String?,
     val name: String,
     val quantity: Quantity,
     val source: DataSource,
@@ -76,6 +77,7 @@ fun buildDiaryUiState(date: String, entries: List<DiaryEntry>, goals: DailyGoals
             entries = rows.map {
                 EntryUi(
                     id = it.id,
+                    barcode = it.barcode,
                     name = it.name,
                     quantity = it.quantity,
                     source = it.dataSource(),
