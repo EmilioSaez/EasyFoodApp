@@ -14,6 +14,7 @@ kotlin {
             implementation(project(":shared"))
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutines.swing)
+            implementation(libs.sqldelight.driver.sqlite)
         }
     }
 }
