@@ -9,7 +9,7 @@ import androidx.compose.ui.Modifier
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import com.easyfood.data.OpenFoodFactsClient
 import com.easyfood.data.ProductRepository
-import com.easyfood.data.SqlDelightDiaryStore
+import com.easyfood.data.SqlDelightCustomFoodStore
 import com.easyfood.data.SqlDelightProductStore
 import com.easyfood.db.EasyFoodDatabase
 import com.easyfood.ui.App
@@ -25,12 +25,12 @@ class MainActivity : ComponentActivity() {
             nowMillis = System::currentTimeMillis,
         )
     }
-    private val diaryStore by lazy { SqlDelightDiaryStore(database.diaryEntryQueries) }
+    private val customFoodStore by lazy { SqlDelightCustomFoodStore(database.customFoodQueries) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            Box(Modifier.safeDrawingPadding()) { App(repository, diaryStore, today = { java.time.LocalDate.now().toString() }) }
+            Box(Modifier.safeDrawingPadding()) { App(repository, customFoodStore) }
         }
     }
 }
