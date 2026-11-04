@@ -9,6 +9,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.easyfood.data.DiaryStore
+import com.easyfood.data.GoalStore
 import com.easyfood.data.ProductRepository
 import com.easyfood.data.SqlDelightCustomFoodStore
 import com.easyfood.data.SqlDelightProductSearchStore
@@ -44,7 +46,7 @@ fun App(repository: ProductRepository, database: EasyFoodDatabase? = null) {
                             customFoods = remember(database) { database?.let { SqlDelightCustomFoodStore(it.customFoodQueries) } },
                         )
                         is Route.Scanner -> ScannerScreen(navigator, route, repository)
-                        is Route.CustomFood -> CustomFoodScreen(navigator, route)
+                        is Route.CustomFood -> CustomFoodScreen(navigator, route, customFoodStore)
                         is Route.ProductDetail -> ProductDetailScreen(navigator, route)
                         Route.Goals -> GoalsScreen(navigator)
                     }
