@@ -42,7 +42,7 @@ Riesgo: escáner distinto en cada plataforma.
 Riesgo: productos sin código de barras (fruta, pan, carne).
 
 - [x] Alimentos propios con entrada manual (almacén; UI pendiente)
-- [ ] Importar base genérica BEDCA/USDA embebida
+- [x] Importar base genérica USDA (SR Legacy, CC0) embebida; BEDCA descartada por licencia (ver docs/generic-foods.md). Falta lanzar la importación en el arranque
 - [x] Búsqueda por texto (FTS)
 - [ ] Mostrar el origen del dato en la UI (Open Food Facts, genérico, propio)
 

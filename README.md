@@ -40,4 +40,6 @@ Requiere JDK 17 o superior.
 
 ## Datos y privacidad
 
+Los alimentos genéricos proceden de [USDA FoodData Central](https://fdc.nal.usda.gov/) (SR Legacy, dominio público CC0); ver [docs/generic-foods.md](docs/generic-foods.md).
+
 Los datos nutricionales son aportados por la comunidad de Open Food Facts y pueden ser incorrectos o estar incompletos. La app los marca para revisión cuando detecta valores dudosos.

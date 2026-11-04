@@ -36,3 +36,6 @@ INSERT OR REPLACE INTO ProductEntity(
 
 deleteByBarcode:
 DELETE FROM ProductEntity WHERE barcode = ?;
+
+countBySource:
+SELECT count(*) FROM ProductEntity WHERE source = ?;
