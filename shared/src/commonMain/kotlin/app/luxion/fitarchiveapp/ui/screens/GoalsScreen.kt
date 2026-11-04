@@ -54,6 +54,7 @@ import app.luxion.fitarchiveapp.ui.navigation.Navigator
 import app.luxion.fitarchiveapp.ui.navigation.TopLevelTab
 import app.luxion.fitarchiveapp.ui.theme.Spacing
 import app.luxion.fitarchiveapp.ui.theme.easyFoodColors
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 /** Objetivos y TDEE (docs/design.md §2.6). */
@@ -77,7 +78,15 @@ fun GoalsScreen(navigator: Navigator, goalStore: GoalStore) {
 
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(goalStore) { saved = goalStore.get() }
+    LaunchedEffect(goalStore) {
+        try {
+            saved = goalStore.get()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            snackbar.showSnackbar("No se pudieron leer los objetivos guardados.")
+        }
+    }
 
     val age = parseNumber(ageText)?.toInt()
     val weight = parseNumber(weightText)
@@ -106,9 +115,15 @@ fun GoalsScreen(navigator: Navigator, goalStore: GoalStore) {
                 Button(
                     onClick = {
                         scope.launch {
-                            goalStore.save(resolved)
-                            saved = resolved
-                            snackbar.showSnackbar("Objetivos guardados")
+                            try {
+                                goalStore.save(resolved)
+                                saved = resolved
+                                snackbar.showSnackbar("Objetivos guardados")
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                snackbar.showSnackbar("No se pudieron guardar los objetivos. Inténtalo de nuevo.")
+                            }
                         }
                     },
                     enabled = resolved.kcal != null,

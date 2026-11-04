@@ -70,6 +70,6 @@ Riesgo: mover datos entre dispositivos sin servidor ni cuentas.
 
 ## Fase 8: Pulido (~1 sem)
 
-- [ ] Estados vacíos y mensajes de error
+- [x] Estados vacíos y mensajes de error
 - [ ] Rendimiento y revisión de datos dudosos
 - [ ] Actualizar el README con el estado real
