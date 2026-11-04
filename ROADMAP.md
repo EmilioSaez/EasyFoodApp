@@ -50,7 +50,7 @@ Riesgo: productos sin código de barras (fruta, pan, carne).
 
 - [ ] Objetivo diario de kcal
 - [ ] Objetivo de macros (proteína, hidratos, grasa)
-- [ ] Calculadora de necesidades (TDEE) a partir de edad, peso, altura y meta
+- [x] Calculadora de necesidades (TDEE) a partir de edad, peso, altura y meta
 - [ ] Progreso frente al objetivo en el diario
 
 ## Fase 6: Exportar e importar (~2 sem)
