@@ -24,16 +24,26 @@ fun ScanError.message(): String = when (this) {
     is ScanError.CameraUnavailable -> "No se pudo abrir la cámara."
 }
 
+/** Qué lee el escáner. */
+enum class ScanMode {
+    /** Códigos de barras de producto (EAN/UPC); entrega la primera lectura y se detiene. */
+    Product,
+
+    /** Códigos QR; sigue leyendo y entrega cada lectura (sin repetir la misma en seguida). */
+    Qr,
+}
+
 /** `true` si esta plataforma puede escanear códigos de barras con la cámara. */
 expect val isBarcodeScannerSupported: Boolean
 
 /**
  * Vista de escáner: pide el permiso de cámara, muestra la previsualización y llama a [onBarcode]
- * con el primer código EAN/UPC leído. Los fallos se notifican con [onError].
+ * con el primer código EAN/UPC leído (o con cada QR, en [ScanMode.Qr]). Los fallos se notifican con [onError].
  */
 @Composable
 expect fun BarcodeScanner(
     onBarcode: (String) -> Unit,
     onError: (ScanError) -> Unit,
     modifier: Modifier = Modifier,
+    mode: ScanMode = ScanMode.Product,
 )

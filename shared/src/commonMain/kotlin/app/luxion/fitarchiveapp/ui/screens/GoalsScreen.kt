@@ -13,6 +13,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -38,6 +39,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.data.GoalStore
 import app.luxion.fitarchiveapp.domain.ActivityLevel
@@ -51,6 +54,7 @@ import app.luxion.fitarchiveapp.ui.components.formatKcal
 import app.luxion.fitarchiveapp.ui.components.parseNumber
 import app.luxion.fitarchiveapp.ui.navigation.EasyFoodNavigationBar
 import app.luxion.fitarchiveapp.ui.navigation.Navigator
+import app.luxion.fitarchiveapp.ui.navigation.Route
 import app.luxion.fitarchiveapp.ui.navigation.TopLevelTab
 import app.luxion.fitarchiveapp.ui.theme.Spacing
 import app.luxion.fitarchiveapp.ui.theme.easyFoodColors
@@ -108,7 +112,17 @@ fun GoalsScreen(navigator: Navigator, goalStore: GoalStore) {
     val hasManual = kcalText != null || proteinText != null || carbsText != null || fatText != null
 
     Scaffold(
-        topBar = { CenterAlignedTopAppBar(title = { Text("Objetivos") }) },
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("Objetivos") },
+                actions = {
+                    IconButton(
+                        onClick = { navigator.push(Route.Data) },
+                        modifier = Modifier.semantics { contentDescription = "Datos: exportar e importar" },
+                    ) { Text("⇅", style = MaterialTheme.typography.titleLarge) }
+                },
+            )
+        },
         snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
             Column {

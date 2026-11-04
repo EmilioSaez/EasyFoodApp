@@ -14,6 +14,7 @@ import app.luxion.fitarchiveapp.data.SqlDelightProductStore
 import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
 import app.luxion.fitarchiveapp.data.generic.GenericFoodSeeder
 import app.luxion.fitarchiveapp.db.EasyFoodDatabase
+import app.luxion.fitarchiveapp.export.SqlDelightImportTarget
 import app.luxion.fitarchiveapp.ui.App
 import java.io.File
 import java.time.LocalDate
@@ -44,6 +45,9 @@ fun main() = application {
             goalStore = remember(db) { SqlDelightGoalStore(db.dailyGoalQueries) },
             searchStore = remember(db) { SqlDelightProductSearchStore(db.productSearchQueries) },
             customFoodStore = remember(db) { SqlDelightCustomFoodStore(db.customFoodQueries) },
+            importTarget = remember(db) {
+                SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries)
+            },
             today = { LocalDate.now().toString() },
             genericSeeder = remember(db) {
                 GenericFoodSeeder(GenericFoodImporter(db.productQueries), nowMillis = System::currentTimeMillis)

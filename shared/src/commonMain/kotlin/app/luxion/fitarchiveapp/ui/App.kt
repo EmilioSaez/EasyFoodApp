@@ -20,12 +20,17 @@ import app.luxion.fitarchiveapp.data.GoalStore
 import app.luxion.fitarchiveapp.data.ProductRepository
 import app.luxion.fitarchiveapp.data.ProductSearchStore
 import app.luxion.fitarchiveapp.data.generic.GenericFoodSeeder
+import app.luxion.fitarchiveapp.export.DataExporter
+import app.luxion.fitarchiveapp.export.DataImporter
+import app.luxion.fitarchiveapp.export.ImportTarget
 import app.luxion.fitarchiveapp.ui.components.SeedProgressBanner
 import app.luxion.fitarchiveapp.ui.navigation.Navigator
 import app.luxion.fitarchiveapp.ui.navigation.PlatformBackHandler
 import app.luxion.fitarchiveapp.ui.navigation.Route
 import app.luxion.fitarchiveapp.ui.screens.AddFoodScreen
 import app.luxion.fitarchiveapp.ui.screens.CustomFoodScreen
+import app.luxion.fitarchiveapp.ui.screens.DataPresenter
+import app.luxion.fitarchiveapp.ui.screens.DataScreen
 import app.luxion.fitarchiveapp.ui.screens.DiaryScreen
 import app.luxion.fitarchiveapp.ui.screens.GoalsScreen
 import app.luxion.fitarchiveapp.ui.screens.ProductDetailScreen
@@ -44,12 +49,19 @@ fun App(
     goalStore: GoalStore,
     searchStore: ProductSearchStore,
     customFoodStore: CustomFoodStore,
+    importTarget: ImportTarget,
     today: () -> String,
     genericSeeder: GenericFoodSeeder? = null,
 ) {
     EasyFoodTheme {
         Surface(Modifier.fillMaxSize()) {
             val navigator = remember { Navigator() }
+            val dataPresenter = remember(importTarget) {
+                DataPresenter(
+                    exporter = DataExporter(importTarget) { kotlin.time.Clock.System.now().toEpochMilliseconds() },
+                    importer = DataImporter(importTarget),
+                )
+            }
             PlatformBackHandler(enabled = navigator.canGoBack) { navigator.pop() }
 
             // En escritorio, las mismas pantallas en una columna de 600 dp como máximo, centrada.
@@ -69,6 +81,7 @@ fun App(
                             is Route.CustomFood -> CustomFoodScreen(navigator, route, customFoodStore)
                             is Route.ProductDetail -> ProductDetailScreen(navigator, route, repository, diaryStore, today)
                             Route.Goals -> GoalsScreen(navigator, goalStore)
+                            Route.Data -> DataScreen(navigator, dataPresenter, today)
                         }
                     }
                 }

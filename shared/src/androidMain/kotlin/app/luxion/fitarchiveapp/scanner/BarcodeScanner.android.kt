@@ -47,6 +47,7 @@ actual fun BarcodeScanner(
     onBarcode: (String) -> Unit,
     onError: (ScanError) -> Unit,
     modifier: Modifier,
+    mode: ScanMode,
 ) {
     val context = LocalContext.current
     val currentOnError by rememberUpdatedState(onError)
@@ -69,7 +70,7 @@ actual fun BarcodeScanner(
     LaunchedEffect(Unit) {
         if (!granted) launcher.launch(Manifest.permission.CAMERA)
     }
-    if (granted) CameraPreview(onBarcode, onError, modifier)
+    if (granted) CameraPreview(onBarcode, onError, modifier, mode)
 }
 
 @Composable
@@ -77,6 +78,7 @@ private fun CameraPreview(
     onBarcode: (String) -> Unit,
     onError: (ScanError) -> Unit,
     modifier: Modifier,
+    mode: ScanMode,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -90,12 +92,18 @@ private fun CameraPreview(
     val scanner = remember {
         BarcodeScanning.getClient(
             BarcodeScannerOptions.Builder()
-                .setBarcodeFormats(
-                    Barcode.FORMAT_EAN_13,
-                    Barcode.FORMAT_EAN_8,
-                    Barcode.FORMAT_UPC_A,
-                    Barcode.FORMAT_UPC_E,
-                )
+                .apply {
+                    if (mode == ScanMode.Qr) {
+                        setBarcodeFormats(Barcode.FORMAT_QR_CODE)
+                    } else {
+                        setBarcodeFormats(
+                            Barcode.FORMAT_EAN_13,
+                            Barcode.FORMAT_EAN_8,
+                            Barcode.FORMAT_UPC_A,
+                            Barcode.FORMAT_UPC_E,
+                        )
+                    }
+                }
                 .build(),
         )
     }
@@ -104,6 +112,8 @@ private fun CameraPreview(
         val mainExecutor = ContextCompat.getMainExecutor(context)
         val providerFuture = ProcessCameraProvider.getInstance(context)
         val delivered = AtomicBoolean(false)
+        var lastValue: String? = null
+        var lastAtMillis = 0L
         var provider: ProcessCameraProvider? = null
         providerFuture.addListener({
             try {
@@ -114,14 +124,26 @@ private fun CameraPreview(
                     .build()
                 analysis.setAnalyzer(executor) { proxy ->
                     val media = proxy.image
-                    if (media == null || delivered.get()) {
+                    if (media == null || (mode == ScanMode.Product && delivered.get())) {
                         proxy.close()
                         return@setAnalyzer
                     }
                     scanner.process(InputImage.fromMediaImage(media, proxy.imageInfo.rotationDegrees))
                         .addOnSuccessListener(mainExecutor) { codes ->
                             val value = codes.firstNotNullOfOrNull { it.rawValue }
-                            if (value != null && delivered.compareAndSet(false, true)) currentOnBarcode(value)
+                            if (value != null) {
+                                if (mode == ScanMode.Product) {
+                                    if (delivered.compareAndSet(false, true)) currentOnBarcode(value)
+                                } else {
+                                    // El mismo QR sigue a la vista varios fotogramas: se entrega una vez por segundo.
+                                    val now = System.currentTimeMillis()
+                                    if (value != lastValue || now - lastAtMillis > 1_000) {
+                                        lastValue = value
+                                        lastAtMillis = now
+                                        currentOnBarcode(value)
+                                    }
+                                }
+                            }
                         }
                         .addOnCompleteListener { proxy.close() }
                 }

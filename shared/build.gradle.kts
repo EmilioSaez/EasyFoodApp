@@ -50,6 +50,10 @@ kotlin {
             implementation(libs.ktor.client.mock)
             implementation(libs.kotlinx.coroutines.test)
         }
+        jvmTest.dependencies {
+            // Solo para comprobar que los QR generados se decodifican con una librería independiente.
+            implementation(libs.zxing.core)
+        }
         jvmMain.dependencies {
             implementation(libs.ktor.client.cio)
             implementation(libs.sqldelight.driver.sqlite)

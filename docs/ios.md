@@ -67,3 +67,9 @@ Estado (fase 7): ambos targets compilan. La primera comprobación falló por un 
 - **Nombre del símbolo Swift**: si `MainViewControllerKt.MainViewController()` no compila, abrir `Shared.h` (en `shared/build/bin/iosSimulatorArm64/debugFramework/Shared.framework/Headers`) y ver el nombre exacto.
 - **Safe areas / teclado**: `MainViewController` aplica `safeDrawingPadding()` como en Android; ajustar si se ve mal.
 - **Advertencias «The same unique_name found in more than one library»**: son del grafo de dependencias de Compose y no impiden compilar.
+
+## Pendiente en iOS (pantalla «Datos»)
+
+- Guardar y abrir archivos JSON (`DataFiles.ios.kt`) es un stub: falta `UIDocumentPickerViewController` / `UIActivityViewController`. Por ahora iOS transfiere por QR (emitir) y red local.
+- Recibir por QR necesita el escáner con AVFoundation (el `BarcodeScanner` de iOS aún no existe).
+- `localIpAddresses()` devuelve vacío: falta leer las interfaces con `getifaddrs`; la UI avisa de que no hay dirección.
