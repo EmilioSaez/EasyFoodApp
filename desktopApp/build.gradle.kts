@@ -21,7 +21,7 @@ kotlin {
 
 compose.desktop {
     application {
-        mainClass = "com.easyfood.MainKt"
+        mainClass = "app.luxion.fitarchiveapp.MainKt"
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Dmg, TargetFormat.Deb)
             packageName = "EasyFood"

@@ -15,7 +15,7 @@ La app de iOS es un proyecto Xcode mínimo (`iosApp/`) que embebe el framework `
 | `iosApp/iosApp/Info.plist` | Configuración de la app (solo vertical, `CADisableMinimumFrameDurationOnPhone` para Compose). |
 | `iosApp/iosApp.xcodeproj` | Proyecto Xcode. Una fase de script llama a `./gradlew :shared:embedAndSignAppleFrameworkForXcode` antes de compilar el Swift. |
 
-Bundle id: `com.easyfood.iosApp`. Despliegue mínimo: iOS 15.
+Bundle id: `app.luxion.fitarchiveapp.iosApp`. Despliegue mínimo: iOS 15.
 
 ## Compilar en un Mac
 

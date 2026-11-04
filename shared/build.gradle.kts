@@ -10,7 +10,7 @@ plugins {
 sqldelight {
     databases {
         create("EasyFoodDatabase") {
-            packageName.set("com.easyfood.db")
+            packageName.set("app.luxion.fitarchiveapp.db")
             dialect("app.cash.sqldelight:sqlite-3-35-dialect:${libs.versions.sqldelight.get()}")
         }
     }
@@ -19,7 +19,7 @@ sqldelight {
 kotlin {
     jvm()
     androidLibrary {
-        namespace = "com.easyfood.shared"
+        namespace = "app.luxion.fitarchiveapp.shared"
         compileSdk = 36
         minSdk = 26
     }
