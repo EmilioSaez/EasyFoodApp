@@ -5,7 +5,7 @@ import androidx.compose.ui.Modifier
 
 /** Motivos por los que el escáner no puede entregar un código. */
 sealed interface ScanError {
-    /** La plataforma no incluye escáner (escritorio, iOS por ahora). */
+    /** La plataforma no incluye escáner (escritorio). */
     data object Unsupported : ScanError
 
     /** El usuario denegó el permiso de cámara; [permanently] si hay que activarlo desde Ajustes. */

@@ -42,7 +42,7 @@ xcodebuild -project iosApp.xcodeproj -scheme iosApp \
 3. Conectar el iPhone, activar *Modo desarrollador* (Ajustes → Privacidad y seguridad) y elegirlo como destino.
 4. La primera vez, confiar en el certificado en Ajustes → General → VPN y gestión de dispositivos.
 
-El escáner (#28) necesitará la clave `NSCameraUsageDescription` en `Info.plist`; todavía no está porque no hay escáner.
+El escáner (AVFoundation) necesita la clave `NSCameraUsageDescription`, ya presente en `Info.plist`. El simulador no tiene cámara: allí el escáner muestra «No se pudo abrir la cámara» y queda la entrada manual.
 
 ## Qué se verificó sin Mac
 
