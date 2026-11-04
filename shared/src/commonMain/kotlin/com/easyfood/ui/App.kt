@@ -1,125 +1,44 @@
 package com.easyfood.ui
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.easyfood.data.ProductRepository
-import com.easyfood.data.ProductResult
-import com.easyfood.model.EanValidation
-import com.easyfood.model.EanValidator
-import com.easyfood.scanner.BarcodeScanner
-import com.easyfood.scanner.ScanError
-import com.easyfood.scanner.isBarcodeScannerSupported
-import com.easyfood.scanner.message
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.launch
+import com.easyfood.ui.navigation.Navigator
+import com.easyfood.ui.navigation.PlatformBackHandler
+import com.easyfood.ui.navigation.Route
+import com.easyfood.ui.screens.AddFoodScreen
+import com.easyfood.ui.screens.CustomFoodScreen
+import com.easyfood.ui.screens.DiaryScreen
+import com.easyfood.ui.screens.GoalsScreen
+import com.easyfood.ui.screens.ProductDetailScreen
+import com.easyfood.ui.screens.ScannerScreen
+import com.easyfood.ui.theme.EasyFoodTheme
 
-/** Pantalla inicial: buscar un producto por EAN (entrada manual) y ver sus calorías por 100 g. */
+/** Raíz de la app: tema + navegación entre pantallas (docs/design.md §4). */
 @Composable
 fun App(repository: ProductRepository) {
-    MaterialTheme {
+    EasyFoodTheme {
         Surface(Modifier.fillMaxSize()) {
-            val scope = rememberCoroutineScope()
-            var barcode by remember { mutableStateOf("") }
-            var result by remember { mutableStateOf<ProductResult?>(null) }
-            var validationError by remember { mutableStateOf<String?>(null) }
-            var loading by remember { mutableStateOf(false) }
-            var scanning by remember { mutableStateOf(false) }
-            var scanError by remember { mutableStateOf<ScanError?>(null) }
+            val navigator = remember { Navigator() }
+            PlatformBackHandler(enabled = navigator.canGoBack) { navigator.pop() }
 
-            fun search() {
-                if (loading) return
-                when (val v = EanValidator.validate(barcode)) {
-                    is EanValidation.Invalid -> {
-                        validationError = v.reason
-                        result = null
-                    }
-                    is EanValidation.Valid -> {
-                        validationError = null
-                        loading = true
-                        scope.launch {
-                            result = try {
-                                repository.getByBarcode(v.ean)
-                            } catch (e: CancellationException) {
-                                throw e
-                            } catch (e: Exception) {
-                                ProductResult.Failure(e)
-                            } finally {
-                                loading = false
-                            }
-                        }
-                    }
-                }
-            }
-
-            fun onScanned(code: String) {
-                scanning = false
-                barcode = code
-                search()
-            }
-
-            Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("EasyFood", style = MaterialTheme.typography.headlineMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = barcode,
-                        onValueChange = { barcode = it; validationError = null },
-                        label = { Text("Código de barras (EAN)") },
-                        singleLine = true,
-                        isError = validationError != null,
-                        supportingText = validationError?.let { { Text(it) } },
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(onSearch = { search() }),
-                    )
-                    Button(onClick = ::search, enabled = !loading) {
-                        Text(if (loading) "Buscando…" else "Buscar")
-                    }
-                }
-                if (isBarcodeScannerSupported) {
-                    OutlinedButton(onClick = { scanError = null; scanning = !scanning }) {
-                        Text(if (scanning) "Cerrar escáner" else "Escanear código")
-                    }
-                }
-                if (scanning) {
-                    BarcodeScanner(
-                        onBarcode = ::onScanned,
-                        onError = { scanning = false; scanError = it },
-                        modifier = Modifier.fillMaxWidth().height(280.dp),
-                    )
-                }
-                scanError?.let { Text(it.message(), color = MaterialTheme.colorScheme.error) }
-                when (val r = result) {
-                    null -> Unit
-                    ProductResult.NotFound -> Text("Producto no encontrado")
-                    is ProductResult.Failure ->
-                        Text("No se pudo consultar el producto: ${r.cause.message ?: "error de red"}")
-                    is ProductResult.Found -> {
-                        val p = r.product
-                        Text(listOfNotNull(p.name, p.brand).joinToString(" · "))
-                        Text("Energía: ${p.nutrients.kcal?.let { "$it kcal/100 g" } ?: "sin datos"}")
-                        if (r.stale) Text("Sin conexión: datos guardados, pueden estar desactualizados")
-                        if (p.nutrients.needsReview) Text("Revisa estos datos: faltan o parecen erróneos")
+            // En escritorio, las mismas pantallas en una columna de 600 dp como máximo, centrada.
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                Box(Modifier.widthIn(max = 600.dp).fillMaxSize()) {
+                    when (val route = navigator.current) {
+                        Route.Diary -> DiaryScreen(navigator)
+                        is Route.Add -> AddFoodScreen(navigator, route)
+                        is Route.Scanner -> ScannerScreen(navigator, route, repository)
+                        is Route.CustomFood -> CustomFoodScreen(navigator, route)
+                        is Route.ProductDetail -> ProductDetailScreen(navigator, route)
+                        Route.Goals -> GoalsScreen(navigator)
                     }
                 }
             }
