@@ -1,18 +1,23 @@
-# iOS: lo no verificado sin Mac
+# iOS: pendiente de verificar
 
-Todo lo siguiente está escrito pero **no se ha ejecutado nunca**. Sin Mac local, se comprobará en CI de macOS (fase 7) o en un Mac/iPhone.
+Lo que se escribió sin Mac y solo se puede comprobar en un iPhone (o en CI de macOS). Desde Windows solo se verifica el tipado con `./gradlew :shared:compileKotlinIosSimulatorArm64 :shared:compileKotlinIosArm64`.
 
-## Verificado desde Windows
-- `:shared:compileKotlinIosSimulatorArm64` y `:shared:compileKotlinIosArm64` compilan (tipos de Kotlin/Native, incluido `MainViewController.kt`).
+## Escáner de códigos de barras (AVFoundation, #28)
 
-## Sin verificar
-- **XcodeGen**: que `iosApp/project.yml` genere un proyecto válido (`xcodegen generate`) y que el esquema `iosApp` exista.
-- **Enlazado**: `linkDebugFramework…`/`embedAndSignAppleFrameworkForXcode`; que el framework estático `Shared` quede en `shared/build/xcode-frameworks/<config>/<sdk>` y `-framework Shared` + `-lsqlite3` enlacen.
-- **Fase de script**: que Xcode encuentre Java (`JAVA_HOME`) y que `./gradlew` tenga permiso de ejecución.
-- **Compilación del Swift** (`iOSApp.swift`, `ContentView.swift`), incluido el nombre del símbolo `MainViewControllerKt.MainViewController()`.
-- **Arranque en simulador/iPhone**: Compose, SQLDelight (`NativeSqliteDriver`), red con Ktor, safe areas y teclado.
-- **Info.plist y `PrivacyInfo.xcprivacy`**: validez para App Store Connect; los motivos C617.1 y 35F9.1 se copiaron del proyecto hermano y no se han contrastado con las APIs que usa esta app.
-- **Icono**: `AppIcon` no tiene imagen todavía (falta un PNG de 1024×1024 sin alfa).
-- **Escáner de cámara** (AVFoundation): la cámara solo se puede probar en un iPhone real.
-- **Firma, TestFlight y fastlane**: requieren cuenta de Apple Developer de pago (por decidir).
-- **CI en macOS**: aún no existe (no copiar workflows hasta que el CI de FitArchiveApp pase en verde).
+Implementación: `shared/src/iosMain/.../scanner/BarcodeScanner.ios.kt` (`AVCaptureSession` + `AVCaptureMetadataOutput`, EAN-8 y EAN-13).
+
+- [ ] Primer arranque: aparece el diálogo de permiso con el texto de `NSCameraUsageDescription`.
+- [ ] Conceder el permiso muestra la previsualización sin recargar la pantalla.
+- [ ] Denegar el permiso muestra «Sin acceso a la cámara» y «Abrir ajustes» abre los ajustes de la app (`AppSettings.ios.kt`).
+- [ ] Tras activar el permiso en Ajustes y volver, «Conceder permiso» recrea la cámara y funciona.
+- [ ] Un EAN-13 y un EAN-8 reales se leen y navegan a la ficha; un UPC-A llega como EAN-13 con un 0 delante.
+- [ ] La previsualización respeta el recorte (`clipToBounds`) y el marco de `ScanFrame`; sin barras negras ni desfase al girar o con teclado.
+- [ ] Al salir de la pantalla (cerrar, «Escanear otro», navegar a la ficha) se libera la cámara: desaparece el indicador verde de iOS.
+- [ ] «Escanear otro» y las lecturas inválidas reabren la sesión sin congelar la vista.
+- [ ] Sin cámara (simulador): muestra «No se pudo abrir la cámara» y la entrada manual sigue funcionando.
+- [ ] Rendimiento: `startRunning`/`stopRunning` van en una cola aparte; comprobar que no hay tirones al abrir la pantalla.
+- [ ] Posible ajuste: `UIKitView` con `UIView` hijo de capa; si hubiera problemas de superposición con Compose, revisar `UIKitInteropProperties`.
+
+## Problemas conocidos del tipado
+
+- `Dispatchers.IO` en `commonMain` (`transfer/LanTransfer.kt`, líneas 96, 97 y 199) no compila para iOS con coroutines 1.11.0 (`it is internal`). Es anterior a este cambio; para comprobar el escáner se sustituyó temporalmente por `Dispatchers.Default` sin commitearlo.

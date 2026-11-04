@@ -71,7 +71,7 @@ private sealed interface Outcome {
 }
 
 /**
- * Escáner + EAN manual (docs/design.md §2.3). Con cámara (Android) escanea; sin ella (escritorio)
+ * Escáner + EAN manual (docs/design.md §2.3). Con cámara (Android, iOS) escanea; sin ella (escritorio)
  * solo queda la entrada manual. Al encontrar el producto navega a la ficha.
  */
 @Composable

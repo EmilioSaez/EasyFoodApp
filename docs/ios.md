@@ -43,6 +43,8 @@ xcodebuild -project iosApp.xcodeproj -scheme iosApp   -destination 'generic/plat
 3. Conectar el iPhone, activar *Modo desarrollador* (Ajustes → Privacidad y seguridad) y elegirlo como destino.
 4. La primera vez, confiar en el certificado en Ajustes → General → VPN y gestión de dispositivos.
 
+El escáner (AVFoundation) necesita la clave `NSCameraUsageDescription`, ya presente en `Info.plist`. El simulador no tiene cámara: allí el escáner muestra «No se pudo abrir la cámara» y queda la entrada manual.
+
 ## Qué se verificó sin Mac
 
 En Windows, Kotlin/Native no puede enlazar frameworks de Apple, pero sí compilar los klibs de los targets iOS (incluido `MainViewController.kt`):
