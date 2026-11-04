@@ -2,6 +2,7 @@ package app.luxion.fitarchiveapp.export
 
 import app.luxion.fitarchiveapp.data.CachedProduct
 import app.luxion.fitarchiveapp.data.toCached
+import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
 import app.luxion.fitarchiveapp.data.toDomain
 import app.luxion.fitarchiveapp.db.CustomFoodQueries
 import app.luxion.fitarchiveapp.db.DiaryEntryQueries
@@ -73,7 +74,8 @@ class SqlDelightExportSource(
     }
 
     override suspend fun products(): List<ExportedProduct> = withContext(dispatcher) {
-        productQueries.selectAll().executeAsList().map {
+        // La base genérica (miles de filas) viaja con la app y se vuelve a cargar sola: no se exporta.
+        productQueries.selectAll().executeAsList().filter { it.source != GenericFoodImporter.SOURCE }.map {
             val p = it.toCached().product
             ExportedProduct(
                 barcode = p.barcode, name = p.name, brand = p.brand, imageUrl = p.imageUrl,
