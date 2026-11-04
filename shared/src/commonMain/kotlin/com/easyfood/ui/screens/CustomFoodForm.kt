@@ -60,9 +60,12 @@ fun validateCustomFood(form: CustomFoodFormState, requireAll: Boolean = true): C
     val saturated = parseNumber(form.saturated)
     val sugars = parseNumber(form.sugars)
 
+    val servingSize = parseNumber(form.servingSize)
     val servingSizeError = when {
         form.servingSize.isBlank() -> null
-        else -> parseNumber(form.servingSize)?.let { if (it <= 0) "Debe ser mayor que 0" else null } ?: "Número no válido"
+        servingSize == null -> "Número no válido"
+        servingSize <= 0 -> "Debe ser mayor que 0"
+        else -> null
     }
 
     return CustomFoodFormErrors(
