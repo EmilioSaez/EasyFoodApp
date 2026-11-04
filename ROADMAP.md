@@ -32,8 +32,8 @@ Riesgo: calidad de datos de Open Food Facts.
 Riesgo: escáner distinto en cada plataforma.
 
 - [x] Módulo `androidApp`
-- [ ] Escáner de códigos de barras con CameraX y ML Kit (`expect`/`actual`)
-- [ ] Permiso de cámara y manejo de errores
+- [x] Escáner de códigos de barras con CameraX y ML Kit (`expect`/`actual`)
+- [x] Permiso de cámara y manejo de errores
 - [x] Entrada manual de EAN en escritorio
 - [ ] (Opcional) Flujo Maestro de escaneo en emulador
 
