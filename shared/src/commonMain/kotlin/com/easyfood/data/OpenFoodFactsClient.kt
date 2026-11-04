@@ -30,7 +30,7 @@ class OpenFoodFactsClient(
         if (ean.isEmpty() || !ean.all { it.isDigit() }) return ProductLookup.NotFound
         return try {
             val response: OffResponse = http.get("$baseUrl/api/v2/product/$ean.json") {
-                parameter("fields", "code,product_name,brands,image_url,nutriments")
+                parameter("fields", "code,product_name,brands,image_url,nutriments,serving_size,serving_quantity")
                 header(HttpHeaders.UserAgent, USER_AGENT)
             }.body()
             val product = response.product
@@ -69,6 +69,8 @@ internal data class OffProduct(
     val brands: String? = null,
     @SerialName("image_url") val imageUrl: String? = null,
     val nutriments: OffNutriments? = null,
+    @SerialName("serving_size") val servingSize: String? = null,
+    @SerialName("serving_quantity") val servingQuantity: Double? = null,
 ) {
     fun toDomain(fallbackBarcode: String) = Product(
         barcode = code ?: fallbackBarcode,
@@ -80,7 +82,13 @@ internal data class OffProduct(
             proteinG = nutriments?.proteins,
             carbsG = nutriments?.carbs,
             fatG = nutriments?.fat,
+            saturatedFatG = nutriments?.saturatedFat,
+            sugarsG = nutriments?.sugars,
+            fiberG = nutriments?.fiber,
+            saltG = nutriments?.salt,
         ),
+        servingSizeG = servingQuantity?.takeIf { it > 0 } ?: parseServingGrams(servingSize),
+        servingLabel = servingSize?.trim()?.takeIf { it.isNotEmpty() },
     )
 }
 
@@ -90,4 +98,16 @@ internal data class OffNutriments(
     @SerialName("proteins_100g") val proteins: Double? = null,
     @SerialName("carbohydrates_100g") val carbs: Double? = null,
     @SerialName("fat_100g") val fat: Double? = null,
+    @SerialName("saturated-fat_100g") val saturatedFat: Double? = null,
+    @SerialName("sugars_100g") val sugars: Double? = null,
+    @SerialName("fiber_100g") val fiber: Double? = null,
+    @SerialName("salt_100g") val salt: Double? = null,
 )
+
+private val SERVING_REGEX = Regex("""^\s*(\d+(?:[.,]\d+)?)\s*(g|gr|ml)\b""", RegexOption.IGNORE_CASE)
+
+/** Extrae gramos/ml de textos tipo "30 g" o "125,5 ml"; `null` si no encaja. */
+internal fun parseServingGrams(text: String?): Double? =
+    text?.let { SERVING_REGEX.find(it) }
+        ?.groupValues?.get(1)?.replace(',', '.')?.toDoubleOrNull()
+        ?.takeIf { it > 0 }

@@ -4,6 +4,15 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.androidKotlinMultiplatformLibrary)
+    alias(libs.plugins.sqldelight)
+}
+
+sqldelight {
+    databases {
+        create("EasyFoodDatabase") {
+            packageName.set("com.easyfood.db")
+        }
+    }
 }
 
 kotlin {
@@ -13,7 +22,6 @@ kotlin {
         compileSdk = 36
         minSdk = 26
     }
-    iosX64()
     iosArm64()
     iosSimulatorArm64()
 
@@ -27,6 +35,7 @@ kotlin {
             implementation(libs.ktor.serialization.json)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
+            implementation(libs.sqldelight.coroutines)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
@@ -35,12 +44,15 @@ kotlin {
         }
         jvmMain.dependencies {
             implementation(libs.ktor.client.cio)
+            implementation(libs.sqldelight.driver.sqlite)
         }
         androidMain.dependencies {
             implementation(libs.ktor.client.okhttp)
+            implementation(libs.sqldelight.driver.android)
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
+            implementation(libs.sqldelight.driver.native)
         }
     }
 }
