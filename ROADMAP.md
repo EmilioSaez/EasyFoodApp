@@ -21,8 +21,8 @@ Riesgo: calidad de datos de Open Food Facts.
 
 ## Fase 2: Diario (~2 sem)
 
-- [ ] Esquema del diario: entradas por día y por comida (desayuno, comida, cena, snacks)
-- [ ] Registrar cantidad en gramos o porciones
+- [x] Esquema del diario: entradas por día y por comida (desayuno, comida, cena, snacks)
+- [x] Registrar cantidad en gramos o porciones
 - [ ] Pantalla de diario con totales diarios de kcal y macros
 - [ ] Navegación entre pantallas
 - [ ] Editar y borrar entradas

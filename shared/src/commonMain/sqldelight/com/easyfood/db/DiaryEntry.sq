@@ -1,0 +1,47 @@
+-- Diario: una fila por alimento registrado en un día y una comida.
+-- Guarda una copia (snapshot) del nombre y de los valores por 100 g del producto,
+-- para que el diario no cambie si la caché de productos se actualiza o se purga.
+CREATE TABLE DiaryEntryEntity (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    -- Día en formato ISO-8601 (YYYY-MM-DD).
+    date TEXT NOT NULL,
+    -- BREAKFAST, LUNCH, DINNER o SNACK.
+    meal TEXT NOT NULL CHECK (meal IN ('BREAKFAST', 'LUNCH', 'DINNER', 'SNACK')),
+    barcode TEXT,
+    name TEXT NOT NULL,
+    -- Cantidad y su unidad: GRAMS (gramos o ml) o SERVINGS (porciones).
+    quantity REAL NOT NULL CHECK (quantity > 0),
+    unit TEXT NOT NULL CHECK (unit IN ('GRAMS', 'SERVINGS')),
+    -- Tamaño de una porción en g; imprescindible para convertir porciones a gramos.
+    serving_size_g REAL,
+    -- Valores nutricionales por 100 g; NULL = dato no disponible.
+    kcal_100g REAL,
+    protein_100g REAL,
+    carbs_100g REAL,
+    fat_100g REAL,
+    -- Instante de creación, en milisegundos epoch (desempata el orden dentro de una comida).
+    created_at INTEGER NOT NULL
+);
+
+CREATE INDEX diary_entry_date_idx ON DiaryEntryEntity(date, meal);
+
+selectByDate:
+SELECT * FROM DiaryEntryEntity WHERE date = ? ORDER BY meal, created_at, id;
+
+selectById:
+SELECT * FROM DiaryEntryEntity WHERE id = ?;
+
+insert:
+INSERT INTO DiaryEntryEntity(
+    date, meal, barcode, name, quantity, unit, serving_size_g,
+    kcal_100g, protein_100g, carbs_100g, fat_100g, created_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+lastInsertedId:
+SELECT last_insert_rowid();
+
+updateQuantityAndMeal:
+UPDATE DiaryEntryEntity SET meal = ?, quantity = ?, unit = ? WHERE id = ?;
+
+deleteById:
+DELETE FROM DiaryEntryEntity WHERE id = ?;
