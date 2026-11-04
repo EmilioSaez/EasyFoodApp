@@ -199,7 +199,7 @@
 					"-framework",
 					Shared,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.easyfood.iosApp;
+				PRODUCT_BUNDLE_IDENTIFIER = app.luxion.fitarchiveapp.iosApp;
 				PRODUCT_NAME = EasyFood;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -224,7 +224,7 @@
 					"-framework",
 					Shared,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.easyfood.iosApp;
+				PRODUCT_BUNDLE_IDENTIFIER = app.luxion.fitarchiveapp.iosApp;
 				PRODUCT_NAME = EasyFood;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
