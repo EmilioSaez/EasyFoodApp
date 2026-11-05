@@ -44,6 +44,10 @@ class ProductRepository(
         } catch (e: Exception) {
             null // una BD ilegible no debe impedir consultar la red
         }
+        // Los genéricos viven solo en local (se siembran con la app): nunca caducan ni existen en Open Food Facts.
+        if (ean.startsWith(GenericFoodFormat.KEY_PREFIX)) {
+            return cached?.let { ProductResult.Found(it.product, fromCache = true) } ?: ProductResult.NotFound
+        }
         val now = nowMillis()
         // Los genéricos no existen en Open Food Facts ni caducan: solo se actualizan con la app.
         val neverExpires = ean.startsWith(GenericFoodFormat.KEY_PREFIX)

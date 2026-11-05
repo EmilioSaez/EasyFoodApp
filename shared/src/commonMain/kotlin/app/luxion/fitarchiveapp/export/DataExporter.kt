@@ -29,7 +29,9 @@ class DataExporter(
     suspend fun buildFile(): ExportFile = ExportFile(
         schemaVersion = ExportCodec.CURRENT_VERSION,
         exportedAtMillis = nowMillis(),
-        products = source.products(),
+        // La base genérica viaja con la app (se siembra en cada dispositivo): exportarla multiplicaría el tamaño
+        // por ~100 (miles de códigos QR) sin aportar nada. Las entradas del diario la referencian por clave.
+        products = source.products().filter { it.source != GenericFoodImporter.SOURCE },
         diaryEntries = source.diaryEntries().map { it.toExported() },
         customFoods = source.customFoods(),
     )

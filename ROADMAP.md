@@ -70,7 +70,7 @@ Riesgo: no hay Mac local. La ruta es la que sigue FitArchiveApp (sesión hermana
 - [x] Módulo `iosApp` (proyecto Xcode mínimo, `docs/ios.md`)
 - [x] Generar el proyecto Xcode con XcodeGen (`iosApp/project.yml`, `.xcodeproj` fuera del repo, build phase `embedAndSignAppleFrameworkForXcode`)
 - [x] Comprobación local desde Windows: `./gradlew :shared:compileKotlinIosSimulatorArm64` y `compileKotlinIosArm64`
-- [ ] CI en macOS (GitHub Actions `macos-latest`, repo público = minutos gratis): framework, tests iOS y `xcodebuild` al simulador con `CODE_SIGNING_ALLOWED=NO`
+- [x] CI en macOS (GitHub Actions `macos-latest`, repo público = minutos gratis): framework, tests iOS y `xcodebuild` al simulador con `CODE_SIGNING_ALLOWED=NO`
 - [x] Escáner con AVFoundation (se comprueba tipado en Windows y en CI; la cámara solo se prueba en iPhone)
 - [ ] Anotar lo no verificado en `docs/ios-pendiente.md`
 - [ ] Firma y distribución por TestFlight con fastlane y clave API de App Store Connect (requiere cuenta de Apple Developer de pago; decidir si compensa)

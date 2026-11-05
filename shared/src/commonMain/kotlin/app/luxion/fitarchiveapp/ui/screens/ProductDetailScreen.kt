@@ -189,7 +189,7 @@ private suspend fun load(
             nutrients = entry.nutrients,
             servingSizeG = entry.servingSizeG,
             servingLabel = null,
-            source = null,
+            source = entry.dataSource(),
             sourceNote = "Valores guardados al registrar la entrada",
             product = null,
         )

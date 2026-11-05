@@ -9,6 +9,10 @@ import app.luxion.fitarchiveapp.ui.components.formatGrams
 /** Prefijo de la clave de navegación de un alimento propio (el resto es su id). */
 const val CUSTOM_FOOD_KEY_PREFIX = "custom:"
 
+/** Id del alimento propio si [key] es una clave `custom:<id>` válida; `null` en cualquier otro caso. */
+fun customFoodIdOf(key: String): Long? =
+    if (key.startsWith(CUSTOM_FOOD_KEY_PREFIX)) key.removePrefix(CUSTOM_FOOD_KEY_PREFIX).toLongOrNull() else null
+
 /** Fila de resultado de la pantalla Añadir: unifica productos (OFF / genérico) y alimentos propios. */
 data class FoodResult(
     /** Clave que se pasa a la ficha: EAN, `generic:<id>` o `custom:<id>`. */

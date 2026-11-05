@@ -151,7 +151,7 @@ class ProductValidatorTest {
     }
 
     @Test
-    fun `redondeos de etiqueta dentro de 0,5 g no avisan`() {
+    fun `redondeos de etiqueta dentro de medio gramo no avisan`() {
         // USDA: tocino 0.35 g de azúcar con 0 g de hidratos; almíbar 73.2 de azúcar con 73.14 de hidratos.
         assertEquals(emptyList(), full(526.0, 37.0, 0.0, 42.0, sugars = 0.35).dataWarnings())
         assertEquals(emptyList(), full(268.0, 0.0, 73.14, 0.0, sugars = 73.2).dataWarnings())
