@@ -165,6 +165,29 @@ class AppFlowsTest {
     }
 
     @Test
+    fun copyAsCustomFoodPrefillsFormAndSavesCopy() = runApp { db ->
+        waitForText("Nada apuntado hoy")
+        onNodeWithText("+ Añadir alimento").performClick()
+        onNodeWithText("Código EAN").performClick()
+        onNodeWithText("Código EAN").performTextInput(nutella.barcode)
+        onNodeWithText("Buscar producto").performClick()
+        waitForText("Añadir a Snacks")
+
+        onNodeWithContentDescription("Copiar como alimento propio").performClick()
+        waitForText("Valores por 100 g")
+        onNodeWithText("Nutella").assertIsDisplayed()
+        onNodeWithText("539").assertIsDisplayed()
+        onNodeWithText("15 g").assertIsDisplayed()
+
+        onNodeWithText("Guardar").performClick()
+        waitForText("Añadir a Snacks")
+        val saved = db.customFoodQueries.selectAll().executeAsList()
+        kotlin.test.assertEquals(1, saved.size)
+        kotlin.test.assertEquals("Nutella", saved.single().name)
+        kotlin.test.assertEquals("Ferrero", saved.single().brand)
+    }
+
+    @Test
     fun genericFoodDetailShowsGenericSource() = runApp { db ->
         db.productQueries.upsert(
             "generic:1", "Manzana cruda", null, null, 52.0, 0.3, 14.0, 10.0, 0.2, null, 2.4, null, null, null, "GENERIC", 1L,

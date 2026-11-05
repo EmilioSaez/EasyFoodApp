@@ -57,7 +57,7 @@ fun CustomFoodScreen(
 ) {
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
-    var form by remember { mutableStateOf(CustomFoodFormState()) }
+    var form by remember { mutableStateOf(route.prefill ?: CustomFoodFormState()) }
     var existing by remember { mutableStateOf<CustomFood?>(null) }
     var loading by remember { mutableStateOf(foodId != null) }
     var showErrors by remember { mutableStateOf(false) }
@@ -89,7 +89,7 @@ fun CustomFoodScreen(
 
     fun save() {
         showErrors = true
-        val food = form.toNewCustomFood(brand = existing?.brand) ?: return
+        val food = form.toNewCustomFood(brand = existing?.brand ?: route.brand) ?: return
         saving = true
         scope.launch {
             try {

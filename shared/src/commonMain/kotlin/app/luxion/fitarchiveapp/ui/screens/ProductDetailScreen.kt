@@ -140,7 +140,11 @@ fun ProductDetailScreen(
                         ) { Text("✎", style = MaterialTheme.typography.titleLarge) }
                     } else if (barcode != null) {
                         IconButton(
-                            onClick = { navigator.push(Route.CustomFood(barcode, route.meal)) },
+                            onClick = {
+                                val d = ready?.detail ?: return@IconButton
+                                val prefill = customFoodFormStateOf(d.name, d.servingLabel, d.servingSizeG, d.nutrients)
+                                navigator.push(Route.CustomFood(barcode, route.meal, prefill = prefill, brand = d.brand))
+                            },
                             modifier = Modifier.semantics { contentDescription = "Copiar como alimento propio" },
                         ) { Text("✎", style = MaterialTheme.typography.titleLarge) }
                     }
