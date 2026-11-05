@@ -62,6 +62,7 @@ Riesgo: mover datos entre dispositivos sin servidor ni cuentas.
 - [x] Transferencia por QR (lógica en `shared`)
 - [x] Transferencia por red local (protocolo en `shared`)
 - [x] Pantalla «Datos»: exportar e importar JSON con vista previa de duplicados y fusión, QR (emitir con generador propio, recibir con la cámara en Android) y red local (código de emparejamiento, enviar y recibir). Acceso desde el diario y Objetivos. En iOS, guardar/abrir archivos queda como stub y la IP local no se detecta (`docs/ios.md`)
+- [x] Verificación de punta a punta de la transferencia por red local y QR (tests de integración, bug de transferencias grandes corregido); lo no verificado en `docs/transferencia-verificacion.md`
 
 ## Fase 7: iOS sin Mac (~1-2 sem)
 

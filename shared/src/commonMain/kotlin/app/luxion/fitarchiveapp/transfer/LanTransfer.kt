@@ -11,6 +11,7 @@ import io.ktor.network.sockets.aSocket
 import io.ktor.network.sockets.openReadChannel
 import io.ktor.network.sockets.openWriteChannel
 import io.ktor.utils.io.ByteReadChannel
+import io.ktor.utils.io.readAvailable
 import io.ktor.utils.io.readFully
 import io.ktor.utils.io.readLineStrict
 import io.ktor.utils.io.writeFully
@@ -50,6 +51,7 @@ const val PAIRING_CODE_LENGTH = 6
 internal const val PROTOCOL_TAG = "EASYFOOD-LAN/1"
 private const val MAX_REQUEST_LINE = 64
 private const val REQUEST_TIMEOUT_MS = 5_000L
+private const val SEND_TIMEOUT_MS = 30_000L
 
 /** Oferta activa: el cliente necesita la IP del anfitrión, [port] y [code]. */
 data class LanOffer(val port: Int, val code: String, val expiresAtMillis: Long)
@@ -181,6 +183,14 @@ class LanTransferHost(
             output.flush()
             // Cerrar el socket de escucha no corta esta conexión; el scope sí, así que se cierra el socket aquí.
             runCatching { server?.close() }
+            // Cerrar la conexión antes de que el cliente lea todo trunca las respuestas grandes (los bytes aún
+            // están en el búfer del socket): se espera a que el cliente cierre su lado, con tiempo límite.
+            runCatching {
+                withTimeout(SEND_TIMEOUT_MS) {
+                    val sink = ByteArray(64)
+                    while (input.readAvailable(sink) >= 0) { /* solo se espera al fin de la conexión */ }
+                }
+            }
         }
     }
 
