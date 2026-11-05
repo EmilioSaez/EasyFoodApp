@@ -71,5 +71,5 @@ Estado (fase 7): ambos targets compilan. La primera comprobación falló por un 
 ## Pendiente en iOS (pantalla «Datos»)
 
 - Guardar y abrir archivos JSON (`DataFiles.ios.kt`) es un stub: falta `UIDocumentPickerViewController` / `UIActivityViewController`. Por ahora iOS transfiere por QR (emitir) y red local.
-- Recibir por QR necesita el escáner con AVFoundation (el `BarcodeScanner` de iOS aún no existe).
+- Recibir por QR usa el escáner con AVFoundation (`BarcodeScanner.ios.kt`), compilado pero sin probar en iPhone.
 - `localIpAddresses()` devuelve vacío: falta leer las interfaces con `getifaddrs`; la UI avisa de que no hay dirección.

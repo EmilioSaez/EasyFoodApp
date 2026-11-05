@@ -1,10 +1,22 @@
 # iOS: pendiente de verificar
 
-Lo que se escribió sin Mac y solo se puede comprobar en un iPhone (o en CI de macOS). Desde Windows solo se verifica el tipado con `./gradlew :shared:compileKotlinIosSimulatorArm64 :shared:compileKotlinIosArm64`.
+Lo que se escribió sin Mac y todavía no se ha probado en un dispositivo real. Qué cubre cada capa de verificación:
+
+- **Windows:** solo tipado de Kotlin/Native (`./gradlew :shared:compileKotlinIosSimulatorArm64 :shared:compileKotlinIosArm64`).
+- **CI de macOS** (`.github/workflows/ios.yml`, `macos-latest`): compila los klibs, enlaza el framework `Shared` para simulador, ejecuta `:shared:iosSimulatorArm64Test`, genera el proyecto con XcodeGen y hace `xcodebuild` al simulador con `CODE_SIGNING_ALLOWED=NO`. Demuestra que compila y enlaza; **no** ejecuta la app ni usa cámara, red real ni firma.
+- **iPhone real:** nada se ha probado todavía.
+
+Resuelto desde la versión anterior de este documento: `Dispatchers.IO` ya no está en `commonMain` (`transfer/LanTransfer.kt` usa `Dispatchers.Default`), por lo que los targets iOS compilan.
+
+## Limitaciones del CI actual
+
+- No hay carpeta `shared/src/iosTest`: el paso «Tests iOS (simulador)» no ejecuta tests específicos de iOS. Los tests de `commonTest` solo corren si se ejecutan en ese target.
+- El workflow no ejecuta la app en el simulador (no hay UI tests ni arranque).
+- Sin firma, sin `archive` y sin subida a TestFlight.
 
 ## Escáner de códigos de barras (AVFoundation, #28)
 
-Implementación: `shared/src/iosMain/.../scanner/BarcodeScanner.ios.kt` (`AVCaptureSession` + `AVCaptureMetadataOutput`, EAN-8 y EAN-13).
+Implementación: `shared/src/iosMain/.../scanner/BarcodeScanner.ios.kt` (`AVCaptureSession` + `AVCaptureMetadataOutput`, EAN-8 y EAN-13). Compila y enlaza en CI; la cámara solo se puede probar en un iPhone (el simulador no tiene cámara).
 
 - [ ] Primer arranque: aparece el diálogo de permiso con el texto de `NSCameraUsageDescription`.
 - [ ] Conceder el permiso muestra la previsualización sin recargar la pantalla.
@@ -17,7 +29,38 @@ Implementación: `shared/src/iosMain/.../scanner/BarcodeScanner.ios.kt` (`AVCapt
 - [ ] Sin cámara (simulador): muestra «No se pudo abrir la cámara» y la entrada manual sigue funcionando.
 - [ ] Rendimiento: `startRunning`/`stopRunning` van en una cola aparte; comprobar que no hay tirones al abrir la pantalla.
 - [ ] Posible ajuste: `UIKitView` con `UIView` hijo de capa; si hubiera problemas de superposición con Compose, revisar `UIKitInteropProperties`.
+- [ ] Recibir datos por QR en la pantalla «Datos» (depende de este escáner) de extremo a extremo con un emisor real.
 
-## Problemas conocidos del tipado
+## Pantalla «Datos»: funciones no implementadas en iOS
 
-- `Dispatchers.IO` en `commonMain` (`transfer/LanTransfer.kt`, líneas 96, 97 y 199) no compila para iOS con coroutines 1.11.0 (`it is internal`). Es anterior a este cambio; para comprobar el escáner se sustituyó temporalmente por `Dispatchers.Default` sin commitearlo.
+- **Guardar y abrir archivos JSON** (`files/DataFiles.ios.kt`): es un stub (`canSave`/`canOpen` = `false`, devuelve «aún no está disponible en iOS»). Falta `UIActivityViewController`/`UIDocumentPickerViewController`. Mientras tanto iOS transfiere por QR y red local.
+- **Detección de IP local** (`transfer/LocalAddress.ios.kt`): `localIpAddresses()` devuelve una lista vacía. Falta leer las interfaces con `getifaddrs`. La UI avisa de que no hay dirección, así que en iOS no se puede mostrar la IP para recibir por red local.
+
+## Red local (transferencia LAN)
+
+Sin probar en iOS (ni en el simulador ni en iPhone): servidor/cliente Ktor sobre `Dispatchers.Default`, con conexión entre un iPhone y otro dispositivo.
+
+- [ ] Primera conexión: iOS 14+ pide el permiso de **red local**. Comprobar si hace falta `NSLocalNetworkUsageDescription` (no está en `Info.plist`) y, si se usa Bonjour, `NSBonjourServices`.
+- [ ] Enviar y recibir entre iPhone y Android/escritorio en la misma wifi.
+- [ ] Comportamiento al pasar la app a segundo plano durante la transferencia.
+- [ ] Origen del código de emparejamiento aleatorio (`SecureRandom.ios.kt`): comprobar que usa una fuente segura en dispositivo.
+
+## Aplicación y proyecto Xcode
+
+- [ ] La app arranca en el simulador y en un iPhone (nunca se ha ejecutado, solo compilado en CI).
+- [ ] Base de datos SQLDelight con `NativeSqliteDriver`: crea y migra la BD en el dispositivo; `-lsqlite3` enlaza (lo hace el CI) y funciona en ejecución.
+- [ ] Safe areas, teclado y orientación solo vertical (`safeDrawingPadding()` en `MainViewController`).
+- [ ] Botón/gesto de atrás (`PlatformBackHandler.ios.kt`): gesto de borde de iOS frente a la navegación de Compose.
+- [ ] `CADisableMinimumFrameDurationOnPhone` y fluidez en ProMotion.
+- [ ] El nombre del símbolo Swift `MainViewControllerKt.MainViewController()` se resolvió en CI; revisar solo si cambia el módulo.
+- [ ] `PrivacyInfo.xcprivacy`: validar en la subida a App Store Connect que las APIs de motivo requerido declaradas (C617.1 y 35F9.1) son las que se usan y que no falta ninguna.
+
+## Firma, distribución y publicación (sin hacer)
+
+- [ ] **Icono de la app:** `AppIcon.appiconset` no tiene imagen; hace falta un PNG de 1024×1024 sin canal alfa antes de subir a App Store Connect.
+- [ ] **Firma:** no hay equipo ni perfiles en `project.yml` (`CODE_SIGN_STYLE: Automatic`, sin `DEVELOPMENT_TEAM`). Probada solo la compilación sin firma.
+- [ ] **Bundle id:** `app.luxion.fitarchiveapp` (heredado de FitArchiveApp). Confirmar que es el definitivo y que no choca con la otra app.
+- [ ] **Cuenta de Apple Developer de pago:** decidir si compensa (ver ROADMAP, fase 7).
+- [ ] **TestFlight con fastlane:** clave API de App Store Connect, `archive`/export del `.ipa`, subida y número de build incremental. Ni fastlane ni secretos en CI están configurados.
+- [ ] **Prueba en iPhone real** vía TestFlight, o en un Mac prestado (Xcode con Apple ID gratuito, ver `docs/ios.md`).
+- [ ] Cumplimiento de App Store: `ITSAppUsesNonExemptEncryption=NO` declarado; revisar descripción de privacidad y capturas.
