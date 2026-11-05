@@ -126,8 +126,22 @@ class DataImporterTest {
 
     @Test
     fun productsKeepTheirSource() = runTest {
-        importer.import(file(products = listOf(exportedNutella().copy(source = "GENERIC"))))
-        assertEquals("GENERIC", db.productQueries.selectAll().executeAsList().single().source)
+        importer.import(file(products = listOf(exportedNutella().copy(source = "CUSTOM"))))
+        assertEquals("CUSTOM", exporter.buildFile().products.single().source)
+    }
+
+    @Test
+    fun genericFoodsAreNeitherExportedNorImported() = runTest {
+        // La base genérica viaja con la app: ni se exporta ni cuenta como duplicado/nuevo al importar.
+        val generic = exportedNutella().copy(barcode = "generic:1", source = "GENERIC")
+        val plan = importer.preview(file(products = listOf(generic, exportedNutella().copy(barcode = "8412345678905"))))
+        assertEquals(ImportCounts(added = 1), plan.report.products)
+        assertEquals(listOf("8412345678905"), plan.changes.products.map { it.barcode })
+
+        db.productQueries.upsert(
+            "generic:2", "Manzana", null, null, 52.0, 0.3, 14.0, null, 0.2, null, null, null, null, null, "GENERIC", 1L,
+        )
+        assertEquals(emptyList(), exporter.buildFile().products)
     }
 
     @Test

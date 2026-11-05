@@ -16,8 +16,15 @@ sealed interface Route {
     /** Escáner de cámara + entrada manual de EAN. */
     data class Scanner(val meal: MealType = MealType.SNACK) : Route
 
-    /** Crear alimento propio; [barcode] viene prerrelleno si se abre desde un EAN no encontrado. */
-    data class CustomFood(val barcode: String? = null, val meal: MealType = MealType.SNACK) : Route
+    /**
+     * Crear alimento propio; [barcode] viene prerrelleno si se abre desde un EAN no encontrado.
+     * Con [foodId] informado se edita (y se puede borrar) ese alimento.
+     */
+    data class CustomFood(
+        val barcode: String? = null,
+        val meal: MealType = MealType.SNACK,
+        val foodId: Long? = null,
+    ) : Route
 
     /**
      * Ficha de producto. Alta: [barcode] del producto y [meal] destino. Edición de una entrada

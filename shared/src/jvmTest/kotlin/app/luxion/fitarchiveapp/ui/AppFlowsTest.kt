@@ -1,0 +1,184 @@
+package app.luxion.fitarchiveapp.ui
+
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.ComposeUiTest
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.runComposeUiTest
+import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import app.luxion.fitarchiveapp.data.ProductLookup
+import app.luxion.fitarchiveapp.data.ProductRemoteSource
+import app.luxion.fitarchiveapp.data.ProductRepository
+import app.luxion.fitarchiveapp.data.SqlDelightCustomFoodStore
+import app.luxion.fitarchiveapp.data.SqlDelightDiaryStore
+import app.luxion.fitarchiveapp.data.SqlDelightGoalStore
+import app.luxion.fitarchiveapp.data.SqlDelightProductSearchStore
+import app.luxion.fitarchiveapp.data.SqlDelightProductStore
+import app.luxion.fitarchiveapp.db.EasyFoodDatabase
+import app.luxion.fitarchiveapp.export.SqlDelightImportTarget
+import app.luxion.fitarchiveapp.model.Nutrients
+import app.luxion.fitarchiveapp.model.Product
+import kotlin.test.Test
+
+/** La [App] completa sobre una base SQLite en memoria y un Open Food Facts simulado. */
+@OptIn(ExperimentalTestApi::class)
+class AppFlowsTest {
+    private val nutella = Product(
+        barcode = "3017620422003", name = "Nutella", brand = "Ferrero", imageUrl = null,
+        nutrients = Nutrients(539.0, 6.3, 57.5, 30.9, 10.6, 56.3, null, 0.107),
+        servingSizeG = 15.0, servingLabel = "15 g",
+    )
+
+    private val remote = object : ProductRemoteSource {
+        override suspend fun findByBarcode(barcode: String) =
+            if (barcode == nutella.barcode) ProductLookup.Found(nutella) else ProductLookup.NotFound
+    }
+
+    private fun runApp(block: ComposeUiTest.(EasyFoodDatabase) -> Unit) = runComposeUiTest {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        EasyFoodDatabase.Schema.create(driver)
+        val db = EasyFoodDatabase(driver)
+        setContent {
+            App(
+                repository = ProductRepository(remote, SqlDelightProductStore(db.productQueries), nowMillis = System::currentTimeMillis),
+                diaryStore = SqlDelightDiaryStore(db.diaryEntryQueries),
+                goalStore = SqlDelightGoalStore(db.dailyGoalQueries),
+                searchStore = SqlDelightProductSearchStore(db.productSearchQueries),
+                customFoodStore = SqlDelightCustomFoodStore(db.customFoodQueries),
+                importTarget = SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries),
+                today = { "2026-11-04" },
+            )
+        }
+        try { block(db) } finally { driver.close() }
+    }
+
+    private fun ComposeUiTest.waitForText(text: String) =
+        waitUntil(timeoutMillis = 20_000) { onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty() }
+
+    private fun ComposeUiTest.waitGone(text: String) =
+        waitUntil(timeoutMillis = 20_000) { onAllNodes(hasText(text)).fetchSemanticsNodes().isEmpty() }
+
+    private fun ComposeUiTest.addNutellaByManualEan() {
+        onNodeWithText("+ Añadir alimento").performClick()
+        onNodeWithText("Código EAN").performClick()
+        onNodeWithText("Código EAN").performTextInput(nutella.barcode)
+        onNodeWithText("Buscar producto").performClick()
+        waitForText("Añadir a Snacks")
+        onNodeWithText("Añadir a Snacks").performClick()
+        waitGone("Añadir a Snacks")
+    }
+
+    @Test
+    fun manualEanAddsEntryToDiary() = runApp { _ ->
+        waitForText("Nada apuntado hoy")
+        addNutellaByManualEan()
+        waitForText("Nutella")
+        waitGone("Nada apuntado hoy")
+        onNodeWithText("Nutella").assertIsDisplayed()
+    }
+
+    @Test
+    fun entryCanBeEditedAndDeleted() = runApp { _ ->
+        waitForText("Nada apuntado hoy")
+        addNutellaByManualEan()
+        waitForText("Nutella")
+
+        onNodeWithText("Nutella").performClick()
+        waitForText("Guardar cambios")
+        onNodeWithText("Guardar cambios").performClick()
+        waitGone("Guardar cambios")
+        waitForText("Nutella")
+
+        onNodeWithText("Nutella").performClick()
+        waitForText("Borrar")
+        onNodeWithText("Borrar").performClick()
+        waitForText("Nada apuntado hoy")
+    }
+
+    @Test
+    fun tdeeGoalsAreCalculatedAndSaved() = runApp { db ->
+        waitForText("Nada apuntado hoy")
+        onNodeWithText("Objetivos").performClick()
+        waitForText("Tus datos")
+        onNodeWithText("Edad").performTextInput("30")
+        onNodeWithText("Peso").performTextInput("80")
+        onNodeWithText("Altura").performTextInput("180")
+        onNodeWithText("Guardar objetivos").performClick()
+        waitUntil(timeoutMillis = 20_000) { SqlDelightGoalStore(db.dailyGoalQueries).let { kotlinx.coroutines.runBlocking { it.get().kcal } } != null }
+        val goals = kotlinx.coroutines.runBlocking { SqlDelightGoalStore(db.dailyGoalQueries).get() }
+        // Mifflin-St Jeor, hombre 30 a / 80 kg / 180 cm: BMR 1780 × 1,55 (actividad moderada).
+        kotlin.test.assertEquals(2759, goals.kcal!!)
+    }
+
+    private fun ComposeUiTest.createPanCasero() {
+        onNodeWithText("+ Añadir alimento").performClick()
+        onNodeWithText("Alimento propio").performClick()
+        waitForText("Valores por 100 g")
+        onNodeWithText("Nombre").performTextInput("Pan casero")
+        onNodeWithText("Energía").performTextInput("250")
+        onNodeWithText("Proteína").performTextInput("8")
+        onNodeWithText("Hidratos").performTextInput("50")
+        onNodeWithText("Grasas").performTextInput("2")
+        onNodeWithText("Guardar").performClick()
+        waitForText("Buscar alimento")
+        onNodeWithText("Buscar alimento").performTextInput("pan")
+        waitForText("Pan casero")
+    }
+
+    @Test
+    fun customFoodCanBeFoundAndAddedToDiary() = runApp { _ ->
+        waitForText("Nada apuntado hoy")
+        createPanCasero()
+        onNodeWithText("Pan casero").performClick()
+        waitForText("Añadir a Snacks")
+        onNodeWithText("Añadir a Snacks").performClick()
+        waitGone("Añadir a Snacks")
+        waitForText("Pan casero")
+        waitGone("Nada apuntado hoy")
+    }
+
+    @Test
+    fun customFoodCanBeEditedAndDeleted() = runApp { db ->
+        waitForText("Nada apuntado hoy")
+        createPanCasero()
+        onNodeWithText("Pan casero").performClick()
+        waitForText("Añadir a Snacks")
+
+        onNodeWithContentDescription("Editar alimento propio").performClick()
+        waitForText("Editar alimento")
+        onNodeWithText("Pan casero").performTextReplacement("Pan casero integral")
+        onNodeWithText("Guardar").performClick()
+        waitForText("Pan casero integral")
+
+        onNodeWithContentDescription("Editar alimento propio").performClick()
+        waitForText("Borrar alimento")
+        onNodeWithText("Borrar alimento").performClick()
+        onNodeWithText("Borrar").performClick()
+        waitForText("Buscar alimento")
+        kotlin.test.assertEquals(0, db.customFoodQueries.selectAll().executeAsList().size)
+    }
+
+    @Test
+    fun genericFoodDetailShowsGenericSource() = runApp { db ->
+        db.productQueries.upsert(
+            "generic:1", "Manzana cruda", null, null, 52.0, 0.3, 14.0, 10.0, 0.2, null, 2.4, null, null, null, "GENERIC", 1L,
+        )
+        waitForText("Nada apuntado hoy")
+        onNodeWithText("Alimentos").performClick()
+        waitForText("Buscar alimento")
+        onNodeWithText("Buscar alimento").performTextInput("manzana")
+        waitForText("Manzana cruda")
+        onNodeWithText("Manzana cruda").performClick()
+        waitForText("Añadir a Snacks")
+        waitForText("Genérico")
+        // La clave interna no se enseña como si fuera un código de barras.
+        kotlin.test.assertTrue(onAllNodes(hasText("generic:1")).fetchSemanticsNodes().isEmpty())
+        kotlin.test.assertTrue(onAllNodes(hasContentDescription("Copiar como alimento propio")).fetchSemanticsNodes().isEmpty())
+    }
+}

@@ -20,13 +20,9 @@ App multiplataforma (Kotlin Multiplatform + Compose Multiplatform) para **contar
 | Escritorio (JVM) | Funciona. Sin escáner: se introduce el EAN a mano. |
 | iOS | El proyecto Xcode existe pero **no se ha compilado nunca**: falta un Mac o CI con macOS. Sin escáner todavía. Ver [docs/ios.md](docs/ios.md). |
 
-## Estado de las funciones de datos
+## Datos: exportar e importar
 
-Existen en `shared` y tienen tests, pero **aún no están conectadas a la interfaz**:
-
-- Exportar/importar el perfil en JSON versionado, con fusión y detección de duplicados (`export/`).
-- Transferencia por QR (`export/qr`) y por red local con código de emparejamiento de un solo uso (`transfer/`).
-- Importación de la base genérica de alimentos al primer arranque (`GenericFoodImporter`).
+La pantalla **Datos** (icono ⇅ del Diario y de Objetivos) exporta el perfil a un JSON versionado (alimentos propios, diario y productos consultados; la base genérica no se exporta porque ya viene con la app) e importa fusionando, con vista previa y detección de duplicados. También transfiere por QR y por red local con código de emparejamiento de un solo uso.
 
 El seguimiento de lo que falta está en [ROADMAP.md](ROADMAP.md).
 
