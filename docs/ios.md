@@ -33,7 +33,7 @@ Desde terminal, equivalente (sin firma):
 
 ```
 cd iosApp && xcodegen generate
-xcodebuild -project iosApp.xcodeproj -scheme iosApp   -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project iosApp.xcodeproj -scheme iosApp -destination 'generic/platform=iOS Simulator' ARCHS=arm64 CODE_SIGNING_ALLOWED=NO build
 ```
 
 ### En un iPhone físico

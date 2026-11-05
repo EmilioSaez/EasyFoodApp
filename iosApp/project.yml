@@ -38,6 +38,7 @@ targets:
           - "$(inherited)"
           - "-framework"
           - "Shared"
+          - "-lsqlite3"
         CODE_SIGN_STYLE: Automatic
     preBuildScripts:
       - name: Compilar framework Shared (Gradle)
