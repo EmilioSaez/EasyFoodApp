@@ -14,6 +14,7 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 }
 
@@ -24,4 +25,8 @@ dependencies {
     implementation(compose.material3)
     implementation(libs.androidx.activity.compose)
     implementation(libs.sqldelight.driver.android)
+    implementation(libs.requery.sqlite.android)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.kotlinx.coroutines.core)
 }

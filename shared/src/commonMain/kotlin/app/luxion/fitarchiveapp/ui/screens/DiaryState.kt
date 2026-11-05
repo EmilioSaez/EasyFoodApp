@@ -60,9 +60,12 @@ data class DiaryUiState(
 }
 
 /** Origen del dato deducido de la clave del producto: sin código = propio, `generic:` = genérico. */
-fun DiaryEntry.dataSource(): DataSource = when {
-    barcode == null -> DataSource.Custom
-    barcode.startsWith(GenericFoodFormat.KEY_PREFIX) -> DataSource.Generic
+fun DiaryEntry.dataSource(): DataSource = dataSourceOf(barcode)
+
+/** Origen del dato según la clave: `null` o `custom:` = propio, `generic:` = genérico, otra = Open Food Facts. */
+fun dataSourceOf(key: String?): DataSource = when {
+    key == null || key.startsWith(CUSTOM_FOOD_KEY_PREFIX) -> DataSource.Custom
+    key.startsWith(GenericFoodFormat.KEY_PREFIX) -> DataSource.Generic
     else -> DataSource.OpenFoodFacts
 }
 

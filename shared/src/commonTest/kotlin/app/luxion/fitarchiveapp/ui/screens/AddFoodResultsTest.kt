@@ -43,4 +43,21 @@ class AddFoodResultsTest {
         assertEquals(listOf("custom:1"), all.filteredBy(SourceFilter.Custom).map { it.key })
         assertEquals(listOf("841"), all.filteredBy(SourceFilter.OpenFoodFacts).map { it.key })
     }
+
+    @Test
+    fun customFoodIdParsesOnlyCustomKeys() {
+        assertEquals(7L, customFoodIdOf("custom:7"))
+        assertEquals(null, customFoodIdOf("custom:"))
+        assertEquals(null, customFoodIdOf("custom:abc"))
+        assertEquals(null, customFoodIdOf("generic:7"))
+        assertEquals(null, customFoodIdOf("3017620422003"))
+    }
+
+    @Test
+    fun dataSourceOfKeyDistinguishesOrigins() {
+        assertEquals(DataSource.Generic, dataSourceOf("generic:174988"))
+        assertEquals(DataSource.OpenFoodFacts, dataSourceOf("3017620422003"))
+        assertEquals(DataSource.Custom, dataSourceOf("custom:3"))
+        assertEquals(DataSource.Custom, dataSourceOf(null))
+    }
 }

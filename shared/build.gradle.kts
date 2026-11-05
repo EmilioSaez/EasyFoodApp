@@ -22,6 +22,8 @@ kotlin {
         namespace = "app.luxion.fitarchiveapp.shared"
         compileSdk = 36
         minSdk = 26
+        // Sin esto, los recursos de Compose (base genérica .tsv) no entran en el APK.
+        androidResources { enable = true }
     }
     listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
         target.binaries.framework {

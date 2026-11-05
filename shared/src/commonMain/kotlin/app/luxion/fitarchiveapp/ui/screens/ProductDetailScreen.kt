@@ -35,6 +35,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.data.DiaryStore
+import app.luxion.fitarchiveapp.data.CustomFoodStore
 import app.luxion.fitarchiveapp.data.ProductRepository
 import app.luxion.fitarchiveapp.data.ProductResult
 import app.luxion.fitarchiveapp.model.MealType
@@ -96,6 +97,7 @@ fun ProductDetailScreen(
     route: Route.ProductDetail,
     repository: ProductRepository,
     diaryStore: DiaryStore,
+    customFoods: CustomFoodStore,
     today: () -> String,
 ) {
     var state by remember(route) { mutableStateOf<LoadState>(LoadState.Loading) }
@@ -104,7 +106,7 @@ fun ProductDetailScreen(
     LaunchedEffect(route, reloadKey) {
         state = LoadState.Loading
         state = try {
-            load(route, repository, diaryStore)
+            load(route, repository, diaryStore, customFoods)
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             LoadState.Failed("No se pudo cargar el producto.")
@@ -160,7 +162,12 @@ fun ProductDetailScreen(
     }
 }
 
-private suspend fun load(route: Route.ProductDetail, repository: ProductRepository, diaryStore: DiaryStore): LoadState {
+private suspend fun load(
+    route: Route.ProductDetail,
+    repository: ProductRepository,
+    diaryStore: DiaryStore,
+    customFoods: CustomFoodStore,
+): LoadState {
     if (route.entryId != null) {
         val entry = diaryStore.find(route.entryId) ?: return LoadState.NotFound
         val detail = FoodDetail(
@@ -170,13 +177,28 @@ private suspend fun load(route: Route.ProductDetail, repository: ProductReposito
             nutrients = entry.nutrients,
             servingSizeG = entry.servingSizeG,
             servingLabel = null,
-            source = null,
+            source = entry.dataSource(),
             sourceNote = "Valores guardados al registrar la entrada",
             product = null,
         )
         return LoadState.Ready(detail, entry.meal, entry.quantity.unit, entry.quantity.amount)
     }
     val barcode = route.barcode ?: return LoadState.NotFound
+    customFoodIdOf(barcode)?.let { id ->
+        // Alimento propio: vive en su propia tabla, no en la caché de productos ni en Open Food Facts.
+        val food = customFoods.find(id) ?: return LoadState.NotFound
+        val detail = FoodDetail(
+            barcode = null, name = food.name, brand = food.brand, nutrients = food.nutrients,
+            servingSizeG = food.servingSizeG, servingLabel = food.servingLabel,
+            source = DataSource.Custom, sourceNote = null, product = null,
+        )
+        val servings = food.servingSizeG != null
+        return LoadState.Ready(
+            detail, route.meal,
+            if (servings) QuantityUnit.SERVINGS else QuantityUnit.GRAMS,
+            if (servings) 1.0 else 100.0,
+        )
+    }
     return when (val result = repository.getByBarcode(barcode)) {
         ProductResult.NotFound -> LoadState.NotFound
         is ProductResult.Failure -> LoadState.Failed("Open Food Facts no responde y no hay una copia guardada. Comprueba la conexión.")
@@ -190,7 +212,7 @@ private suspend fun load(route: Route.ProductDetail, repository: ProductReposito
             val detail = FoodDetail(
                 barcode = p.barcode, name = p.name, brand = p.brand, nutrients = p.nutrients,
                 servingSizeG = p.servingSizeG, servingLabel = p.servingLabel,
-                source = DataSource.OpenFoodFacts, sourceNote = note, product = p,
+                source = dataSourceOf(p.barcode), sourceNote = note, product = p,
             )
             val servings = p.servingSizeG != null
             LoadState.Ready(
