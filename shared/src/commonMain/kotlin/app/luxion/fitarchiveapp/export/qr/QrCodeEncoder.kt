@@ -20,14 +20,16 @@ object QrCodeEncoder : QrEncoder {
         18, 19, 19, 20, 21, 22, 24, 25,
     )
 
-    override fun encode(text: String): QrMatrix {
+    override fun encode(text: String): QrMatrix = encode(text, null)
+
+    internal fun encode(text: String, forcedMask: Int?): QrMatrix {
         val bytes = text.encodeToByteArray()
         val version = (MIN_VERSION..MAX_VERSION).firstOrNull { v ->
             4 + countBits(v) + 8 * bytes.size <= dataCodewords(v) * 8
         } ?: throw IllegalArgumentException("El texto es demasiado largo para un código QR")
         val data = encodeData(bytes, version)
         val all = addEccAndInterleave(data, version)
-        return build(all, version)
+        return build(all, version, forcedMask)
     }
 
     private fun countBits(version: Int) = if (version < 10) 8 else 16
@@ -144,11 +146,11 @@ object QrCodeEncoder : QrEncoder {
         }
     }
 
-    private fun build(codewords: ByteArray, version: Int): QrMatrix {
+    private fun build(codewords: ByteArray, version: Int, forcedMask: Int?): QrMatrix {
         val size = version * 4 + 17
         var best: Grid? = null
         var bestPenalty = Int.MAX_VALUE
-        for (mask in 0..7) {
+        for (mask in (forcedMask?.let { listOf(it) } ?: (0..7))) {
             val g = Grid(size)
             drawFunctionPatterns(g, version)
             drawCodewords(g, codewords)

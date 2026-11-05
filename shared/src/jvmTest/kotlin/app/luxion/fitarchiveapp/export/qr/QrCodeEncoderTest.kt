@@ -1,9 +1,5 @@
 package app.luxion.fitarchiveapp.export.qr
 
-import com.google.zxing.BinaryBitmap
-import com.google.zxing.LuminanceSource
-import com.google.zxing.common.HybridBinarizer
-import com.google.zxing.qrcode.QRCodeReader
 import kotlinx.serialization.json.Json
 import kotlin.random.Random
 import kotlin.test.Test
@@ -11,31 +7,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
-/** Decodifica la matriz con ZXing (independiente de nuestro codificador), con zona de silencio y 4 px por módulo. */
 class QrCodeEncoderTest {
-    private fun decode(matrix: QrMatrix): String {
-        val quiet = 4
-        val scale = 4
-        val side = (matrix.size + quiet * 2) * scale
-        val pixels = ByteArray(side * side) { 0xFF.toByte() }
-        for (y in 0 until matrix.size) for (x in 0 until matrix.size) {
-            if (!matrix[x, y]) continue
-            for (dy in 0 until scale) for (dx in 0 until scale) {
-                pixels[((y + quiet) * scale + dy) * side + (x + quiet) * scale + dx] = 0
-            }
-        }
-        val source = object : LuminanceSource(side, side) {
-            override fun getRow(y: Int, row: ByteArray?): ByteArray {
-                val out = row ?: ByteArray(side)
-                pixels.copyInto(out, 0, y * side, (y + 1) * side)
-                return out
-            }
-
-            override fun getMatrix(): ByteArray = pixels
-            override fun isCropSupported() = false
-        }
-        return QRCodeReader().decode(BinaryBitmap(HybridBinarizer(source))).text
-    }
+    private fun decode(matrix: QrMatrix) = decodeQr(matrix)
 
     @Test
     fun sizeFollowsVersion() {
@@ -74,6 +47,23 @@ class QrCodeEncoderTest {
         assertTrue(receiver.isComplete)
         assertEquals(json.length - json.count { it == ' ' || it == '\n' }.coerceAtLeast(0) >= 0, true)
         receiver.assemble()
+    }
+
+    @Test
+    fun roundTripsEveryLengthUpToTheTransferChunkSize() {
+        // Cubre todas las versiones y diseños de bloques que usan los fragmentos reales (datos + cabecera).
+        val random = Random(5)
+        val alphabet = "abcdefghijklmnopqrstuvwxyz0123456789:{}\",ñé"
+        for (length in 1..900) {
+            val text = buildString { repeat(length) { append(alphabet.random(random)) } }
+            assertEquals(text, decode(QrCodeEncoder.encode(text)), "longitud $length")
+        }
+    }
+
+    @Test
+    fun everyMaskProducesAReadableCode() {
+        val text = "EFQ1:cbf43926:1:3:deadbeef:" + "x".repeat(150)
+        for (mask in 0..7) assertEquals(text, decode(QrCodeEncoder.encode(text, mask)), "máscara $mask")
     }
 
     @Test
