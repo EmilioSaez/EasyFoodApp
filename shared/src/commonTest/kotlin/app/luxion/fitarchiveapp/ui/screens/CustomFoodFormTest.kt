@@ -8,6 +8,22 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class CustomFoodFormTest {
+    @Test
+    fun formStateOfFillsAllFieldsFromNutrients() {
+        val form = customFoodFormStateOf(
+            "Nutella", "15 g", 15.0,
+            app.luxion.fitarchiveapp.model.Nutrients(539.0, 6.3, 57.5, 30.9, 10.6, 56.3, null, 0.107),
+        )
+        assertEquals(
+            CustomFoodFormState(
+                name = "Nutella", servingLabel = "15 g", servingSize = "15", kcal = "539", protein = "6,3",
+                carbs = "57,5", fat = "30,9", saturated = "10,6", sugars = "56,3", fiber = "", salt = "0,107",
+            ),
+            form,
+        )
+        assertNotNull(form.toNewCustomFood())
+    }
+
     private val valid = CustomFoodFormState(
         name = " Pan casero ", kcal = "250", protein = "8,5", carbs = "50", fat = "2",
         servingLabel = "1 rebanada", servingSize = "30",

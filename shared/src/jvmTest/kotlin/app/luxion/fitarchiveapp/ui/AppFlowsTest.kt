@@ -155,13 +155,43 @@ class AppFlowsTest {
         onNodeWithText("Pan casero").performTextReplacement("Pan casero integral")
         onNodeWithText("Guardar").performClick()
         waitForText("Pan casero integral")
+        kotlin.test.assertEquals(listOf("Pan casero integral"), db.customFoodQueries.selectAll().executeAsList().map { it.name })
 
         onNodeWithContentDescription("Editar alimento propio").performClick()
         waitForText("Borrar alimento")
         onNodeWithText("Borrar alimento").performClick()
+        // Cancelar no borra nada.
+        waitForText("¿Borrar este alimento?")
+        onNodeWithText("Cancelar").performClick()
+        waitGone("¿Borrar este alimento?")
+        kotlin.test.assertEquals(1, db.customFoodQueries.selectAll().executeAsList().size)
+        onNodeWithText("Borrar alimento").performClick()
         onNodeWithText("Borrar").performClick()
         waitForText("Buscar alimento")
         kotlin.test.assertEquals(0, db.customFoodQueries.selectAll().executeAsList().size)
+    }
+
+    @Test
+    fun copyAsCustomFoodPrefillsFormAndSavesCopy() = runApp { db ->
+        waitForText("Nada apuntado hoy")
+        onNodeWithText("+ Añadir alimento").performClick()
+        onNodeWithText("Código EAN").performClick()
+        onNodeWithText("Código EAN").performTextInput(nutella.barcode)
+        onNodeWithText("Buscar producto").performClick()
+        waitForText("Añadir a Snacks")
+
+        onNodeWithContentDescription("Copiar como alimento propio").performClick()
+        waitForText("Valores por 100 g")
+        onNodeWithText("Nutella").assertIsDisplayed()
+        onNodeWithText("539").assertIsDisplayed()
+        onNodeWithText("15 g").assertIsDisplayed()
+
+        onNodeWithText("Guardar").performClick()
+        waitForText("Añadir a Snacks")
+        val saved = db.customFoodQueries.selectAll().executeAsList()
+        kotlin.test.assertEquals(1, saved.size)
+        kotlin.test.assertEquals("Nutella", saved.single().name)
+        kotlin.test.assertEquals("Ferrero", saved.single().brand)
     }
 
     @Test

@@ -103,21 +103,29 @@ fun CustomFoodFormState.toNewCustomFood(brand: String? = null): NewCustomFood? {
     )
 }
 
+/** Número sin pérdida de precisión (formatGrams redondea a 1 decimal) y con «,» como separador. */
+private fun formatField(v: Double?): String =
+    v?.let { if (it % 1.0 == 0.0) it.toLong().toString() else it.toString().replace('.', ',') } ?: ""
+
+/** Formulario relleno con los datos de un alimento o producto («Copiar como alimento propio»). */
+fun customFoodFormStateOf(
+    name: String,
+    servingLabel: String?,
+    servingSizeG: Double?,
+    nutrients: Nutrients,
+) = CustomFoodFormState(
+    name = name,
+    servingLabel = servingLabel.orEmpty(),
+    servingSize = formatField(servingSizeG),
+    kcal = formatField(nutrients.kcal),
+    protein = formatField(nutrients.proteinG),
+    carbs = formatField(nutrients.carbsG),
+    fat = formatField(nutrients.fatG),
+    saturated = formatField(nutrients.saturatedFatG),
+    sugars = formatField(nutrients.sugarsG),
+    fiber = formatField(nutrients.fiberG),
+    salt = formatField(nutrients.saltG),
+)
+
 /** Rellena el formulario con un alimento existente (modo edición). */
-fun CustomFood.toFormState(): CustomFoodFormState {
-    // Sin pérdida de precisión (formatGrams redondea a 1 decimal) y con «,» como separador.
-    fun fmt(v: Double?) = v?.let { if (it % 1.0 == 0.0) it.toLong().toString() else it.toString().replace('.', ',') } ?: ""
-    return CustomFoodFormState(
-        name = name,
-        servingLabel = servingLabel.orEmpty(),
-        servingSize = fmt(servingSizeG),
-        kcal = fmt(nutrients.kcal),
-        protein = fmt(nutrients.proteinG),
-        carbs = fmt(nutrients.carbsG),
-        fat = fmt(nutrients.fatG),
-        saturated = fmt(nutrients.saturatedFatG),
-        sugars = fmt(nutrients.sugarsG),
-        fiber = fmt(nutrients.fiberG),
-        salt = fmt(nutrients.saltG),
-    )
-}
+fun CustomFood.toFormState(): CustomFoodFormState = customFoodFormStateOf(name, servingLabel, servingSizeG, nutrients)

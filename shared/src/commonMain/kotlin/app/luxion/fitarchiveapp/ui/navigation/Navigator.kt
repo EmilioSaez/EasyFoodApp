@@ -4,6 +4,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import app.luxion.fitarchiveapp.model.MealType
+import app.luxion.fitarchiveapp.ui.screens.CustomFoodFormState
 
 /** Destinos de la app (docs/design.md §4). Los argumentos viajan en la propia ruta. */
 sealed interface Route {
@@ -18,12 +19,15 @@ sealed interface Route {
 
     /**
      * Crear alimento propio; [barcode] viene prerrelleno si se abre desde un EAN no encontrado.
-     * Con [foodId] informado se edita (y se puede borrar) ese alimento.
+     * Con [foodId] informado se edita (y se puede borrar) ese alimento. Con [prefill] el formulario
+     * arranca relleno (copia de un producto) y [brand] se conserva al guardar.
      */
     data class CustomFood(
         val barcode: String? = null,
         val meal: MealType = MealType.SNACK,
         val foodId: Long? = null,
+        val prefill: CustomFoodFormState? = null,
+        val brand: String? = null,
     ) : Route
 
     /**
