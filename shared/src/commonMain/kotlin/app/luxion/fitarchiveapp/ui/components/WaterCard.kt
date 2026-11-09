@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
@@ -22,12 +23,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.data.WaterStore
 import app.luxion.fitarchiveapp.model.WaterRules
 import app.luxion.fitarchiveapp.ui.theme.Spacing
+import app.luxion.fitarchiveapp.ui.theme.easyFoodColors
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -92,7 +95,12 @@ fun WaterCard(store: WaterStore, date: String, modifier: Modifier = Modifier) {
             }
             LinearProgressIndicator(
                 progress = { WaterRules.progress(totalMl, goalMl).coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth().heightIn(min = 8.dp),
+                modifier = Modifier.fillMaxWidth().height(8.dp),
+                color = MaterialTheme.easyFoodColors.macroCarbs,
+                trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                strokeCap = StrokeCap.Butt,
+                gapSize = 0.dp,
+                drawStopIndicator = {},
             )
             if (failed) {
                 Text(
