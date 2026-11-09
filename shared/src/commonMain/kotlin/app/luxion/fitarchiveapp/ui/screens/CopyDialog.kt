@@ -25,7 +25,7 @@ import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.ui.components.label
 import app.luxion.fitarchiveapp.ui.theme.Spacing
 
-/** Qué se copia: una comida del día mostrado o el día entero (docs/design.md §2.13). */
+/** Qué se copia: una comida del día mostrado o el día entero (docs/design.md §2.15). */
 data class CopyRequest(val meal: MealType?)
 
 /**
