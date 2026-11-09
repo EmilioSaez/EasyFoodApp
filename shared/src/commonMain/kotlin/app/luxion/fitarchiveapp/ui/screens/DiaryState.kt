@@ -81,6 +81,13 @@ data class DiaryUiState(
     val isEmpty: Boolean get() = meals.all { it.entries.isEmpty() }
 }
 
+/**
+ * Error de destino al copiar (o `null` si es válido): copiar una comida sobre sí misma, o el día sobre sí mismo, duplicaría las entradas.
+ * [meal] es `null` al copiar el día; [targetMeal] `null` = la equivalente. Lo usa el diálogo para avisar sin cerrarse.
+ */
+fun copyTargetError(meal: MealType?, sourceDate: String, targetDate: String, targetMeal: MealType?): String? =
+    if (targetDate == sourceDate && (meal == null || (targetMeal ?: meal) == meal)) DiaryPresenter.COPY_SAME_ERROR else null
+
 /** Origen del dato deducido de la clave del producto: sin código = propio, `generic:` = genérico. */
 fun DiaryEntry.dataSource(): DataSource = dataSourceOf(barcode)
 

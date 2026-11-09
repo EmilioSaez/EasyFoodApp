@@ -1,6 +1,8 @@
 package app.luxion.fitarchiveapp.ui.screens
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.domain.MealPlan
 import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.ui.components.label
@@ -40,22 +43,26 @@ fun CopyDialog(
     var date by remember { mutableStateOf(IsoDate.plusDays(sourceDate, -1)) }
     var meal by remember { mutableStateOf<MealType?>(null) } // null = la equivalente
     var pickingDate by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (request.meal == null) "Copiar día" else "Copiar ${request.meal.label}") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
                 Text("Copiar a", style = MaterialTheme.typography.labelLarge)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { date = IsoDate.plusDays(date, -1) }) { Text("‹") }
-                    TextButton(onClick = { pickingDate = true }) { Text(IsoDate.long(date)) }
-                    TextButton(onClick = { date = IsoDate.plusDays(date, 1) }) { Text("›") }
+                Row(
+                    Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(onClick = { date = IsoDate.plusDays(date, -1); error = null }) { Text("‹") }
+                    TextButton(onClick = { pickingDate = true }, modifier = Modifier.weight(1f)) { Text(IsoDate.long(date)) }
+                    TextButton(onClick = { date = IsoDate.plusDays(date, 1); error = null }) { Text("›") }
                 }
                 if (request.meal != null) {
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                        FilterChip(selected = meal == null, onClick = { meal = null }, label = { Text("La misma") })
+                        FilterChip(selected = meal == null, onClick = { meal = null; error = null }, label = { Text("La misma") })
                         MealPlan.preset(mealsPerDay).forEach { m ->
-                            FilterChip(selected = meal == m, onClick = { meal = m }, label = { Text(m.label) })
+                            FilterChip(selected = meal == m, onClick = { meal = m; error = null }, label = { Text(m.label) })
                         }
                     }
                 } else {
@@ -65,9 +72,16 @@ fun CopyDialog(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                // Aviso ámbar dentro del diálogo (en vez del snackbar del Diario): no se cierra hasta que el destino es válido.
+                error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
             }
         },
-        confirmButton = { TextButton(onClick = { onConfirm(date, meal) }) { Text("Copiar") } },
+        confirmButton = {
+            TextButton(onClick = {
+                val problem = copyTargetError(request.meal, sourceDate, date, meal)
+                if (problem == null) onConfirm(date, meal) else error = problem
+            }) { Text("Copiar") }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
     )
     if (pickingDate) {

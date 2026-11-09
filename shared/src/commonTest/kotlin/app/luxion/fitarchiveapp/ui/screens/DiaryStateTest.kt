@@ -375,6 +375,17 @@ class DiaryPresenterTest {
     }
 
     @Test
+    fun copyTargetErrorFlagsOnlyCopiesOntoThemselves() {
+        val other = "2026-11-03"
+        assertEquals(DiaryPresenter.COPY_SAME_ERROR, copyTargetError(MealType.LUNCH, DAY, DAY, null))
+        assertEquals(DiaryPresenter.COPY_SAME_ERROR, copyTargetError(MealType.LUNCH, DAY, DAY, MealType.LUNCH))
+        assertEquals(DiaryPresenter.COPY_SAME_ERROR, copyTargetError(null, DAY, DAY, null))
+        assertEquals(null, copyTargetError(MealType.LUNCH, DAY, DAY, MealType.SNACK))
+        assertEquals(null, copyTargetError(MealType.LUNCH, DAY, other, null))
+        assertEquals(null, copyTargetError(null, DAY, other, null))
+    }
+
+    @Test
     fun copyDayCopiesEveryMealAndMapsMealsMissingFromThePreset() = runTest {
         val diary = FakeDiary(
             listOf(entry(1, MealType.BREAKFAST), entry(2, MealType.SNACK), entry(3, MealType.LATE_SNACK)),
