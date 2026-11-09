@@ -9,11 +9,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -24,6 +22,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,8 +30,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.data.DiaryStore
 import app.luxion.fitarchiveapp.data.GoalStore
@@ -49,7 +46,7 @@ import app.luxion.fitarchiveapp.ui.components.MealSection
 import app.luxion.fitarchiveapp.ui.components.QuantitySelector
 import app.luxion.fitarchiveapp.ui.components.formatGrams
 import app.luxion.fitarchiveapp.ui.components.label
-import app.luxion.fitarchiveapp.ui.components.macroSummary
+import app.luxion.fitarchiveapp.ui.components.mealSummary
 import app.luxion.fitarchiveapp.ui.components.parseNumber
 import app.luxion.fitarchiveapp.ui.navigation.EasyFoodNavigationBar
 import app.luxion.fitarchiveapp.ui.navigation.Navigator
@@ -58,8 +55,7 @@ import app.luxion.fitarchiveapp.ui.navigation.TopLevelTab
 import app.luxion.fitarchiveapp.ui.theme.Spacing
 import kotlinx.coroutines.launch
 
-/** Diario del día (docs/design.md §2.1). [today] es la fecha ISO de hoy. */
-@OptIn(ExperimentalMaterial3Api::class)
+/** Diario del día (docs/design.md §2.1 y §2.12). [today] es la fecha ISO de hoy. */
 @Composable
 fun DiaryScreen(
     navigator: Navigator,
@@ -74,6 +70,7 @@ fun DiaryScreen(
     val state by presenter.state.collectAsState()
     val snackbar = remember { SnackbarHostState() }
     var editing by remember { mutableStateOf<EntryUi?>(null) }
+    var pickingDate by remember { mutableStateOf(false) }
 
     // Aviso semanal de peso: se recalcula cada vez que se abre el Diario, así desaparece al registrar.
     var weightDue by remember { mutableStateOf(false) }
@@ -102,38 +99,6 @@ fun DiaryScreen(
     }
 
     Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(if (state.date == today) "Hoy" else IsoDate.long(state.date))
-                        if (state.date == today) {
-                            Text(
-                                IsoDate.long(state.date),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                },
-                navigationIcon = {
-                    IconButton(
-                        onClick = { presenter.shiftDay(-1) },
-                        modifier = Modifier.semantics { contentDescription = "Día anterior" },
-                    ) { Text("‹", style = MaterialTheme.typography.titleLarge) }
-                },
-                actions = {
-                    IconButton(
-                        onClick = { presenter.shiftDay(1) },
-                        modifier = Modifier.semantics { contentDescription = "Día siguiente" },
-                    ) { Text("›", style = MaterialTheme.typography.titleLarge) }
-                    IconButton(
-                        onClick = { navigator.push(Route.Data) },
-                        modifier = Modifier.semantics { contentDescription = "Datos: exportar e importar" },
-                    ) { Text("⇅", style = MaterialTheme.typography.titleLarge) }
-                },
-            )
-        },
         snackbarHost = { SnackbarHost(snackbar) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
@@ -145,13 +110,16 @@ fun DiaryScreen(
         bottomBar = { EasyFoodNavigationBar(TopLevelTab.Diary, navigator) },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            if (!state.loadFailed && !state.loading) {
-                DiaryHeader(
-                    state,
-                    onSetGoal = { navigator.navigateTab(TopLevelTab.Goals) },
-                    modifier = Modifier.padding(start = Spacing.l, end = Spacing.l, top = Spacing.s),
-                )
-            }
+            // Fila anclada: «Hoy ▾», día anterior/siguiente, racha y datos.
+            DiaryTopRow(
+                state,
+                onPrevious = { presenter.shiftDay(-1) },
+                onNext = { presenter.shiftDay(1) },
+                onPickDate = { pickingDate = true },
+                onData = { navigator.push(Route.Data) },
+                modifier = Modifier.padding(horizontal = Spacing.s),
+            )
+            val onSetGoal = { navigator.navigateTab(TopLevelTab.Goals) }
             if (state.loadFailed) {
                 Column(Modifier.fillMaxWidth().weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                     EmptyState(
@@ -163,54 +131,79 @@ fun DiaryScreen(
                         modifier = Modifier.padding(top = Spacing.xxxl),
                     )
                 }
-            } else if (!state.loading && state.isEmpty) {
-                Column(Modifier.fillMaxWidth().weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    if (showWeightReminder) {
-                        WeightReminderCard(weightDays, registerWeight, Modifier.padding(Spacing.l))
-                    }
-                    EmptyState(
-                        icon = "▤",
-                        title = if (state.date == today) "Nada apuntado hoy" else "Nada apuntado este día",
-                        message = "Añade lo que comas para ver tus calorías y macros del día.",
-                        primaryAction = EmptyStateAction("Añadir alimento") { navigator.push(Route.Add()) },
-                        // Sin objetivo, «Fijar objetivo» ya está en la cabecera: no se duplica.
-                        secondaryAction = if (state.goalKcal == null) null
-                        else EmptyStateAction("Fijar objetivo") { navigator.navigateTab(TopLevelTab.Goals) },
-                        modifier = Modifier.padding(top = Spacing.xxxl),
-                    )
+            } else if (!state.loading) {
+                val listState = rememberLazyListState()
+                // Cabecera colapsable: en cuanto se desplaza, franja y tarjeta se pliegan en el DiaryHeader compacto.
+                val collapsed by remember {
+                    derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0 }
                 }
-            } else {
-                LazyColumn(
-                    Modifier.fillMaxWidth().weight(1f),
-                    contentPadding = PaddingValues(start = Spacing.l, end = Spacing.l, top = Spacing.m, bottom = 104.dp),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.m),
-                ) {
-                    if (showWeightReminder) item("weight-reminder") { WeightReminderCard(weightDays, registerWeight) }
-                    items(state.meals, key = { it.meal }) { meal ->
-                        MealSection(
-                            title = meal.meal.label,
-                            summary = macroSummary(meal.kcal, meal.proteinG, meal.carbsG, meal.fatG),
-                            onAdd = { navigator.push(Route.Add(meal.meal)) },
-                            isEmpty = meal.entries.isEmpty(),
-                        ) {
-                            meal.entries.forEach { entry ->
-                                DiaryEntryRow(
-                                    name = entry.name,
-                                    quantityText = entry.quantity.format(),
-                                    source = entry.source,
-                                    kcal = entry.kcal,
-                                    doubtful = entry.doubtful,
-                                    onClick = {
-                                        navigator.push(Route.ProductDetail(entry.barcode, meal.meal, entry.id))
-                                    },
-                                    onLongClick = { editing = entry },
-                                )
+                Column(Modifier.fillMaxWidth().weight(1f)) {
+                    if (collapsed) {
+                        // Anclado sobre la lista: el objetivo y cómo se va, siempre visibles (sin tapar tarjetas).
+                        DiaryHeader(
+                            state,
+                            onSetGoal = onSetGoal,
+                            modifier = Modifier.padding(start = Spacing.l, end = Spacing.l, top = Spacing.s),
+                        )
+                    }
+                    LazyColumn(
+                        Modifier.fillMaxWidth().weight(1f),
+                        state = listState,
+                        contentPadding = PaddingValues(start = Spacing.l, end = Spacing.l, top = Spacing.s, bottom = 104.dp),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.m),
+                    ) {
+                        item("header") { DiaryFullHeader(state, presenter, onSetGoal) }
+                        if (showWeightReminder) item("weight-reminder") { WeightReminderCard(weightDays, registerWeight) }
+                        if (state.isEmpty) {
+                            // Ayuda discreta de primer uso: no sustituye a las tarjetas de comida.
+                            item("empty-hint") {
+                                Column {
+                                    Text(
+                                        if (state.date == today) "Nada apuntado hoy" else "Nada apuntado este día",
+                                        style = MaterialTheme.typography.titleMedium,
+                                    )
+                                    Text(
+                                        "Añade lo que comas con el «+» de cada comida.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+                        items(state.meals, key = { it.meal }) { meal ->
+                            MealSection(
+                                title = meal.meal.label,
+                                summary = mealSummary(meal.kcal, meal.proteinG, meal.carbsG, meal.fatG),
+                                onAdd = { navigator.push(Route.Add(meal.meal)) },
+                                isEmpty = meal.entries.isEmpty(),
+                            ) {
+                                meal.entries.forEach { entry ->
+                                    DiaryEntryRow(
+                                        name = entry.name,
+                                        quantityText = entry.quantity.format(),
+                                        source = entry.source,
+                                        kcal = entry.kcal,
+                                        doubtful = entry.doubtful,
+                                        onClick = {
+                                            navigator.push(Route.ProductDetail(entry.barcode, meal.meal, entry.id))
+                                        },
+                                        onLongClick = { editing = entry },
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
         }
+    }
+
+    if (pickingDate) {
+        DiaryDatePicker(
+            date = state.date,
+            onPick = { pickingDate = false; presenter.select(it) },
+            onDismiss = { pickingDate = false },
+        )
     }
 
     editing?.let { entry ->
@@ -231,6 +224,20 @@ fun DiaryScreen(
                 }
             },
         )
+    }
+}
+
+/** Cabecera completa (con la lista arriba): franja semanal y tarjeta de objetivo; la fila anclada va fuera. */
+@Composable
+private fun DiaryFullHeader(
+    state: DiaryUiState,
+    presenter: DiaryPresenter,
+    onSetGoal: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
+        WeekStrip(state.week, onSelect = presenter::select, onShiftWeek = { presenter.shiftDay(it * 7) })
+        GoalCard(state, onSetGoal)
     }
 }
 

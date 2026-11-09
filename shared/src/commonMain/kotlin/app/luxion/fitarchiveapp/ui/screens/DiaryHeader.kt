@@ -90,7 +90,7 @@ private fun NoGoal(consumedKcal: Double, onSetGoal: () -> Unit) {
 }
 
 @Composable
-private fun MacrosLine(state: DiaryUiState) {
+internal fun MacrosLine(state: DiaryUiState) {
     val colors = MaterialTheme.easyFoodColors
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.m)) {
         state.macros.forEach { macro ->

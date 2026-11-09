@@ -31,6 +31,18 @@ SELECT * FROM DiaryEntryEntity WHERE date = ? ORDER BY meal, created_at, id;
 selectAll:
 SELECT * FROM DiaryEntryEntity ORDER BY date, meal, created_at, id;
 
+-- Kcal por día (días con entradas) entre dos fechas ISO; las entradas sin dato de kcal o en porciones sin tamaño no suman.
+selectDailyKcal:
+SELECT date,
+    SUM(CASE unit
+        WHEN 'GRAMS' THEN kcal_100g * quantity / 100.0
+        ELSE kcal_100g * serving_size_g * quantity / 100.0
+    END) AS kcal
+FROM DiaryEntryEntity
+WHERE date BETWEEN ? AND ?
+GROUP BY date
+ORDER BY date;
+
 selectById:
 SELECT * FROM DiaryEntryEntity WHERE id = ?;
 
