@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.data.CustomFoodStore
+import app.luxion.fitarchiveapp.data.FavoriteStore
 import app.luxion.fitarchiveapp.data.DiaryStore
 import app.luxion.fitarchiveapp.data.GoalStore
 import app.luxion.fitarchiveapp.data.ProductRepository
@@ -69,6 +70,7 @@ fun App(
     weightStore: WeightStore,
     recipeStore: RecipeStore,
     settingsStore: SettingsStore,
+    favoriteStore: FavoriteStore,
     importTarget: ImportTarget,
     today: () -> String,
     nowMinutes: () -> Int,
@@ -104,10 +106,11 @@ fun App(
                                 searchStore = searchStore,
                                 customFoods = customFoodStore,
                                 diaryStore = diaryStore,
+                                favoriteStore = favoriteStore,
                             )
                             is Route.Scanner -> ScannerScreen(navigator, route, repository)
                             is Route.CustomFood -> CustomFoodScreen(navigator, route, customFoodStore, route.foodId)
-                            is Route.ProductDetail -> ProductDetailScreen(navigator, route, repository, diaryStore, customFoodStore, today, mealChoices)
+                            is Route.ProductDetail -> ProductDetailScreen(navigator, route, repository, diaryStore, customFoodStore, favoriteStore, today, mealChoices)
                             Route.Goals -> GoalsScreen(navigator, goalStore, today, meals.count, meals::choose)
                             Route.Weight -> WeightScreen(navigator, weightStore, today)
                             Route.Recipes -> RecipesScreen(navigator, recipeStore)

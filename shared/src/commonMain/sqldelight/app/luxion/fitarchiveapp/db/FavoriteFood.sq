@@ -1,0 +1,25 @@
+-- Alimentos favoritos del usuario. `key` es la clave de navegación de la ficha: EAN, `generic:<id>` o `custom:<id>`.
+-- Sin clave foránea: ProductEntity es una caché purgable y un favorito debe sobrevivir a la purga.
+CREATE TABLE FavoriteFoodEntity (
+    key TEXT NOT NULL PRIMARY KEY CHECK (length(key) > 0),
+    created_at INTEGER NOT NULL
+);
+
+selectKeys:
+SELECT key FROM FavoriteFoodEntity ORDER BY created_at DESC, key;
+
+selectAll:
+SELECT * FROM FavoriteFoodEntity ORDER BY created_at DESC, key;
+
+-- Productos favoritos presentes en la caché (EAN y genéricos).
+selectProducts:
+SELECT ProductEntity.* FROM ProductEntity
+JOIN FavoriteFoodEntity ON FavoriteFoodEntity.key = ProductEntity.barcode
+ORDER BY FavoriteFoodEntity.created_at DESC, ProductEntity.barcode;
+
+-- Conserva la fecha del primer marcado si ya existía.
+insert:
+INSERT OR IGNORE INTO FavoriteFoodEntity(key, created_at) VALUES (?, ?);
+
+deleteByKey:
+DELETE FROM FavoriteFoodEntity WHERE key = ?;

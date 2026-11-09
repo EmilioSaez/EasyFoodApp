@@ -115,4 +115,5 @@ Especificación en `docs/design.md` §1.7, §2.6 y §2.12. Cada punto es un PR; 
 
 Cada punto es un PR.
 
+- [x] Favoritos de alimentos: estrella en la ficha y en los resultados de búsqueda, acceso rápido «Favoritos» junto a «Recientes» en la pestaña Alimentos (`docs/design.md` §2.2); migración v8 → v9, incluido en exportar e importar (colección opcional `favorites`, sin subir la versión del formato)
 - [x] Copiar una comida o un día entero a otra fecha o comida desde el Diario («Copiar» en cada tarjeta y «Copiar día»), sin tabla nueva (`docs/design.md` §2.13)

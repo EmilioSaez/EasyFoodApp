@@ -1,8 +1,10 @@
 package app.luxion.fitarchiveapp.export
 
+import app.luxion.fitarchiveapp.data.FavoriteKeys
 import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
 import app.luxion.fitarchiveapp.db.CustomFoodQueries
 import app.luxion.fitarchiveapp.db.DiaryEntryQueries
+import app.luxion.fitarchiveapp.db.FavoriteFoodQueries
 import app.luxion.fitarchiveapp.db.ProductQueries
 import app.luxion.fitarchiveapp.db.RecipeQueries
 import app.luxion.fitarchiveapp.db.SettingsQueries
@@ -70,6 +72,14 @@ import kotlinx.coroutines.withContext
  *   con empate, el local.
  * - Una receta sin ingredientes, sin nombre, con raciones fuera de rango o con un ingrediente inválido se omite entera.
  *
+ * **Favoritos**
+ * - Identidad: el `barcode` (EAN o `generic:<id>`) o, en un alimento propio, nombre + marca sin distinguir
+ *   mayúsculas ni espacios sobrantes (el id de un alimento propio es local de cada dispositivo).
+ * - No existe en local: se añade, conservando su fecha. Existe: duplicado, se ignora (un favorito no tiene contenido
+ *   que pueda diferir, así que no hay conflictos). Nunca se desmarca nada local.
+ * - Un favorito propio solo se admite si ese alimento existe en local o llega en el mismo archivo; si no, es
+ *   inválido. Uno sin `barcode` ni nombre, o con ambos, también.
+ *
  * **Elementos inválidos** (cantidad ≤ 0, fecha mal formada, nutrientes negativos, nombre vacío…): se
  * omiten y se listan en el informe; el resto se importa.
  *
@@ -101,6 +111,7 @@ class DataImporter(private val target: ImportTarget) {
         val recipes = planRecipes(file.recipes, target.recipes(), invalid)
         val goal = planWeightGoal(file.weightGoal, target.weightGoal(), invalid)
         val meals = planMealsPerDay(file.mealsPerDay, target.mealsPerDay(), invalid)
+        val favorites = planFavorites(file.favorites, target.favorites(), foods.finalKeys, foods.renamed, invalid)
         return ImportPlan(
             changes = ImportChanges(
                 products = products.writes,
@@ -112,9 +123,11 @@ class DataImporter(private val target: ImportTarget) {
                 recipesToUpdate = recipes.updates,
                 weightGoal = goal.write,
                 mealsPerDay = meals,
+                favoritesToAdd = favorites.adds,
             ),
             report = ImportReport(
                 products.counts, foods.counts, diary.counts, invalid, weights.counts + goal.counts, recipes.counts,
+                favorites.counts,
             ),
         )
     }
@@ -156,6 +169,10 @@ class DataImporter(private val target: ImportTarget) {
         val adds: List<ExportedCustomFood>,
         val updates: List<CustomFoodUpdate>,
         val counts: ImportCounts,
+        /** Alimento del archivo reconocido como un alimento local con otro nombre/marca (clave de favorito → el local). */
+        val renamed: Map<String, ExportedCustomFood> = emptyMap(),
+        /** Claves de favorito de todos los alimentos propios que habrá tras la importación (locales, ya actualizados, y nuevos). */
+        val finalKeys: Set<String> = emptySet(),
     )
 
     /** Alimento local o ya añadido en esta importación (`localId == null`). */
@@ -169,6 +186,7 @@ class DataImporter(private val target: ImportTarget) {
         val known = local.mapTo(mutableListOf()) { KnownFood(it.id, it) }
         val adds = mutableListOf<ExportedCustomFood>()
         val updates = linkedMapOf<Long, CustomFoodUpdate>()
+        val matched = linkedMapOf<String, KnownFood>()
         var c = ImportCounts()
         for (raw in incoming) {
             val f = raw.normalized()
@@ -178,6 +196,7 @@ class DataImporter(private val target: ImportTarget) {
             }
             val match = known.firstOrNull { it.food.id == f.id && it.food.createdAtMillis == f.createdAtMillis }
                 ?: known.firstOrNull { it.food.key() == f.key() }
+            if (match != null) matched[f.favoriteKey()] = match
             when {
                 match == null -> { c = c.copy(added = c.added + 1); adds += f; known += KnownFood(null, f) }
                 match.food.sameContent(f) -> c = c.copy(unchanged = c.unchanged + 1)
@@ -190,7 +209,8 @@ class DataImporter(private val target: ImportTarget) {
                 else -> c = c.copy(keptLocal = c.keptLocal + 1)
             }
         }
-        return FoodPlan(adds, updates.values.toList(), c)
+        val renamed = matched.mapValues { it.value.food }.filter { (key, food) -> key != food.favoriteKey() }
+        return FoodPlan(adds, updates.values.toList(), c, renamed, known.mapTo(mutableSetOf()) { it.food.favoriteKey() })
     }
 
     private fun ExportedCustomFood.normalized() = copy(
@@ -320,6 +340,59 @@ class DataImporter(private val target: ImportTarget) {
         return if (local == null) incoming else null
     }
 
+    // --- Favoritos ---
+
+    private class FavoritePlan(val adds: List<ExportedFavorite>, val counts: ImportCounts)
+
+    private fun ExportedCustomFood.favoriteKey() = "custom:${name.trim().lowercase()}|${brand?.trim()?.lowercase().orEmpty()}"
+
+    /** Clave de identidad de un favorito, o `null` si no es válido (ni producto ni alimento propio, o ambos). */
+    private fun ExportedFavorite.identity(): String? {
+        val code = barcode?.trim().orEmpty()
+        val name = customName?.trim().orEmpty()
+        return when {
+            code.isNotEmpty() && name.isEmpty() && customBrand == null -> "ean:$code"
+            code.isEmpty() && name.isNotEmpty() -> "custom:${name.lowercase()}|${customBrand?.trim()?.lowercase().orEmpty()}"
+            else -> null
+        }
+    }
+
+    private fun planFavorites(
+        incoming: List<ExportedFavorite>,
+        local: List<ExportedFavorite>,
+        customKeys: Set<String>,
+        renamed: Map<String, ExportedCustomFood>,
+        invalid: MutableList<String>,
+    ): FavoritePlan {
+        val known = local.mapNotNullTo(mutableSetOf()) { it.identity() }
+        val adds = mutableListOf<ExportedFavorite>()
+        var c = ImportCounts()
+        for (raw in incoming) {
+            // Un alimento propio que el archivo trae con otro nombre pero que ya existe en local (mismo id y fecha de
+            // creación, p. ej. renombrado después de exportar) se enlaza con el local.
+            val f = raw.identity()?.let { renamed[it] }
+                ?.let { raw.copy(customName = it.name, customBrand = it.brand) } ?: raw
+            val id = f.identity()
+            if (id == null) {
+                invalid += "Favorito \"${f.customName ?: f.barcode.orEmpty()}\": debe indicar un producto o un alimento propio"
+                c = c.copy(invalid = c.invalid + 1); continue
+            }
+            if (id.startsWith("custom:") && id !in customKeys) {
+                invalid += "Favorito \"${f.customName}\": el alimento propio no existe"
+                c = c.copy(invalid = c.invalid + 1); continue
+            }
+            if (known.add(id)) { c = c.copy(added = c.added + 1); adds += f.normalized() }
+            else c = c.copy(unchanged = c.unchanged + 1)
+        }
+        return FavoritePlan(adds, c)
+    }
+
+    private fun ExportedFavorite.normalized() = copy(
+        barcode = barcode?.trim()?.ifEmpty { null },
+        customName = customName?.trim()?.ifEmpty { null },
+        customBrand = customBrand?.trim()?.ifEmpty { null },
+    )
+
     // --- Diario ---
 
     private class DiaryPlan(val adds: List<ExportedDiaryEntry>, val counts: ImportCounts)
@@ -378,11 +451,13 @@ data class ImportChanges(
     val weightGoal: ExportedWeightGoal? = null,
     /** Comidas al día a fijar, o `null` si no cambia. */
     val mealsPerDay: Int? = null,
+    /** Favoritos nuevos; los propios se enlazan por nombre y marca con el alimento local. */
+    val favoritesToAdd: List<ExportedFavorite> = emptyList(),
 ) {
     val isEmpty: Boolean
         get() = products.isEmpty() && customFoodsToAdd.isEmpty() && customFoodsToUpdate.isEmpty() &&
             diaryEntriesToAdd.isEmpty() && weights.isEmpty() && recipesToAdd.isEmpty() && recipesToUpdate.isEmpty() &&
-            weightGoal == null && mealsPerDay == null
+            weightGoal == null && mealsPerDay == null && favoritesToAdd.isEmpty()
 }
 
 /** Sustituye los datos de la receta local [localId] por los de [recipe] (se conservan su id y `createdAtMillis`). */
@@ -434,6 +509,7 @@ data class ImportReport(
     val invalidItems: List<String> = emptyList(),
     val weights: ImportCounts = ImportCounts(),
     val recipes: ImportCounts = ImportCounts(),
+    val favorites: ImportCounts = ImportCounts(),
 )
 
 /** Almacenes locales sobre los que se importa: lectura (como la exportación) y escritura atómica. */
@@ -450,9 +526,11 @@ class SqlDelightImportTarget(
     private val weightQueries: WeightEntryQueries,
     private val recipeQueries: RecipeQueries,
     private val settingsQueries: SettingsQueries,
+    private val favoriteQueries: FavoriteFoodQueries,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : ImportTarget, ExportSource by SqlDelightExportSource(
-    productQueries, diaryQueries, customFoodQueries, weightQueries, recipeQueries, settingsQueries, dispatcher,
+    productQueries, diaryQueries, customFoodQueries, weightQueries, recipeQueries, settingsQueries, favoriteQueries,
+    dispatcher,
 ) {
 
     override suspend fun apply(changes: ImportChanges): Unit = withContext(dispatcher) {
@@ -501,6 +579,16 @@ class SqlDelightImportTarget(
             }
             changes.weightGoal?.let { weightQueries.upsertGoal(it.targetKg, it.updatedAtMillis) }
             changes.mealsPerDay?.let { settingsQueries.upsertMealsPerDay(it.toLong()) }
+            if (changes.favoritesToAdd.isNotEmpty()) {
+                // Después de los alimentos propios, para enlazar también los que acaban de entrar.
+                val customIds = customFoodQueries.selectAll().executeAsList()
+                    .associate { it.name.lowercase() to (it.brand?.lowercase().orEmpty()) to it.id }
+                changes.favoritesToAdd.forEach { f ->
+                    val key = f.barcode ?: customIds[f.customName!!.lowercase() to f.customBrand?.lowercase().orEmpty()]
+                        ?.let(FavoriteKeys::custom)
+                    if (key != null) favoriteQueries.insert(key, f.createdAtMillis)
+                }
+            }
             changes.diaryEntriesToAdd.forEach { e ->
                 diaryQueries.insert(
                     date = e.date, meal = e.meal.name, barcode = e.barcode, name = e.name, quantity = e.quantity,

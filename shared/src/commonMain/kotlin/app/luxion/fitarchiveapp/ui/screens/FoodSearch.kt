@@ -49,7 +49,8 @@ private sealed interface SearchState {
  * búsqueda (FTS local + alimentos propios) y lista de resultados, mezclando todos los orígenes (cada fila muestra el
  * suyo). Open Food Facts solo aparece si el producto ya está en la caché local. [quickActions] se pinta bajo el campo;
  * [idleContent] ocupa el sitio de los resultados mientras no hay texto (por defecto, una invitación a buscar);
- * [emptyPrimary] y [emptySecondary] son las acciones del estado «sin resultados».
+ * [emptyPrimary] y [emptySecondary] son las acciones del estado «sin resultados». [favoriteKeys] y [onToggleFavorite]
+ * añaden la estrella de favorito a cada resultado.
  */
 @Composable
 fun FoodSearch(
@@ -63,6 +64,9 @@ fun FoodSearch(
     emptySecondary: EmptyStateAction? = null,
     quickActions: @Composable () -> Unit = {},
     idleContent: (@Composable () -> Unit)? = null,
+    /** Claves favoritas; con [onToggleFavorite] cada resultado muestra su estrella (sin él, no hay estrellas). */
+    favoriteKeys: Set<String> = emptySet(),
+    onToggleFavorite: ((FoodResult) -> Unit)? = null,
 ) {
     var retry by remember { mutableStateOf(0) }
     var state by remember { mutableStateOf<SearchState>(SearchState.Idle) }
@@ -140,6 +144,8 @@ fun FoodSearch(
                                 source = r.source,
                                 kcalPer100g = r.kcalPer100g,
                                 onClick = { onPick(p) },
+                                favorite = onToggleFavorite?.let { r.key in favoriteKeys },
+                                onToggleFavorite = { onToggleFavorite?.invoke(r) },
                             )
                         }
                     }
