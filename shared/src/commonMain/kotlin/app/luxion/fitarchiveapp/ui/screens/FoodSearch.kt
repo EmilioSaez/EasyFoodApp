@@ -62,6 +62,8 @@ fun FoodSearch(
     modifier: Modifier = Modifier,
     emptyPrimary: EmptyStateAction? = null,
     emptySecondary: EmptyStateAction? = null,
+    /** Se pinta sobre el campo (título de la pestaña). */
+    header: @Composable () -> Unit = {},
     quickActions: @Composable () -> Unit = {},
     idleContent: (@Composable () -> Unit)? = null,
     /** Claves favoritas; con [onToggleFavorite] cada resultado muestra su estrella (sin él, no hay estrellas). */
@@ -90,6 +92,7 @@ fun FoodSearch(
     }
 
     Column(modifier.fillMaxSize()) {
+        header()
         SearchField(query, onQueryChange, Modifier.padding(horizontal = Spacing.l))
         Box(Modifier.fillMaxWidth().height(4.dp)) {
             if (state is SearchState.Loading) LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -178,6 +181,6 @@ private fun SearchField(query: String, onChange: (String) -> Unit, modifier: Mod
             focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         ),
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().height(52.dp),
     )
 }

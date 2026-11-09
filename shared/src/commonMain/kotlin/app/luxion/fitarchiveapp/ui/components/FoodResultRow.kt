@@ -3,6 +3,8 @@ package app.luxion.fitarchiveapp.ui.components
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -15,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 
 /** Resultado de búsqueda: avatar de origen · nombre / «marca · tamaño · EAN» · kcal por 100 g. */
 @Composable
@@ -30,9 +33,9 @@ fun FoodResultRow(
     onToggleFavorite: () -> Unit = {},
 ) {
     ListItem(
-        modifier = modifier.clickable(onClick = onClick),
+        modifier = modifier.heightIn(min = 72.dp).clickable(onClick = onClick),
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        leadingContent = { SourceAvatar(source) },
+        leadingContent = { SourceAvatar(source, size = 44.dp) },
         headlineContent = { Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = { Text(detail, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         trailingContent = {
@@ -56,7 +59,7 @@ fun FoodResultRow(
 fun FavoriteStar(favorite: Boolean, onToggle: () -> Unit, foodName: String, modifier: Modifier = Modifier) {
     IconButton(
         onClick = onToggle,
-        modifier = modifier.semantics {
+        modifier = modifier.size(48.dp).semantics {
             contentDescription = if (favorite) "Quitar $foodName de favoritos" else "Añadir $foodName a favoritos"
         },
     ) {

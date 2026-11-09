@@ -794,14 +794,14 @@ class AppFlowsTest {
         waitForText("Nutella")
 
         onNodeWithText("Alimentos").performClick()
-        waitForText("Últimos alimentos · 1")
+        waitForText("ÚLTIMOS ALIMENTOS · 1")
         onNodeWithText("Nutella").assertIsDisplayed()
 
         onNodeWithText("Buscar alimento").performTextInput("zzzz")
         waitForText("Sin resultados para «zzzz»")
-        kotlin.test.assertTrue(onAllNodes(hasText("Últimos alimentos", substring = true)).fetchSemanticsNodes().isEmpty())
+        kotlin.test.assertTrue(onAllNodes(hasText("ÚLTIMOS ALIMENTOS", substring = true)).fetchSemanticsNodes().isEmpty())
         onNodeWithText("Recientes").performClick()
-        waitForText("Últimos alimentos · 1")
+        waitForText("ÚLTIMOS ALIMENTOS · 1")
 
         onNodeWithText("Nutella").performClick()
         waitUntil(timeoutMillis = 20_000) { onAllNodes(hasText("Añadir a ", substring = true)).fetchSemanticsNodes().isNotEmpty() }
@@ -843,7 +843,7 @@ class AppFlowsTest {
         kotlin.test.assertEquals(listOf("custom:$id"), db.favoriteFoodQueries.selectKeys().executeAsList())
 
         onNodeWithText("Favoritos").performClick()
-        waitForText("Favoritos · 1")
+        waitForText("FAVORITOS · 1")
         onNodeWithText("Pan casero").assertIsDisplayed()
 
         onNodeWithContentDescription("Quitar Pan casero de favoritos").performClick()
@@ -858,7 +858,7 @@ class AppFlowsTest {
         waitForText("Nutella")
 
         onNodeWithText("Alimentos").performClick()
-        waitForText("Últimos alimentos · 1")
+        waitForText("ÚLTIMOS ALIMENTOS · 1")
         onNodeWithText("Nutella").performClick()
         waitUntil(timeoutMillis = 20_000) { onAllNodes(hasText("Añadir a ", substring = true)).fetchSemanticsNodes().isNotEmpty() }
 
@@ -871,7 +871,7 @@ class AppFlowsTest {
         onNodeWithContentDescription("Atrás").performClick()
         waitForText("Buscar alimento")
         onNodeWithText("Favoritos").performClick()
-        waitForText("Favoritos · 1")
+        waitForText("FAVORITOS · 1")
         onNodeWithText("Nutella").assertIsDisplayed()
     }
 }
