@@ -61,6 +61,7 @@ fun ImportReport.rows(): List<ImportPreviewRow> = listOf(
     ImportPreviewRow("Productos", products),
     ImportPreviewRow("Alimentos propios", customFoods),
     ImportPreviewRow("Entradas del diario", diaryEntries),
+    ImportPreviewRow("Pesos", weights),
 ).filter { it.counts.hasAny }
 
 private val ImportCounts.hasAny get() = added + updated + unchanged + keptLocal + invalid > 0
@@ -76,9 +77,9 @@ fun ImportCounts.describe(): String = listOfNotNull(
 
 /** Resumen de una sola frase del resultado de una importación ya aplicada. */
 fun ImportReport.summary(): String {
-    val added = products.added + customFoods.added + diaryEntries.added
-    val updated = products.updated + customFoods.updated + diaryEntries.updated
-    val skipped = products.unchanged + customFoods.unchanged + diaryEntries.unchanged
+    val added = products.added + customFoods.added + diaryEntries.added + weights.added
+    val updated = products.updated + customFoods.updated + diaryEntries.updated + weights.updated
+    val skipped = products.unchanged + customFoods.unchanged + diaryEntries.unchanged + weights.unchanged
     return when {
         added + updated == 0 -> "No había nada nuevo que importar."
         else -> buildString {

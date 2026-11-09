@@ -4,6 +4,8 @@ import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
 import app.luxion.fitarchiveapp.db.CustomFoodQueries
 import app.luxion.fitarchiveapp.db.DiaryEntryQueries
 import app.luxion.fitarchiveapp.db.ProductQueries
+import app.luxion.fitarchiveapp.db.WeightEntryQueries
+import app.luxion.fitarchiveapp.model.NewWeightEntry
 
 import app.luxion.fitarchiveapp.model.DiaryEntry
 import app.luxion.fitarchiveapp.model.NewCustomFood
@@ -40,6 +42,13 @@ import kotlinx.coroutines.withContext
  *   edición, y lo más probable es que el usuario la haya editado después de exportar) y se cuenta como
  *   conflicto.
  *
+ * **Pesos**
+ * - Identidad: la fecha (`date`); hay un registro por día.
+ * - No existe en local: se añade.
+ * - Existe con el mismo peso: duplicado, se ignora.
+ * - Existe con peso distinto: gana el de `updatedAtMillis` más reciente; con empate, el local.
+ * - Si el archivo trae la misma fecha dos veces, vale el de `updatedAtMillis` más reciente.
+ *
  * **Elementos inválidos** (cantidad ≤ 0, fecha mal formada, nutrientes negativos, nombre vacío…): se
  * omiten y se listan en el informe; el resto se importa.
  *
@@ -67,14 +76,16 @@ class DataImporter(private val target: ImportTarget) {
         val products = planProducts(file.products, target.products(), invalid)
         val foods = planCustomFoods(file.customFoods, target.customFoods(), invalid)
         val diary = planDiary(file.diaryEntries, target.diaryEntries(), invalid)
+        val weights = planWeights(file.weights, target.weights(), invalid)
         return ImportPlan(
             changes = ImportChanges(
                 products = products.writes,
                 customFoodsToAdd = foods.adds,
                 customFoodsToUpdate = foods.updates,
                 diaryEntriesToAdd = diary.adds,
+                weights = weights.writes,
             ),
-            report = ImportReport(products.counts, foods.counts, diary.counts, invalid),
+            report = ImportReport(products.counts, foods.counts, diary.counts, invalid, weights.counts),
         )
     }
 
@@ -168,6 +179,37 @@ class DataImporter(private val target: ImportTarget) {
         key() == o.key() && nutrients == o.nutrients && servingSizeG == o.servingSizeG &&
             servingLabel == o.servingLabel
 
+    // --- Pesos ---
+
+    private class WeightPlan(val writes: List<ExportedWeight>, val counts: ImportCounts)
+
+    private fun planWeights(
+        incoming: List<ExportedWeight>,
+        local: List<ExportedWeight>,
+        invalid: MutableList<String>,
+    ): WeightPlan {
+        val byDate = local.associateByTo(mutableMapOf()) { it.date }
+        val writes = linkedMapOf<String, ExportedWeight>()
+        var c = ImportCounts()
+        for (w in incoming) {
+            val ok = try { NewWeightEntry(w.date, w.weightKg); true } catch (e: IllegalArgumentException) {
+                invalid += "Peso del ${w.date} (${w.weightKg} kg): ${e.message}"
+                c = c.copy(invalid = c.invalid + 1); false
+            }
+            if (!ok) continue
+            val existing = byDate[w.date]
+            when {
+                existing == null -> { c = c.copy(added = c.added + 1); byDate[w.date] = w; writes[w.date] = w }
+                existing.weightKg == w.weightKg -> c = c.copy(unchanged = c.unchanged + 1)
+                w.updatedAtMillis > existing.updatedAtMillis -> {
+                    c = c.copy(updated = c.updated + 1); byDate[w.date] = w; writes[w.date] = w
+                }
+                else -> c = c.copy(keptLocal = c.keptLocal + 1)
+            }
+        }
+        return WeightPlan(writes.values.toList(), c)
+    }
+
     // --- Diario ---
 
     private class DiaryPlan(val adds: List<ExportedDiaryEntry>, val counts: ImportCounts)
@@ -217,10 +259,12 @@ data class ImportChanges(
     val customFoodsToUpdate: List<CustomFoodUpdate> = emptyList(),
     /** Entradas nuevas del diario; el id lo asigna el almacén. */
     val diaryEntriesToAdd: List<ExportedDiaryEntry> = emptyList(),
+    /** Pesos a insertar o reemplazar por fecha. */
+    val weights: List<ExportedWeight> = emptyList(),
 ) {
     val isEmpty: Boolean
         get() = products.isEmpty() && customFoodsToAdd.isEmpty() && customFoodsToUpdate.isEmpty() &&
-            diaryEntriesToAdd.isEmpty()
+            diaryEntriesToAdd.isEmpty() && weights.isEmpty()
 }
 
 /** Sustituye los datos del alimento local [localId] por los de [food] (se conservan su id y `createdAtMillis`). */
@@ -248,6 +292,7 @@ data class ImportReport(
     val diaryEntries: ImportCounts,
     /** Descripción de cada elemento inválido omitido. */
     val invalidItems: List<String> = emptyList(),
+    val weights: ImportCounts = ImportCounts(),
 )
 
 /** Almacenes locales sobre los que se importa: lectura (como la exportación) y escritura atómica. */
@@ -261,8 +306,11 @@ class SqlDelightImportTarget(
     private val productQueries: ProductQueries,
     private val diaryQueries: DiaryEntryQueries,
     private val customFoodQueries: CustomFoodQueries,
+    private val weightQueries: WeightEntryQueries,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
-) : ImportTarget, ExportSource by SqlDelightExportSource(productQueries, diaryQueries, customFoodQueries, dispatcher) {
+) : ImportTarget, ExportSource by SqlDelightExportSource(
+    productQueries, diaryQueries, customFoodQueries, weightQueries, dispatcher,
+) {
 
     override suspend fun apply(changes: ImportChanges): Unit = withContext(dispatcher) {
         // Las consultas comparten el driver, así que una transacción abarca las tres tablas.
@@ -294,6 +342,10 @@ class SqlDelightImportTarget(
                     salt_g = f.nutrients.saltG, serving_size_g = f.servingSizeG, serving_label = f.servingLabel,
                     updated_at = f.updatedAtMillis, id = id,
                 )
+            }
+            changes.weights.forEach { w ->
+                val created = weightQueries.selectByDate(w.date).executeAsOneOrNull()?.created_at ?: w.createdAtMillis
+                weightQueries.upsert(w.date, w.weightKg, created, w.updatedAtMillis)
             }
             changes.diaryEntriesToAdd.forEach { e ->
                 diaryQueries.insert(

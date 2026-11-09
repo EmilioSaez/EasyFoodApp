@@ -4,10 +4,12 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import app.luxion.fitarchiveapp.data.SqlDelightCustomFoodStore
 import app.luxion.fitarchiveapp.data.SqlDelightDiaryStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductStore
+import app.luxion.fitarchiveapp.data.SqlDelightWeightStore
 import app.luxion.fitarchiveapp.db.EasyFoodDatabase
 import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.model.NewCustomFood
 import app.luxion.fitarchiveapp.model.NewDiaryEntry
+import app.luxion.fitarchiveapp.model.NewWeightEntry
 import app.luxion.fitarchiveapp.model.Nutrients
 import app.luxion.fitarchiveapp.model.Product
 import app.luxion.fitarchiveapp.model.Quantity
@@ -37,8 +39,8 @@ class DataImporterTest {
         products = SqlDelightProductStore(db.productQueries)
         diary = SqlDelightDiaryStore(db.diaryEntryQueries)
         foods = SqlDelightCustomFoodStore(db.customFoodQueries)
-        exporter = DataExporter(SqlDelightExportSource(db.productQueries, db.diaryEntryQueries, db.customFoodQueries)) { 5_000L }
-        importer = DataImporter(SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries))
+        exporter = DataExporter(SqlDelightExportSource(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries)) { 5_000L }
+        importer = DataImporter(SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries))
     }
 
     @AfterTest
@@ -81,13 +83,13 @@ class DataImporterTest {
         val json = exporter.exportToJson()
 
         val other = EasyFoodDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { EasyFoodDatabase.Schema.create(it) })
-        val report = DataImporter(SqlDelightImportTarget(other.productQueries, other.diaryEntryQueries, other.customFoodQueries))
+        val report = DataImporter(SqlDelightImportTarget(other.productQueries, other.diaryEntryQueries, other.customFoodQueries, other.weightEntryQueries))
             .import(json)
 
         assertEquals(ImportCounts(added = 1), report.products)
         assertEquals(ImportCounts(added = 1), report.customFoods)
         assertEquals(ImportCounts(added = 1), report.diaryEntries)
-        val again = DataExporter(SqlDelightExportSource(other.productQueries, other.diaryEntryQueries, other.customFoodQueries)) { 5_000L }
+        val again = DataExporter(SqlDelightExportSource(other.productQueries, other.diaryEntryQueries, other.customFoodQueries, other.weightEntryQueries)) { 5_000L }
         assertEquals(ExportCodec.decode(json), ExportCodec.decode(again.exportToJson()))
     }
 
@@ -276,6 +278,94 @@ class DataImporterTest {
         ))
         assertEquals(ImportCounts(added = 1, unchanged = 1), report.products)
         assertEquals(ImportCounts(added = 1, unchanged = 1), report.customFoods)
+    }
+
+    // --- Pesos ---
+
+    private fun weightFile(vararg w: ExportedWeight) =
+        ExportCodec.encode(ExportFile(ExportCodec.CURRENT_VERSION, 1L, weights = w.toList()))
+
+    @Test
+    fun weightsRoundTripIntoEmptyDatabase() = runTest {
+        val weights = SqlDelightWeightStore(db.weightEntryQueries)
+        weights.save(NewWeightEntry("2026-11-01", 80.5), 10L)
+        weights.save(NewWeightEntry("2026-11-03", 79.5), 30L)
+        val json = exporter.exportToJson()
+
+        val other = EasyFoodDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { EasyFoodDatabase.Schema.create(it) })
+        val report = DataImporter(
+            SqlDelightImportTarget(other.productQueries, other.diaryEntryQueries, other.customFoodQueries, other.weightEntryQueries),
+        ).import(json)
+
+        assertEquals(ImportCounts(added = 2), report.weights)
+        assertEquals(weights.all(), SqlDelightWeightStore(other.weightEntryQueries).all())
+    }
+
+    @Test
+    fun importingWeightsTwiceDoesNotDuplicate() = runTest {
+        val json = weightFile(ExportedWeight("2026-11-01", 80.0, 5, 5), ExportedWeight("2026-11-02", 79.0, 6, 6))
+        importer.import(json)
+        val report = importer.import(json)
+        assertEquals(ImportCounts(unchanged = 2), report.weights)
+        assertEquals(2, SqlDelightWeightStore(db.weightEntryQueries).all().size)
+    }
+
+    @Test
+    fun weightConflictNewerWinsTieKeepsLocal() = runTest {
+        val weights = SqlDelightWeightStore(db.weightEntryQueries)
+        weights.save(NewWeightEntry("2026-11-01", 80.0), 100L)
+        weights.save(NewWeightEntry("2026-11-02", 79.0), 100L)
+        weights.save(NewWeightEntry("2026-11-03", 78.0), 100L)
+
+        val report = importer.import(weightFile(
+            ExportedWeight("2026-11-01", 81.0, 1, 200), // más reciente: gana el importado
+            ExportedWeight("2026-11-02", 70.0, 1, 100), // empate: gana el local
+            ExportedWeight("2026-11-03", 60.0, 1, 50),  // más antiguo: gana el local
+        ))
+
+        assertEquals(ImportCounts(updated = 1, keptLocal = 2), report.weights)
+        assertEquals(listOf(81.0, 79.0, 78.0), weights.all().map { it.weightKg })
+        assertEquals(100L, weights.all().first().createdAtMillis) // conserva la creación local
+    }
+
+    @Test
+    fun duplicateDateInsideTheFileKeepsTheNewest() = runTest {
+        val report = importer.import(weightFile(
+            ExportedWeight("2026-11-01", 80.0, 1, 10),
+            ExportedWeight("2026-11-01", 79.0, 1, 20),
+            ExportedWeight("2026-11-01", 79.0, 1, 20),
+        ))
+        assertEquals(ImportCounts(added = 1, updated = 1, unchanged = 1), report.weights)
+        assertEquals(listOf(79.0), SqlDelightWeightStore(db.weightEntryQueries).all().map { it.weightKg })
+    }
+
+    @Test
+    fun invalidWeightsAreSkippedAndReported() = runTest {
+        val report = importer.import(weightFile(
+            ExportedWeight("2026-11-01", 80.0),
+            ExportedWeight("2026-02-30", 80.0),
+            ExportedWeight("2026-11-02", 5.0),
+        ))
+        assertEquals(ImportCounts(added = 1, invalid = 2), report.weights)
+        assertEquals(2, report.invalidItems.size)
+        assertEquals(listOf("2026-11-01"), SqlDelightWeightStore(db.weightEntryQueries).all().map { it.date })
+    }
+
+    @Test
+    fun oldFilesWithoutWeightsStillImport() = runTest {
+        val old = """{"schemaVersion":1,"exportedAtMillis":1,"products":[],"diaryEntries":[],"customFoods":[]}"""
+        val report = importer.import(old)
+        assertEquals(ImportCounts(), report.weights)
+        val older = """{"schemaVersion":1,"exportedAtMillis":1}"""
+        assertEquals(ImportCounts(), importer.import(older).weights)
+        assertEquals(emptyList(), SqlDelightWeightStore(db.weightEntryQueries).all())
+    }
+
+    @Test
+    fun weightsOnlyChangeIsNotEmptyAndPreviewDoesNotWrite() = runTest {
+        val plan = importer.preview(weightFile(ExportedWeight("2026-11-01", 80.0, 1, 1)))
+        assertTrue(!plan.changes.isEmpty)
+        assertEquals(emptyList(), SqlDelightWeightStore(db.weightEntryQueries).all())
     }
 
     private fun NewDiaryEntry.toExportedWithId(id: Long, created: Long) = ExportedDiaryEntry(

@@ -19,6 +19,7 @@ import app.luxion.fitarchiveapp.data.DiaryStore
 import app.luxion.fitarchiveapp.data.GoalStore
 import app.luxion.fitarchiveapp.data.ProductRepository
 import app.luxion.fitarchiveapp.data.ProductSearchStore
+import app.luxion.fitarchiveapp.data.WeightStore
 import app.luxion.fitarchiveapp.data.generic.GenericFoodSeeder
 import app.luxion.fitarchiveapp.export.DataExporter
 import app.luxion.fitarchiveapp.export.DataImporter
@@ -35,6 +36,7 @@ import app.luxion.fitarchiveapp.ui.screens.DiaryScreen
 import app.luxion.fitarchiveapp.ui.screens.GoalsScreen
 import app.luxion.fitarchiveapp.ui.screens.ProductDetailScreen
 import app.luxion.fitarchiveapp.ui.screens.ScannerScreen
+import app.luxion.fitarchiveapp.ui.screens.WeightScreen
 import app.luxion.fitarchiveapp.ui.theme.EasyFoodTheme
 
 /**
@@ -49,6 +51,7 @@ fun App(
     goalStore: GoalStore,
     searchStore: ProductSearchStore,
     customFoodStore: CustomFoodStore,
+    weightStore: WeightStore,
     importTarget: ImportTarget,
     today: () -> String,
     genericSeeder: GenericFoodSeeder? = null,
@@ -81,6 +84,7 @@ fun App(
                             is Route.CustomFood -> CustomFoodScreen(navigator, route, customFoodStore, route.foodId)
                             is Route.ProductDetail -> ProductDetailScreen(navigator, route, repository, diaryStore, customFoodStore, today)
                             Route.Goals -> GoalsScreen(navigator, goalStore)
+                            Route.Weight -> WeightScreen(navigator, weightStore, today)
                             Route.Data -> DataScreen(navigator, dataPresenter, today)
                         }
                     }

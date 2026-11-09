@@ -43,6 +43,9 @@ sealed interface Route {
     /** Objetivos y TDEE. */
     data object Goals : Route
 
+    /** Seguimiento de peso: registro, historial y gráfica. */
+    data object Weight : Route
+
     /** Datos: exportar, importar y transferir por QR o red local. */
     data object Data : Route
 }
@@ -51,6 +54,7 @@ sealed interface Route {
 enum class TopLevelTab(val label: String, val icon: String, val route: Route) {
     Diary("Diario", "▤", Route.Diary),
     Foods("Alimentos", "⌕", Route.Add()),
+    Weight("Mi peso", "↗", Route.Weight),
     Goals("Objetivos", "◎", Route.Goals),
 }
 

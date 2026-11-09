@@ -22,6 +22,17 @@ data class ExportFile(
     val diaryEntries: List<ExportedDiaryEntry> = emptyList(),
     /** Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como vacío. */
     val customFoods: List<ExportedCustomFood> = emptyList(),
+    /** Registros de peso. Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como vacío. */
+    val weights: List<ExportedWeight> = emptyList(),
+)
+
+@Serializable
+data class ExportedWeight(
+    /** Fecha ISO-8601 (`YYYY-MM-DD`); un registro por día. */
+    val date: String,
+    val weightKg: Double,
+    val createdAtMillis: Long = 0,
+    val updatedAtMillis: Long = 0,
 )
 
 @Serializable
