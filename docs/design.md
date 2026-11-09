@@ -107,6 +107,8 @@ Se copia la configuración de tema de ApexApp (`ApexApp/app/src/main/java/app/lu
 
 **Colores extra de EasyFood** (macros, aviso, dato dudoso; `easyFoodColors`): se conservan y se adaptan a la paleta nueva sin cambiar sus nombres (ApexApp no define macros). Todo texto cumple contraste AA (4,5:1).
 
+**Implementación (Fase 11):** hoy EasyFood ya no fuerza oscuro: `EasyFoodTheme(darkTheme = isSystemInDarkTheme())` elige la paleta según el sistema en las tres plataformas (antes siempre oscuro; se cambia porque la especificación pide seguir al sistema y la paleta clara existe en el origen). En Android, `Theme.EasyFood` (`values` y `values-night`) da a la ventana el fondo y las barras del sistema de cada paleta. Los estilos tipográficos que ApexApp no define (displaySmall, headlineMedium/Small, titleSmall, bodySmall) conservan la escala M3 pero con Inter, para no mezclar con la fuente del sistema. `Spacing` conserva `xxs`, `s`, `m`, `l` (alias de `sm`, `md`, `lg`), pasa `xl`/`xxl`/`xxxl` a 24/32/48 y añade `screen` = 20. `easyFoodColors` oscuro: proteína `FF5C5E`, hidratos `6FB1FF`, grasa `BDBDBD`, aviso `FFB454` sobre `5C3A0E`/`FFE0B8`; claro: proteína `B41319`, hidratos `1F5FA8`, grasa `5F5F5F`, aviso `8A5000` sobre `FFDDB0`/`2E1A00` (contraste ≥ 4,5:1 sobre todos los `surfaceContainer*`). Licencia de las fuentes: `docs/licenses/fonts-OFL.md`.
+
 **Hecho por:** copia de valores, no dependencia entre proyectos. Las fuentes se copian a `shared/src/commonMain/composeResources/font/` con su licencia (OFL) si la trae el origen.
 
 ## 2. Pantallas
