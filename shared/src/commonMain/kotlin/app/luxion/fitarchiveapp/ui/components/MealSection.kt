@@ -1,6 +1,7 @@
 package app.luxion.fitarchiveapp.ui.components
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -11,7 +12,9 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -19,7 +22,7 @@ import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.ui.theme.Spacing
 
 /**
- * Tarjeta de una comida (Desayuno, Comida…): título, resumen, entradas y botón ancho «+». [entries] recibe las filas ([DiaryEntryRow]);
+ * Tarjeta de una comida (Desayuno, Comida…): título, resumen, entradas y botón ancho «+» y, si hay [onCopy], «Copiar» junto al título. [entries] recibe las filas ([DiaryEntryRow]);
  * si [isEmpty], se muestra [emptyText] en su lugar.
  */
 @Composable
@@ -28,6 +31,7 @@ fun MealSection(
     summary: String,
     onAdd: () -> Unit,
     modifier: Modifier = Modifier,
+    onCopy: (() -> Unit)? = null,
     isEmpty: Boolean = false,
     emptyText: String = "Nada apuntado todavía",
     entries: @Composable ColumnScope.() -> Unit = {},
@@ -38,13 +42,21 @@ fun MealSection(
         colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
-        Column(Modifier.fillMaxWidth().padding(start = Spacing.l, end = Spacing.l, top = Spacing.m, bottom = Spacing.s)) {
-            Text(title, style = MaterialTheme.typography.titleLarge)
-            Text(
-                summary,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        Row(
+            Modifier.fillMaxWidth().padding(start = Spacing.l, end = Spacing.s, top = Spacing.m, bottom = Spacing.s),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleLarge)
+                Text(
+                    summary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (onCopy != null) {
+                TextButton(onClick = onCopy, modifier = Modifier.semantics { contentDescription = "Copiar $title" }) { Text("Copiar") }
+            }
         }
         if (isEmpty) {
             Text(

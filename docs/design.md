@@ -306,6 +306,16 @@ Scaffold
 - **Implementación.** La fila anclada (‹ «Hoy ▾» › · racha · ⇅ Datos) va fuera de la lista; la franja y la tarjeta son el primer elemento de la lista y, en cuanto se desplaza, aparece encima de la lista el `DiaryHeader` compacto (no se superpone a las tarjetas). La barra del objetivo es una barra con dos marcas (arco descartado); la escala llega a max(objetivo × 1,3; consumidas). «Hoy ▾» abre el selector de fecha de Material (`DatePicker`). Las kcal por día salen de `DiaryStore.daySummaries` (consulta `selectDailyKcal`, sin migración); estado de día y racha, de `DayStatus`.
 - **No se incluye** de la captura: banner Premium, foto de perfil, botón «Terminar día», pestañas Social y Coach, menús «⋯». «Coach» queda para más adelante, si se añade una IA con clave propia (Fase 11, pendiente).
 
+### 2.13 Copiar comida y copiar día (Fase 12)
+Atajo del Diario para no volver a apuntar lo que se repite. No hay tabla nueva: copiar es crear entradas nuevas (`DiaryStore.add`) a partir de las del día mostrado.
+- **«Copiar» en cada tarjeta de comida** (texto junto al título, solo si la comida tiene entradas) y **«Copiar día»** (primer elemento de la lista, solo si el día tiene entradas). Ambos abren `CopyDialog`.
+- **Destino.** Fecha: por defecto el día anterior al mostrado, con ‹ › para moverse y la fecha para abrir el selector de Material. Comida (solo en «Copiar»): por defecto «La misma» (la equivalente), o cualquiera del preset (§2.9) para llevar la comida a otra distinta, también del mismo día. «Copiar día» lleva cada comida a su equivalente.
+- **Qué se copia.** Cada entrada con su cantidad y unidad, tamaño de porción y valores por 100 g (como el diario, es una instantánea), en el mismo orden (`createdAt` crece con el orden de origen) y sin tocar el origen.
+- **Comida que no existe en el destino.** Si la comida de origen no está en el preset activo (p. ej. tiene entradas de Merienda y el preset es de 3), no se pregunta: va a la comida activa más cercana por hora típica (`MealPlan.closest`; con empate, la primera del día) y el aviso lo dice («… a la más cercana»). Si el usuario elige comida destino, manda su elección.
+- **Validaciones.** Copiar una comida sobre sí misma (mismo día y misma comida) o el día sobre sí mismo se rechaza («Elige otro día u otra comida.») porque duplicaría las entradas; sin entradas, «No hay nada que copiar.». Un fallo de base de datos da «No se pudo copiar…».
+- **Resultado.** El Diario sigue en el día de origen y un snackbar confirma «Copiado a 3 de noviembre de 2026: 2 alimentos».
+- **Implementación.** Lógica pura en `DiaryCopy` (`targetMeal`, `plan`); orquestación en `DiaryPresenter.copyMeal` y `copyDay`.
+
 ## 3. Componentes compartidos (en `shared/ui`)
 `EasyFoodTheme` · `CalorieRing` · `MacroProgressRow` · `MacroDot` · `SourceAvatar` / `SourceChip` (enum `DataSource { OpenFoodFacts, Generic, Custom }`) · `DoubtfulChip` · `DoubtfulDataBanner` · `MealSection` · `DiaryEntryRow` · `FoodResultRow` · `QuantitySelector` · `NutritionTable` · `EmptyState` · `NumberField` (OutlinedTextField con sufijo de unidad) · `FoodSearch` (buscador de alimentos de «Añadir» y del editor de recetas).
 

@@ -110,3 +110,9 @@ Especificación en `docs/design.md` §1.7, §2.6 y §2.12. Cada punto es un PR; 
 - [x] Ritmo de perder/ganar sin mínimo de 0 kg/semana: el slider empieza en 0,25 kg/sem (`GoalsPlanner.PACES` sin el 0,0); «Mantener» sigue siendo la forma de no perder ni ganar
 - [x] Diario rediseñado (las tarjetas de comida salen siempre, también con el día vacío): franja semanal con los días coloreados según se hayan completado (objetivo ±10 %), racha de días completados, tarjeta de objetivo con el margen marcado y tarjetas de comida con «+», con cabecera colapsable (§2.12)
 - [ ] (Pendiente, sin decidir) «Coach» con IA y clave de API propia del usuario; se une al punto de IA de la Fase 9
+
+## Fase 12: Atajos y base en español
+
+Cada punto es un PR.
+
+- [x] Copiar una comida o un día entero a otra fecha o comida desde el Diario («Copiar» en cada tarjeta y «Copiar día»), sin tabla nueva (`docs/design.md` §2.13)

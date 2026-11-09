@@ -4,9 +4,9 @@ App multiplataforma (Kotlin Multiplatform + Compose Multiplatform) para **contar
 
 ## Qué hace
 
-- **Diario del día**: cabecera con el objetivo y cómo se va, franja semanal con racha de días completados, secciones por comida (3 a 6 al día), edición y borrado de entradas.
-- **Añadir alimento**: búsqueda de texto en la base local (genérica USDA, Open Food Facts y propios), recientes y accesos rápidos.
-- **Escáner de códigos de barras** (Android y iOS) y entrada manual de EAN. La consulta por EAN va a [Open Food Facts](https://world.openfoodfacts.org).
+- **Diario del día**: totales de kcal y macros, secciones por comida, progreso frente al objetivo, edición y borrado de entradas, y copia de una comida o de un día entero a otra fecha o comida.
+- **Añadir alimento**: búsqueda de texto en la base local, filtro por origen y accesos rápidos.
+- **Escáner de códigos de barras** (solo Android) y entrada manual de EAN. La consulta por EAN va a [Open Food Facts](https://world.openfoodfacts.org).
 - **Ficha de producto**: cantidad, tabla nutricional por 100 g y aviso cuando los datos faltan o parecen erróneos.
 - **Alimento propio**: crear, editar y borrar alimentos introducidos a mano.
 - **Recetas**: combinan ingredientes de la base y se añaden al diario.
