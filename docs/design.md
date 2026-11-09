@@ -187,12 +187,42 @@ Estructura: icono 32 dentro de un círculo de 72 (color según el tono) · title
 | EAN no encontrado | aviso (warningContainer) | Código no encontrado | Crear con este código · Escanear otro |
 | Permiso de cámara denegado | error (errorContainer) | Sin acceso a la cámara | Abrir ajustes · Escribir código |
 | Sin conexión | aviso | Sin conexión | Buscar sin conexión (solo local) |
+| Sin recetas | neutro | Aún no tienes recetas | Crear receta |
 | Error de red puntual | — | Snackbar «Open Food Facts no responde.» + acción «Reintentar» | mantiene el contenido ya cargado |
 
 Para las cargas, usa `LinearProgressIndicator` bajo la barra de búsqueda o filas placeholder (shimmer suave con surfaceContainerHigh), no spinners a pantalla completa.
 
+### 2.8 Recetas (`RecipesScreen`, `RecipeDetailScreen`, `RecipeEditScreen`)
+Una receta es un conjunto de alimentos de la BD (Open Food Facts, genéricos USDA y propios), cada uno con su cantidad en gramos (o ml), más un nombre y unas raciones opcionales. Los macros no se escriben: salen de la suma de los ingredientes (`RecipeCalculator`). Si a algún ingrediente le falta un dato, ese macro de la receta aparece como «Sin dato» (no se suma «lo que hay») y un aviso nombra al ingrediente. Cada ingrediente guarda una copia del nombre y de los valores por 100 g, como el diario: la receta no cambia si la caché de productos se purga o se edita el alimento propio.
+```
+Pestaña «Recetas» (barra inferior: Diario · Alimentos · Recetas · Mi peso · Objetivos)
+TopAppBar «Recetas»
+├─ Button «+ Nueva receta»
+└─ ListItem por receta: nombre / «3 ingredientes · 4 raciones» · kcal por ración (o total si no hay raciones)
+Sin recetas → EmptyState «Aún no tienes recetas» · Crear receta
+
+Detalle (TopAppBar con ←, título «Receta» y ✎ editar)
+├─ nombre (headlineSmall) · «N ingredientes · X raciones · peso total»
+├─ aviso (warningContainer) si algún ingrediente no tiene todos los datos
+├─ Card (surfaceContainerLow): «Por ración · 1 de N» (solo con raciones) y «Receta entera»; cada bloque = kcal grandes + 3 MacroCell (proteína/hidratos/grasa)
+├─ «Ingredientes · N»: ListItem nombre / gramos · kcal
+└─ BottomBar: chips de comida (por defecto Comida) · campo «Raciones» (solo con raciones; 1 por defecto) · Button «Añadir a Comida»
+
+Crear/editar (TopAppBar con ←, «Nueva receta»/«Editar receta» y TextButton «Borrar» al editar)
+├─ OutlinedTextField «Nombre» · NumberField «Raciones (opcional)» (entero de 1 a 100)
+├─ «Ingredientes · N»: ListItem nombre / «200 g · 500 kcal» · ✕ quitar; tocar la fila abre el cuadro de cantidad
+├─ OutlinedButton «+ Añadir ingrediente» → pantalla de búsqueda (mismo `FoodSearch` que «Añadir»: búsqueda, filtros por origen y resultados) → AlertDialog «Cantidad» en g (una porción si el alimento la define, si no 100 g) → vuelve al formulario
+├─ Card «Suma de los ingredientes»: «386 kcal · P 17 · H 62 · G 8»
+└─ BottomBar: Button «Guardar receta» / «Guardar cambios»
+```
+Validación en línea tras intentar guardar: nombre obligatorio y al menos un ingrediente. «Atrás» del sistema dentro del buscador vuelve al formulario sin perder lo escrito. Borrar pide confirmación y no afecta a las entradas del diario ya añadidas.
+
+**Añadir al diario:** una receta entra en el diario como un conjunto de alimentos, **una entrada por ingrediente**, con los gramos del ingrediente × (raciones comidas ÷ raciones de la receta); sin raciones se añade la receta entera. Es lo más simple porque reutiliza el diario tal cual (cada entrada se edita o borra por separado, cuenta para los macros del día y se exporta sin cambios) y no hace falta un tipo de entrada nuevo. El diario no guarda de qué receta viene cada entrada.
+
+**Exportar/importar:** las recetas viajan en el campo opcional `recipes` del JSON (los archivos anteriores no lo traen y se leen como vacío); política de duplicados en `DataImporter`.
+
 ## 3. Componentes compartidos (en `shared/ui`)
-`EasyFoodTheme` · `CalorieRing` · `MacroProgressRow` · `MacroDot` · `SourceAvatar` / `SourceChip` (enum `DataSource { OpenFoodFacts, Generic, Custom }`) · `DoubtfulChip` · `DoubtfulDataBanner` · `MealSection` · `DiaryEntryRow` · `FoodResultRow` · `QuantitySelector` · `NutritionTable` · `EmptyState` · `NumberField` (OutlinedTextField con sufijo de unidad).
+`EasyFoodTheme` · `CalorieRing` · `MacroProgressRow` · `MacroDot` · `SourceAvatar` / `SourceChip` (enum `DataSource { OpenFoodFacts, Generic, Custom }`) · `DoubtfulChip` · `DoubtfulDataBanner` · `MealSection` · `DiaryEntryRow` · `FoodResultRow` · `QuantitySelector` · `NutritionTable` · `EmptyState` · `NumberField` (OutlinedTextField con sufijo de unidad) · `FoodSearch` (buscador de alimentos de «Añadir» y del editor de recetas).
 
 ## 4. Navegación
-Diario ⇄ Añadir (con `meal` como argumento) → Escáner / Alimento propio → Ficha → vuelve al Diario con la entrada añadida y el snackbar «Añadido a Snacks · Deshacer». Objetivos se abre desde la barra inferior. Formato de números: locale es-ES (1.215 · 4,6 g).
+Diario ⇄ Añadir (con `meal` como argumento) → Escáner / Alimento propio → Ficha → vuelve al Diario con la entrada añadida y el snackbar «Añadido a Snacks · Deshacer». Objetivos y Recetas se abren desde la barra inferior (Recetas → Detalle → Editar, o Recetas → Nueva receta → Buscador de ingredientes). Formato de números: locale es-ES (1.215 · 4,6 g).
