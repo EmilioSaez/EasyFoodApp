@@ -2,17 +2,16 @@ package app.luxion.fitarchiveapp.ui.components
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -20,7 +19,7 @@ import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.ui.theme.Spacing
 
 /**
- * Tarjeta de una comida (Desayuno, Comida…). [entries] recibe las filas ([DiaryEntryRow]);
+ * Tarjeta de una comida (Desayuno, Comida…): título, resumen, entradas y botón ancho «+». [entries] recibe las filas ([DiaryEntryRow]);
  * si [isEmpty], se muestra [emptyText] en su lugar.
  */
 @Composable
@@ -39,21 +38,13 @@ fun MealSection(
         colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
-        Row(
-            Modifier.fillMaxWidth().padding(start = Spacing.l, top = Spacing.xs, bottom = Spacing.xs),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
-                Text(
-                    summary,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            IconButton(onClick = onAdd, modifier = Modifier.semantics { contentDescription = "Añadir a $title" }) {
-                Text("+", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-            }
+        Column(Modifier.fillMaxWidth().padding(start = Spacing.l, end = Spacing.l, top = Spacing.m, bottom = Spacing.s)) {
+            Text(title, style = MaterialTheme.typography.titleLarge)
+            Text(
+                summary,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         if (isEmpty) {
             Text(
@@ -65,5 +56,15 @@ fun MealSection(
         } else {
             entries()
         }
+        // Botón ancho «+»: añade a esta comida (docs/design.md §2.12).
+        Button(
+            onClick = onAdd,
+            modifier = Modifier.fillMaxWidth().padding(Spacing.s).semantics { contentDescription = "Añadir a $title" },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            ),
+            shape = MaterialTheme.shapes.small,
+        ) { Text("+", style = MaterialTheme.typography.titleLarge) }
     }
 }

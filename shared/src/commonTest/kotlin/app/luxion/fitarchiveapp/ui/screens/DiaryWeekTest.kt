@@ -2,6 +2,7 @@ package app.luxion.fitarchiveapp.ui.screens
 
 import app.luxion.fitarchiveapp.domain.DayStatus
 import app.luxion.fitarchiveapp.domain.DaySummary
+import app.luxion.fitarchiveapp.domain.MealPlan
 import app.luxion.fitarchiveapp.model.DailyGoals
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -61,5 +62,14 @@ class DiaryWeekTest {
         assertEquals(today, state.today)
         assertEquals(7, state.week.size)
         assertEquals(DayStatus.TODAY_PENDING, state.week.first { it.selected }.status)
+    }
+
+    @Test
+    fun dayWithoutEntriesStillHasEveryMealOfThePresetWithZeroTotals() {
+        for (count in MealPlan.options) {
+            val state = buildDiaryUiState(today, emptyList(), DailyGoals(kcal = 2000), mealsPerDay = count, today = today)
+            assertEquals(MealPlan.preset(count), state.meals.map { it.meal })
+            assertEquals(true, state.meals.all { it.kcal == 0.0 && it.entries.isEmpty() })
+        }
     }
 }

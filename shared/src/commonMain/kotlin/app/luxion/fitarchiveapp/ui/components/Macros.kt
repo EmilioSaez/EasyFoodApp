@@ -112,3 +112,7 @@ fun MacroProgressRow(
 /** Resumen de una comida: «386 kcal · P 17 · H 62 · G 8». */
 fun macroSummary(kcal: Double, proteinG: Double, carbsG: Double, fatG: Double): String =
     "${formatKcal(kcal)} kcal · P ${proteinG.roundToInt()} · H ${carbsG.roundToInt()} · G ${fatG.roundToInt()}"
+
+/** Resumen de una comida en su tarjeta: «🔥 386 kcal · 17 P | 62 H | 8 G». */
+fun mealSummary(kcal: Double, proteinG: Double, carbsG: Double, fatG: Double): String =
+    "🔥 ${formatKcal(kcal)} kcal · ${proteinG.roundToInt()} P | ${carbsG.roundToInt()} H | ${fatG.roundToInt()} G"

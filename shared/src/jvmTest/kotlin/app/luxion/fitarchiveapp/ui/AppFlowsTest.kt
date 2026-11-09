@@ -95,8 +95,15 @@ class AppFlowsTest {
         try { block(db) } finally { driver.close() }
     }
 
-    private fun ComposeUiTest.waitForText(text: String) =
-        waitUntil(timeoutMillis = 20_000) { onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty() }
+    /** Espera a que el texto exista; si hay listas perezosas, las desplaza hasta él (el Diario no compone lo que queda fuera de pantalla). */
+    private fun ComposeUiTest.waitForText(text: String) = waitUntil(timeoutMillis = 20_000) {
+        if (onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty()) return@waitUntil true
+        val scrollables = onAllNodes(hasScrollAction()).fetchSemanticsNodes().size
+        for (i in 0 until scrollables) {
+            try { onAllNodes(hasScrollAction())[i].performScrollToNode(hasText(text)) } catch (_: AssertionError) {}
+        }
+        onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty()
+    }
 
     private fun ComposeUiTest.waitGone(text: String) =
         waitUntil(timeoutMillis = 20_000) { onAllNodes(hasText(text)).fetchSemanticsNodes().isEmpty() }
@@ -428,11 +435,63 @@ class AppFlowsTest {
         fillDiary(db, goalKcal = 1000)
         reloadDiary()
         waitForText("Alimento 0")
-        onNodeWithText("1.400 / 1.000 kcal").assertIsDisplayed()
-        onNodeWithText("400 kcal de más").assertIsDisplayed()
+        // Con la lista arriba se ve la cabecera completa (franja y tarjeta de objetivo).
+        onNodeWithText("1.400 / 1.000").assertIsDisplayed()
+        onNodeWithText("L").assertIsDisplayed()
+        // Al desplazar se pliega en el DiaryHeader compacto, que sigue anclado.
         onNode(hasScrollAction()).performScrollToNode(hasText("Alimento 13"))
         onNodeWithText("1.400 / 1.000 kcal").assertIsDisplayed()
         onNodeWithText("400 kcal de más").assertIsDisplayed()
+        kotlin.test.assertTrue(onAllNodes(hasText("L")).fetchSemanticsNodes().isEmpty())
+        // Y vuelve a desplegarse con la lista arriba.
+        onNode(hasScrollAction()).performScrollToIndex(0)
+        onNodeWithText("1.400 / 1.000").assertIsDisplayed()
+    }
+
+    private fun ComposeUiTest.assertAllPresetMealCards(vararg meals: String) {
+        for (meal in meals) {
+            onNode(hasScrollAction()).performScrollToNode(hasContentDescription("Añadir a $meal"))
+            onNodeWithContentDescription("Añadir a $meal").assertIsDisplayed()
+        }
+        onNode(hasScrollAction()).performScrollToIndex(0)
+    }
+
+    @Test
+    fun emptyDayPastAndFutureDaysShowEveryMealCardAndNoEmptyScreen() = runApp(recentWeight = true) { db ->
+        SqlDelightGoalStore(db.dailyGoalQueries).let { kotlinx.coroutines.runBlocking { it.save(DailyGoals(kcal = 2000)) } }
+        reloadDiary()
+        waitForText("Nada apuntado hoy")
+        onNodeWithText("0 / 2.000").assertIsDisplayed()
+        assertAllPresetMealCards("Desayuno", "Comida", "Merienda", "Cena")
+        onNodeWithContentDescription("Día anterior").performClick()
+        waitForText("Nada apuntado este día")
+        assertAllPresetMealCards("Desayuno", "Comida", "Merienda", "Cena")
+        onNodeWithContentDescription("Día siguiente").performClick()
+        onNodeWithContentDescription("Día siguiente").performClick()
+        waitForText("Nada apuntado este día")
+        assertAllPresetMealCards("Desayuno", "Comida", "Merienda", "Cena")
+    }
+
+    @Test
+    fun weekStripShowsStatusesAndSelectingADayChangesIt() = runApp(recentWeight = true) { db ->
+        kotlinx.coroutines.runBlocking {
+            val diary = SqlDelightDiaryStore(db.diaryEntryQueries)
+            // 2026-11-04 es miércoles. Lunes 2: dentro de margen (completado); martes 3: fuera (no completado).
+            for ((date, kcal) in listOf("2026-11-02" to 2000.0, "2026-11-03" to 500.0)) {
+                diary.add(NewDiaryEntry(date, MealType.LUNCH, null, "Plato $date", Quantity(100.0, QuantityUnit.GRAMS), null, Nutrients(kcal, 1.0, 1.0, 1.0)), 1L)
+            }
+            SqlDelightGoalStore(db.dailyGoalQueries).save(DailyGoals(kcal = 2000))
+        }
+        reloadDiary()
+        waitForText("Nada apuntado hoy")
+        onNodeWithContentDescription("2 de noviembre de 2026, completado").assertIsDisplayed()
+        onNodeWithContentDescription("3 de noviembre de 2026, no completado").assertIsDisplayed()
+        onNodeWithContentDescription("4 de noviembre de 2026, hoy, sin completar").assertIsDisplayed()
+        onNodeWithContentDescription("5 de noviembre de 2026, día futuro").assertIsDisplayed()
+        onNodeWithContentDescription("Racha de 0 días").assertIsDisplayed()
+        onNodeWithContentDescription("2 de noviembre de 2026, completado").performClick()
+        waitForText("Plato 2026-11-02")
+        onNodeWithText("2 de noviembre ▾").assertIsDisplayed()
     }
 
     @Test
@@ -449,6 +508,7 @@ class AppFlowsTest {
     @Test
     fun emptyDiaryWithoutGoalShowsASingleSetGoalAction() = runApp(recentWeight = true) { _ ->
         waitForText("Nada apuntado hoy")
+        assertAllPresetMealCards("Desayuno", "Comida", "Merienda", "Cena")
         onNodeWithText("Sin objetivo diario").assertIsDisplayed()
         onNodeWithText("Fijar objetivo").assertIsDisplayed() // un solo nodo: sin duplicar en el estado vacío
     }
@@ -614,9 +674,9 @@ class AppFlowsTest {
         seed = seedGalletas(MealType.SNACK),
     ) { _ ->
         waitForText("Galletas")
-        listOf("Desayuno", "Comida", "Cena").forEach { onNodeWithText(it).assertIsDisplayed() }
+        listOf("Desayuno", "Comida", "Cena").forEach { waitForText(it) }
         // La merienda ya no está en el preset pero tiene datos: se sigue mostrando. Las demás, no.
-        onNodeWithText("Merienda").assertIsDisplayed()
+        waitForText("Merienda")
         kotlin.test.assertTrue(onAllNodes(hasText("Almuerzo")).fetchSemanticsNodes().isEmpty())
         kotlin.test.assertTrue(onAllNodes(hasText("Recena")).fetchSemanticsNodes().isEmpty())
     }
@@ -646,6 +706,7 @@ class AppFlowsTest {
         seed = seedGalletas(MealType.LUNCH),
     ) { db ->
         waitForText("Galletas")
+        onNode(hasScrollAction()).performScrollToNode(hasContentDescription("Añadir a Almuerzo"))
         onNodeWithContentDescription("Añadir a Almuerzo").performClick()
         addNutellaFromEan()
         waitForText("Añadir a Almuerzo") // la hora (17:30) sugeriría la merienda, pero viene preseleccionada
