@@ -1,0 +1,19 @@
+-- Registros de peso corporal: uno por día (la fecha ISO es la clave).
+CREATE TABLE IF NOT EXISTS WeightEntryEntity (
+    date TEXT NOT NULL PRIMARY KEY CHECK (length(date) = 10),
+    weight_kg REAL NOT NULL CHECK (weight_kg >= 20 AND weight_kg <= 500),
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+selectAll:
+SELECT * FROM WeightEntryEntity ORDER BY date ASC;
+
+selectByDate:
+SELECT * FROM WeightEntryEntity WHERE date = ?;
+
+upsert:
+INSERT OR REPLACE INTO WeightEntryEntity(date, weight_kg, created_at, updated_at) VALUES (?, ?, ?, ?);
+
+deleteByDate:
+DELETE FROM WeightEntryEntity WHERE date = ?;

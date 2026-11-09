@@ -5,6 +5,8 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithText
@@ -22,7 +24,9 @@ import app.luxion.fitarchiveapp.data.SqlDelightDiaryStore
 import app.luxion.fitarchiveapp.data.SqlDelightGoalStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductSearchStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductStore
+import app.luxion.fitarchiveapp.data.SqlDelightWeightStore
 import app.luxion.fitarchiveapp.db.EasyFoodDatabase
+import app.luxion.fitarchiveapp.model.NewWeightEntry
 import app.luxion.fitarchiveapp.export.SqlDelightImportTarget
 import app.luxion.fitarchiveapp.model.DailyGoals
 import app.luxion.fitarchiveapp.model.MealType
@@ -58,7 +62,8 @@ class AppFlowsTest {
                 goalStore = SqlDelightGoalStore(db.dailyGoalQueries),
                 searchStore = SqlDelightProductSearchStore(db.productSearchQueries),
                 customFoodStore = SqlDelightCustomFoodStore(db.customFoodQueries),
-                importTarget = SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries),
+                weightStore = SqlDelightWeightStore(db.weightEntryQueries),
+                importTarget = SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries),
                 today = { "2026-11-04" },
             )
         }
@@ -121,6 +126,94 @@ class AppFlowsTest {
         val goals = kotlinx.coroutines.runBlocking { SqlDelightGoalStore(db.dailyGoalQueries).get() }
         // Mifflin-St Jeor, hombre 30 a / 80 kg / 180 cm: BMR 1780 × 1,55 (actividad moderada).
         kotlin.test.assertEquals(2759, goals.kcal!!)
+    }
+
+    private fun weights(db: EasyFoodDatabase) =
+        kotlinx.coroutines.runBlocking { SqlDelightWeightStore(db.weightEntryQueries).all() }
+
+    /** El historial es una lista perezosa: hay que desplazarla hasta la fila para que exista. */
+    private fun ComposeUiTest.scrollToRow(description: String) =
+        onNode(hasScrollAction()).performScrollToNode(hasContentDescription(description))
+
+    private fun ComposeUiTest.openWeight() {
+        waitForText("Nada apuntado hoy")
+        onNodeWithText("Mi peso").performClick()
+        waitForText("Registrar peso")
+    }
+
+    @Test
+    fun weightCanBeRecordedEditedAndDeleted() = runApp { db ->
+        openWeight()
+        waitForText("Aún no has registrado tu peso. Guarda el primero arriba para ver cómo evoluciona.")
+
+        // Alta con coma decimal y fecha por defecto (hoy).
+        onNodeWithText("Peso").performTextInput("78,46")
+        onNodeWithText("Guardar peso").performClick()
+        waitForText("Peso guardado")
+        kotlin.test.assertEquals(listOf("2026-11-04" to 78.5), weights(db).map { it.date to it.weightKg })
+        waitForText("78,5 kg")
+        onNodeWithContentDescription("Editar peso del 2026-11-04").assertIsDisplayed()
+
+        // Segundo registro con punto decimal y fecha anterior: la gráfica ya calcula la diferencia.
+        onNodeWithText("Fecha").performTextReplacement("2026-10-30")
+        onNodeWithText("Peso").performTextInput("80.0")
+        onNodeWithText("Guardar peso").performClick()
+        waitUntil(timeoutMillis = 20_000) { weights(db).size == 2 }
+        waitForText("−1,5 kg desde el 30 oct")
+
+        // Editar el peso más reciente.
+        onNodeWithContentDescription("Editar peso del 2026-11-04").performClick()
+        waitForText("Editar registro")
+        onNodeWithText("Peso").performTextReplacement("77,0")
+        onNodeWithText("Guardar cambios").performClick()
+        waitForText("Registro actualizado")
+        kotlin.test.assertEquals(77.0, weights(db).last().weightKg)
+
+        // Cancelar el borrado no borra; confirmarlo sí. (El aviso anterior tapa la última fila hasta que se va.)
+        waitGone("Registro actualizado")
+        scrollToRow("Borrar peso del 2026-10-30")
+        onNodeWithContentDescription("Borrar peso del 2026-10-30").performClick()
+        waitForText("¿Borrar este registro?")
+        onNodeWithText("Cancelar").performClick()
+        waitGone("¿Borrar este registro?")
+        kotlin.test.assertEquals(2, weights(db).size)
+        onNodeWithContentDescription("Borrar peso del 2026-10-30").performClick()
+        waitForText("¿Borrar este registro?")
+        onNodeWithText("Borrar").performClick()
+        waitUntil(timeoutMillis = 20_000) { weights(db).size == 1 }
+    }
+
+    @Test
+    fun invalidWeightAndFutureDateAreRejected() = runApp { db ->
+        openWeight()
+        onNodeWithText("Guardar peso").performClick()
+        waitForText("Escribe tu peso")
+        onNodeWithText("Peso").performTextInput("5")
+        waitForText("Debe estar entre 20 y 500 kg")
+        onNodeWithText("Peso").performTextReplacement("80")
+        onNodeWithText("Fecha").performTextReplacement("2026-11-05")
+        waitForText("La fecha no puede ser futura")
+        onNodeWithText("Guardar peso").performClick()
+        kotlin.test.assertEquals(emptyList(), weights(db))
+    }
+
+    @Test
+    fun weightRangesAndExistingRecordsAreShown() = runApp { db ->
+        kotlinx.coroutines.runBlocking {
+            val s = SqlDelightWeightStore(db.weightEntryQueries)
+            s.save(NewWeightEntry("2026-06-01", 90.0), 1L)
+            s.save(NewWeightEntry("2026-10-20", 82.0), 2L)
+            s.save(NewWeightEntry("2026-11-04", 80.0), 3L)
+        }
+        openWeight()
+        waitForText("−2,0 kg desde el 20 oct") // 30 días
+        onNodeWithText("Todo").performClick()
+        waitForText("−10,0 kg desde el 1 jun")
+        onNodeWithText("90 días").performClick()
+        waitForText("−2,0 kg desde el 20 oct")
+        onNodeWithContentDescription("Gráfica de peso: 2 registros, de 20 oct a 4 nov, último 80,0 kg").assertIsDisplayed()
+        scrollToRow("Editar peso del 2026-06-01")
+        onNodeWithContentDescription("Editar peso del 2026-06-01").assertIsDisplayed() // el historial lo muestra todo
     }
 
     @Test

@@ -13,6 +13,7 @@ import app.luxion.fitarchiveapp.data.SqlDelightDiaryStore
 import app.luxion.fitarchiveapp.data.SqlDelightGoalStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductSearchStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductStore
+import app.luxion.fitarchiveapp.data.SqlDelightWeightStore
 import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
 import app.luxion.fitarchiveapp.data.generic.GenericFoodSeeder
 import app.luxion.fitarchiveapp.db.EasyFoodDatabase
@@ -44,8 +45,9 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
             goalStore = remember(db) { SqlDelightGoalStore(db.dailyGoalQueries) },
             searchStore = remember(db) { SqlDelightProductSearchStore(db.productSearchQueries) },
             customFoodStore = remember(db) { SqlDelightCustomFoodStore(db.customFoodQueries) },
+            weightStore = remember(db) { SqlDelightWeightStore(db.weightEntryQueries) },
             importTarget = remember(db) {
-                SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries)
+                SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries)
             },
             today = ::todayIso,
             genericSeeder = remember(db) {

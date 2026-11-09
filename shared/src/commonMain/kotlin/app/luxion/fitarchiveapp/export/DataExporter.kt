@@ -7,6 +7,7 @@ import app.luxion.fitarchiveapp.data.toDomain
 import app.luxion.fitarchiveapp.db.CustomFoodQueries
 import app.luxion.fitarchiveapp.db.DiaryEntryQueries
 import app.luxion.fitarchiveapp.db.ProductQueries
+import app.luxion.fitarchiveapp.db.WeightEntryQueries
 import app.luxion.fitarchiveapp.model.CustomFood
 import app.luxion.fitarchiveapp.model.DiaryEntry
 import app.luxion.fitarchiveapp.model.Product
@@ -19,6 +20,7 @@ interface ExportSource {
     suspend fun products(): List<ExportedProduct>
     suspend fun diaryEntries(): List<DiaryEntry>
     suspend fun customFoods(): List<ExportedCustomFood> = emptyList()
+    suspend fun weights(): List<ExportedWeight> = emptyList()
 }
 
 /** Genera el JSON de exportación a partir de [source]. */
@@ -34,6 +36,7 @@ class DataExporter(
         products = source.products().filter { it.source != GenericFoodImporter.SOURCE },
         diaryEntries = source.diaryEntries().map { it.toExported() },
         customFoods = source.customFoods(),
+        weights = source.weights(),
     )
 
     suspend fun exportToJson(): String = ExportCodec.encode(buildFile())
@@ -69,8 +72,15 @@ class SqlDelightExportSource(
     private val productQueries: ProductQueries,
     private val diaryQueries: DiaryEntryQueries,
     private val customFoodQueries: CustomFoodQueries? = null,
+    private val weightQueries: WeightEntryQueries? = null,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : ExportSource {
+    override suspend fun weights(): List<ExportedWeight> = withContext(dispatcher) {
+        weightQueries?.selectAll()?.executeAsList().orEmpty().map {
+            ExportedWeight(it.date, it.weight_kg, it.created_at, it.updated_at)
+        }
+    }
+
     override suspend fun customFoods(): List<ExportedCustomFood> = withContext(dispatcher) {
         customFoodQueries?.selectAll()?.executeAsList().orEmpty().map { it.toDomain().toExported() }
     }
