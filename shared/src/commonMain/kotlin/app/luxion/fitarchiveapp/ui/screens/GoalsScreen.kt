@@ -3,6 +3,7 @@ package app.luxion.fitarchiveapp.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -13,6 +14,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -171,7 +173,11 @@ fun GoalsScreen(
             Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = Spacing.l),
             verticalArrangement = Arrangement.spacedBy(Spacing.xl),
         ) {
-            ResultCard(resolved.kcal, plan, custom, fixed, Modifier.padding(top = Spacing.s))
+            ResultCard(
+                resolved.kcal, plan, custom, fixed, { fixed = it },
+                suggestion?.targetKcal?.takeIf { it != resolved.kcal },
+                Modifier.padding(top = Spacing.s),
+            )
 
             if (plan?.limited == true) {
                 Text(
@@ -188,63 +194,6 @@ fun GoalsScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.easyFoodColors.warning,
                     )
-                }
-            }
-
-            FixedGoalRow(
-                fixed = fixed,
-                onChange = { fixed = it },
-                suggestionKcal = suggestion?.targetKcal?.takeIf { it != resolved.kcal },
-            )
-
-            Section("Tus datos") {
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    listOf(Sex.MALE to "Hombre", Sex.FEMALE to "Mujer").forEachIndexed { i, (value, label) ->
-                        SegmentedButton(
-                            selected = sex == value,
-                            onClick = { sex = value },
-                            shape = SegmentedButtonDefaults.itemShape(i, 2),
-                        ) { Text(label) }
-                    }
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                    NumberField(ageText, { ageText = it }, "Edad", Modifier.weight(1f), suffix = "años", isError = ageError)
-                    NumberField(weightText, { weightText = it }, "Peso", Modifier.weight(1f), suffix = "kg", isError = weightError)
-                    NumberField(heightText, { heightText = it }, "Altura", Modifier.weight(1f), suffix = "cm", isError = heightError)
-                }
-                if (ageError || weightError || heightError) {
-                    Text(
-                        "Edad 10–120 años · peso 20–500 kg · altura 80–260 cm",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-            }
-
-            StepsSection(stepsState, stepsSuggestion, onApply = { activity = it })
-
-            Section("Actividad física") {
-                ActivityLevel.entries.forEach { level ->
-                    Row(
-                        Modifier.fillMaxWidth().heightIn(min = 56.dp)
-                            .selectable(selected = activity == level, onClick = { activity = level }, role = Role.RadioButton),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        RadioButton(selected = activity == level, onClick = null)
-                        Column(Modifier.weight(1f).padding(start = Spacing.m)) {
-                            Text(level.title, style = MaterialTheme.typography.bodyLarge)
-                            Text(
-                                level.description,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Text(
-                            "×${level.factor.toString().replace('.', ',')}",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
                 }
             }
 
@@ -274,6 +223,64 @@ fun GoalsScreen(
                     enabled = paceEnabled,
                 )
             }
+
+            Section("Tus datos") {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                    DataCell("Sexo", Modifier.weight(1f)) {
+                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                            listOf(Sex.MALE to "Hombre", Sex.FEMALE to "Mujer").forEachIndexed { i, (value, label) ->
+                                SegmentedButton(
+                                    selected = sex == value,
+                                    onClick = { sex = value },
+                                    shape = SegmentedButtonDefaults.itemShape(i, 2),
+                                    icon = {},
+                                    label = { Text(label, maxLines = 1, style = MaterialTheme.typography.labelMedium) },
+                                    contentPadding = PaddingValues(horizontal = Spacing.xs),
+                                )
+                            }
+                        }
+                    }
+                    NumberField(ageText, { ageText = it }, "Edad", Modifier.weight(1f), suffix = "años", isError = ageError)
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                    NumberField(weightText, { weightText = it }, "Peso", Modifier.weight(1f), suffix = "kg", isError = weightError)
+                    NumberField(heightText, { heightText = it }, "Altura", Modifier.weight(1f), suffix = "cm", isError = heightError)
+                }
+                if (ageError || weightError || heightError) {
+                    Text(
+                        "Edad 10–120 años · peso 20–500 kg · altura 80–260 cm",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+
+            Section("Actividad física") {
+                ActivityLevel.entries.forEach { level ->
+                    Row(
+                        Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                            .selectable(selected = activity == level, onClick = { activity = level }, role = Role.RadioButton),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = activity == level, onClick = null)
+                        Column(Modifier.weight(1f).padding(start = Spacing.m)) {
+                            Text(level.title, style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                level.description,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Text(
+                            "×${level.factor.toString().replace('.', ',')}",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
+            StepsSection(stepsState, stepsSuggestion, onApply = { activity = it })
 
             Section("Comidas al día") {
                 // Se guarda al elegir, aparte de «Guardar objetivos». Sin elección previa, el Diario usa el preset por defecto.
@@ -308,32 +315,12 @@ fun GoalsScreen(
     }
 }
 
-/** Interruptor «Objetivo fijo»: la calculadora deja de recalcular lo que se guarda. */
+/** Casilla de «Tus datos»: rótulo pequeño y el control debajo. */
 @Composable
-private fun FixedGoalRow(fixed: Boolean, onChange: (Boolean) -> Unit, suggestionKcal: Int?) {
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-        Row(
-            Modifier.fillMaxWidth().heightIn(min = 56.dp)
-                .selectable(selected = fixed, onClick = { onChange(!fixed) }, role = Role.Switch),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text("Objetivo fijo", style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    "Mantiene tus objetivos tal cual; la calculadora solo sugiere.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Switch(checked = fixed, onCheckedChange = null)
-        }
-        if (suggestionKcal != null) {
-            Text(
-                "La calculadora sugiere ${formatKcal(suggestionKcal.toDouble())} kcal.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+private fun DataCell(label: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        content()
     }
 }
 
@@ -346,7 +333,15 @@ private fun Section(title: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun ResultCard(targetKcal: Int?, plan: GoalsPlan?, custom: Boolean, fixed: Boolean, modifier: Modifier = Modifier) {
+private fun ResultCard(
+    targetKcal: Int?,
+    plan: GoalsPlan?,
+    custom: Boolean,
+    fixed: Boolean,
+    onFixedChange: (Boolean) -> Unit,
+    suggestionKcal: Int?,
+    modifier: Modifier = Modifier,
+) {
     Card(
         modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
@@ -377,6 +372,21 @@ private fun ResultCard(targetKcal: Int?, plan: GoalsPlan?, custom: Boolean, fixe
                 "Mifflin-St Jeor: TMB = 10·kg + 6,25·cm − 5·edad + 5 (hombre) / −161 (mujer); TDEE = TMB × actividad",
                 style = MaterialTheme.typography.bodySmall,
             )
+            HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f))
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                    .selectable(selected = fixed, onClick = { onFixedChange(!fixed) }, role = Role.Switch),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Objetivo fijo", style = MaterialTheme.typography.bodyLarge)
+                    Text("Mantiene tus objetivos tal cual; la calculadora solo sugiere.", style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(checked = fixed, onCheckedChange = null)
+            }
+            if (suggestionKcal != null) {
+                Text("La calculadora sugiere ${formatKcal(suggestionKcal.toDouble())} kcal.", style = MaterialTheme.typography.bodySmall)
+            }
         }
     }
 }
