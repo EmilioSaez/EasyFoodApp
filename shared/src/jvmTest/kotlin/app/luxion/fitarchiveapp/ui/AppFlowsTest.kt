@@ -1,5 +1,6 @@
 package app.luxion.fitarchiveapp.ui
 
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.SemanticsNodeInteraction
@@ -116,14 +117,25 @@ class AppFlowsTest {
     private fun ComposeUiTest.waitGone(text: String) =
         waitUntil(timeoutMillis = 20_000) { onAllNodes(hasText(text)).fetchSemanticsNodes().isEmpty() }
 
+    /** Botón de la barra inferior de la ficha: «Añadir · N kcal» (en edición, «Guardar cambios · N kcal»). */
+    private fun addButton() = hasText("Añadir ·", substring = true) or hasText("Guardar cambios", substring = true)
+
+    private fun ComposeUiTest.waitForAddButton() =
+        waitUntil(timeoutMillis = 20_000) { onAllNodes(addButton()).fetchSemanticsNodes().isNotEmpty() }
+
+    private fun ComposeUiTest.clickAddButton() = onNode(addButton()).performClick()
+
+    private fun ComposeUiTest.waitGoneAddButton() =
+        waitUntil(timeoutMillis = 20_000) { onAllNodes(addButton()).fetchSemanticsNodes().isEmpty() }
+
     private fun ComposeUiTest.addNutellaByManualEan() {
         onNodeWithText("+ Añadir alimento").performClick()
         onNodeWithText("Escáner").performClick()
         onNodeWithText("Código EAN").performTextInput(nutella.barcode)
         onNodeWithText("Buscar producto").performClick()
-        waitForText("Añadir a Merienda")
-        onNodeWithText("Añadir a Merienda").performClick()
-        waitGone("Añadir a Merienda")
+        waitForAddButton()
+        clickAddButton()
+        waitGoneAddButton()
     }
 
     @Test
@@ -142,9 +154,9 @@ class AppFlowsTest {
         waitForText("Nutella")
 
         onNodeWithText("Nutella").performClick()
-        waitForText("Guardar cambios")
-        onNodeWithText("Guardar cambios").performClick()
-        waitGone("Guardar cambios")
+        waitForAddButton()
+        clickAddButton()
+        waitGoneAddButton()
         waitForText("Nutella")
 
         onNodeWithText("Nutella").performClick()
@@ -615,9 +627,9 @@ class AppFlowsTest {
         waitForText("Nada apuntado hoy")
         createPanCasero()
         onNodeWithText("Pan casero").performClick()
-        waitForText("Añadir a Merienda")
-        onNodeWithText("Añadir a Merienda").performClick()
-        waitGone("Añadir a Merienda")
+        waitForAddButton()
+        clickAddButton()
+        waitGoneAddButton()
         waitForText("Pan casero")
         waitGone("Nada apuntado hoy")
     }
@@ -627,7 +639,7 @@ class AppFlowsTest {
         waitForText("Nada apuntado hoy")
         createPanCasero()
         onNodeWithText("Pan casero").performClick()
-        waitForText("Añadir a Merienda")
+        waitForAddButton()
 
         onNodeWithContentDescription("Editar alimento propio").performClick()
         waitForText("Editar alimento")
@@ -657,7 +669,7 @@ class AppFlowsTest {
         onNodeWithText("Escáner").performClick()
         onNodeWithText("Código EAN").performTextInput(nutella.barcode)
         onNodeWithText("Buscar producto").performClick()
-        waitForText("Añadir a Merienda")
+        waitForAddButton()
 
         onNodeWithContentDescription("Copiar como alimento propio").performClick()
         waitForText("Valores por 100 g")
@@ -666,7 +678,7 @@ class AppFlowsTest {
         onNodeWithText("15 g").assertIsDisplayed()
 
         onNodeWithText("Guardar").performClick()
-        waitForText("Añadir a Merienda")
+        waitForAddButton()
         val saved = db.customFoodQueries.selectAll().executeAsList()
         kotlin.test.assertEquals(1, saved.size)
         kotlin.test.assertEquals("Nutella", saved.single().name)
@@ -685,7 +697,7 @@ class AppFlowsTest {
         waitForText("Manzana cruda")
         onNodeWithText("Manzana cruda").performClick()
         // Desde la pestaña no hay comida preseleccionada: la ficha propone la que toca por la hora.
-        waitUntil(timeoutMillis = 20_000) { onAllNodes(hasText("Añadir a ", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        waitForAddButton()
         waitForText("Genérico")
         // La clave interna no se enseña como si fuera un código de barras.
         kotlin.test.assertTrue(onAllNodes(hasText("generic:1")).fetchSemanticsNodes().isEmpty())
@@ -768,14 +780,15 @@ class AppFlowsTest {
         waitForText("Nada apuntado hoy")
         onNodeWithText("+ Añadir alimento").performClick()
         addNutellaFromEan()
-        waitForText("Añadir a Comida")
+        waitForAddButton()
+        onNodeWithText("Comida").assertIsSelected()
         listOf("Desayuno", "Comida", "Cena").forEach { onNodeWithText(it).assertIsDisplayed() }
         kotlin.test.assertTrue(onAllNodes(hasText("Merienda")).fetchSemanticsNodes().isEmpty())
         kotlin.test.assertTrue(onAllNodes(hasText("Recena")).fetchSemanticsNodes().isEmpty())
 
         onNodeWithText("Cena").performClick()
-        waitForText("Añadir a Cena")
-        onNodeWithText("Añadir a Cena").performClick()
+        onNodeWithText("Cena").assertIsSelected()
+        clickAddButton()
         waitForText("Nutella")
         val entries = kotlinx.coroutines.runBlocking { SqlDelightDiaryStore(db.diaryEntryQueries).entriesForDate("2026-11-04") }
         kotlin.test.assertEquals(listOf(MealType.DINNER), entries.map { it.meal })
@@ -791,8 +804,9 @@ class AppFlowsTest {
         onNode(hasScrollAction()).performScrollToNode(hasContentDescription("Añadir a Almuerzo"))
         onNodeWithContentDescription("Añadir a Almuerzo").performClick()
         addNutellaFromEan()
-        waitForText("Añadir a Almuerzo") // la hora (17:30) sugeriría la merienda, pero viene preseleccionada
-        onNodeWithText("Añadir a Almuerzo").performClick()
+        waitForAddButton()
+        onNodeWithText("Almuerzo").assertIsSelected() // la hora (17:30) sugeriría la merienda, pero viene preseleccionada
+        clickAddButton()
         waitForText("Nutella")
         val nutella = kotlinx.coroutines.runBlocking { SqlDelightDiaryStore(db.diaryEntryQueries).entriesForDate("2026-11-04") }
             .first { it.name == "Nutella" }
@@ -852,7 +866,7 @@ class AppFlowsTest {
         waitForText("ÚLTIMOS ALIMENTOS · 1")
 
         onNodeWithText("Nutella").performClick()
-        waitUntil(timeoutMillis = 20_000) { onAllNodes(hasText("Añadir a ", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        waitForAddButton()
     }
 
     @Test
@@ -908,7 +922,7 @@ class AppFlowsTest {
         onNodeWithText("Alimentos").performClick()
         waitForText("ÚLTIMOS ALIMENTOS · 1")
         onNodeWithText("Nutella").performClick()
-        waitUntil(timeoutMillis = 20_000) { onAllNodes(hasText("Añadir a ", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        waitForAddButton()
 
         onNodeWithContentDescription("Añadir Nutella a favoritos").performClick()
         waitUntil(timeoutMillis = 20_000) {
