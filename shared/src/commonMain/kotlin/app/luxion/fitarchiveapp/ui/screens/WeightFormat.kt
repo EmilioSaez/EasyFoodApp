@@ -1,5 +1,8 @@
 package app.luxion.fitarchiveapp.ui.screens
 
+import app.luxion.fitarchiveapp.domain.WeightProgress
+import app.luxion.fitarchiveapp.domain.WeightRange
+import app.luxion.fitarchiveapp.model.WeightEntry
 import app.luxion.fitarchiveapp.model.isoDateToEpochDay
 import app.luxion.fitarchiveapp.ui.components.formatNumber
 import kotlin.math.abs
@@ -23,3 +26,14 @@ fun formatKgDelta(delta: Double): String = when {
     delta > 0 -> "+${formatNumber(delta, 1)} kg"
     else -> "−${formatNumber(-delta, 1)} kg"
 }
+
+/** Periodo de la gráfica de «Mi peso»: 1M = 30 días, 3M = 90 días, Todo = todo el historial. */
+enum class WeightPeriod(val label: String, val range: WeightRange) {
+    ONE_MONTH("1M", WeightRange.DAYS_30),
+    THREE_MONTHS("3M", WeightRange.DAYS_90),
+    ALL("Todo", WeightRange.ALL),
+}
+
+/** Registros del [period] terminados en [today] (inclusive), ordenados por fecha. */
+fun weightEntriesIn(entries: List<WeightEntry>, period: WeightPeriod, today: String): List<WeightEntry> =
+    WeightProgress.inRange(entries, period.range, today)

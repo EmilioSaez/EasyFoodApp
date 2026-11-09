@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -14,8 +15,10 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -24,6 +27,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -42,7 +46,6 @@ import app.luxion.fitarchiveapp.data.WeightStore
 import app.luxion.fitarchiveapp.domain.WeightGoalProgress
 import app.luxion.fitarchiveapp.domain.WeightProgress
 import app.luxion.fitarchiveapp.domain.WeightProjection
-import app.luxion.fitarchiveapp.domain.WeightRange
 import app.luxion.fitarchiveapp.model.NewWeightEntry
 import app.luxion.fitarchiveapp.model.WeightEntry
 import app.luxion.fitarchiveapp.model.WeightGoal
@@ -65,14 +68,15 @@ fun weightDateError(text: String, today: String): String? {
     return if (todayDay != null && day > todayDay) "La fecha no puede ser futura" else null
 }
 
-/** Seguimiento de peso: formulario de registro, gráfica con rangos e historial editable. */
+/** Mi peso: peso actual con su variación, gráfica por periodos (1M/3M/Todo), objetivo, registros y FAB para registrar. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WeightScreen(navigator: Navigator, weightStore: WeightStore, today: () -> String) {
     val todayIso = today()
     var entries by remember { mutableStateOf<List<WeightEntry>>(emptyList()) }
     var loaded by remember { mutableStateOf(false) }
-    var range by remember { mutableStateOf(WeightRange.DAYS_30) }
+    var period by remember { mutableStateOf(WeightPeriod.ONE_MONTH) }
+    var formOpen by remember { mutableStateOf(false) }
     var dateText by remember { mutableStateOf(todayIso) }
     var weightText by remember { mutableStateOf("") }
     var editingDate by remember { mutableStateOf<String?>(null) }
@@ -101,7 +105,7 @@ fun WeightScreen(navigator: Navigator, weightStore: WeightStore, today: () -> St
     LaunchedEffect(weightStore) { reload() }
 
     fun resetForm() {
-        editingDate = null; dateText = todayIso; weightText = ""; submitted = false
+        editingDate = null; dateText = todayIso; weightText = ""; submitted = false; formOpen = false
     }
 
     val dateError = weightDateError(dateText, todayIso)
@@ -186,7 +190,7 @@ fun WeightScreen(navigator: Navigator, weightStore: WeightStore, today: () -> St
         }
     }
 
-    val visible = WeightProgress.inRange(entries, range, todayIso)
+    val visible = weightEntriesIn(entries, period, todayIso)
     val summary = WeightProgress.summary(visible)
     val chart = WeightProgress.chart(visible)
     val goalProgress = WeightProgress.goalProgress(entries, goal?.targetKg, todayIso)
@@ -195,65 +199,26 @@ fun WeightScreen(navigator: Navigator, weightStore: WeightStore, today: () -> St
         topBar = { CenterAlignedTopAppBar(title = { Text("Seguimiento de peso") }) },
         snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = { EasyFoodNavigationBar(selected = TopLevelTab.Weight, navigator = navigator) },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = { resetForm(); formOpen = true },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            ) { Text("Registrar peso") }
+        },
     ) { padding ->
         LazyColumn(
             Modifier.padding(padding),
-            contentPadding = PaddingValues(Spacing.l),
+            // Margen inferior para que el FAB no tape la última fila.
+            contentPadding = PaddingValues(start = Spacing.l, top = Spacing.l, end = Spacing.l, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(Spacing.m),
         ) {
-            item("form") {
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
-                    Column(Modifier.padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
-                        Text(
-                            if (editingDate == null) "Registrar peso" else "Editar registro",
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.m)) {
-                            OutlinedTextField(
-                                value = dateText,
-                                onValueChange = { dateText = it.filter { c -> c.isDigit() || c == '-' }.take(10) },
-                                label = { Text("Fecha") },
-                                isError = dateError != null,
-                                supportingText = { Text(dateError ?: "AAAA-MM-DD") },
-                                singleLine = true,
-                                shape = MaterialTheme.shapes.extraSmall,
-                                modifier = Modifier.weight(1f),
-                            )
-                            NumberField(
-                                value = weightText,
-                                onValueChange = { weightText = it },
-                                label = "Peso",
-                                suffix = "kg",
-                                isError = submitted && weightError != null,
-                                supportingText = if (submitted && weightError != null) weightError else null,
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalAlignment = Alignment.CenterVertically) {
-                            Button(onClick = ::save) {
-                                Text(if (editingDate == null) "Guardar peso" else "Guardar cambios")
-                            }
-                            if (editingDate != null) TextButton(onClick = ::resetForm) { Text("Cancelar") }
-                        }
-                    }
-                }
-            }
-
             item("chart") {
-                Column(verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
-                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                        WeightRange.entries.forEachIndexed { i, r ->
-                            SegmentedButton(
-                                selected = r == range,
-                                onClick = { range = r },
-                                shape = SegmentedButtonDefaults.itemShape(i, WeightRange.entries.size),
-                            ) { Text(r.label) }
-                        }
-                    }
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     when {
                         !loaded -> Unit
                         entries.isEmpty() -> Text(
-                            "Aún no has registrado tu peso. Guarda el primero arriba para ver cómo evoluciona.",
+                            "Aún no has registrado tu peso. Toca «Registrar peso» para guardar el primero y ver cómo evoluciona.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -263,21 +228,47 @@ fun WeightScreen(navigator: Navigator, weightStore: WeightStore, today: () -> St
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         else -> {
-                            Column {
-                                Text(formatKg(summary.latest.weightKg), style = MaterialTheme.typography.headlineMedium)
-                                Text(
-                                    if (summary.hasChange) {
-                                        "${formatKgDelta(summary.deltaKg)} desde el ${formatDayMonth(summary.first.date)}"
-                                    } else {
-                                        "Un solo registro en este periodo (${formatDayMonth(summary.first.date)})"
-                                    },
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                                Text(formatKg(summary.latest.weightKg), style = MaterialTheme.typography.displayMedium)
+                                if (summary.hasChange) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.tertiaryContainer,
+                                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                                            shape = MaterialTheme.shapes.small,
+                                        ) {
+                                            Text(
+                                                formatKgDelta(summary.deltaKg),
+                                                style = MaterialTheme.typography.labelLarge,
+                                                modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs),
+                                            )
+                                        }
+                                        Text(
+                                            "desde el ${formatDayMonth(summary.first.date)}",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                } else {
+                                    Text(
+                                        "Un solo registro en este periodo (${formatDayMonth(summary.first.date)})",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
                             }
-                            WeightChart(chart)
                         }
                     }
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                        WeightPeriod.entries.forEachIndexed { i, p ->
+                            SegmentedButton(
+                                selected = p == period,
+                                onClick = { period = p },
+                                shape = SegmentedButtonDefaults.itemShape(i, WeightPeriod.entries.size),
+                            ) { Text(p.label) }
+                        }
+                    }
+                    if (loaded && summary != null && chart != null) WeightChart(chart, goalKg = goal?.targetKg)
                 }
             }
 
@@ -302,7 +293,15 @@ fun WeightScreen(navigator: Navigator, weightStore: WeightStore, today: () -> St
                             }
                         } else if (current != null) {
                             Text(formatKg(current.targetKg), style = MaterialTheme.typography.headlineMedium)
-                            goalProgress?.let { GoalProgressInfo(it) }
+                            goalProgress?.let {
+                                LinearProgressIndicator(
+                                    progress = { it.percent / 100f },
+                                    modifier = Modifier.fillMaxWidth().height(8.dp),
+                                    color = MaterialTheme.colorScheme.tertiary,
+                                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                )
+                                GoalProgressInfo(it)
+                            }
                                 ?: Text(
                                     "Registra tu peso para ver cuánto te falta.",
                                     style = MaterialTheme.typography.bodyMedium,
@@ -320,7 +319,7 @@ fun WeightScreen(navigator: Navigator, weightStore: WeightStore, today: () -> St
             }
 
             if (entries.isNotEmpty()) {
-                item("history-title") { Text("Historial", style = MaterialTheme.typography.titleMedium) }
+                item("history-title") { Text("Registros", style = MaterialTheme.typography.titleMedium) }
                 val newestFirst = entries.sortedByDescending { it.date }
                 items(newestFirst.size, key = { newestFirst[it].date }) { i ->
                     val e = newestFirst[i]
@@ -333,6 +332,7 @@ fun WeightScreen(navigator: Navigator, weightStore: WeightStore, today: () -> St
                             dateText = e.date
                             weightText = formatKgInput(e.weightKg)
                             submitted = false
+                            formOpen = true
                         },
                         onDelete = { pendingDelete = e },
                     )
@@ -340,6 +340,38 @@ fun WeightScreen(navigator: Navigator, weightStore: WeightStore, today: () -> St
                 }
             }
         }
+    }
+
+    if (formOpen) {
+        AlertDialog(
+            onDismissRequest = ::resetForm,
+            title = { Text(if (editingDate == null) "Nuevo registro" else "Editar registro") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                    OutlinedTextField(
+                        value = dateText,
+                        onValueChange = { dateText = it.filter { c -> c.isDigit() || c == '-' }.take(10) },
+                        label = { Text("Fecha") },
+                        isError = dateError != null,
+                        supportingText = { Text(dateError ?: "AAAA-MM-DD") },
+                        singleLine = true,
+                        shape = MaterialTheme.shapes.extraSmall,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    NumberField(
+                        value = weightText,
+                        onValueChange = { weightText = it },
+                        label = "Peso",
+                        suffix = "kg",
+                        isError = submitted && weightError != null,
+                        supportingText = if (submitted && weightError != null) weightError else null,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+            confirmButton = { Button(onClick = ::save) { Text(if (editingDate == null) "Guardar peso" else "Guardar cambios") } },
+            dismissButton = { TextButton(onClick = ::resetForm) { Text("Cancelar") } },
+        )
     }
 
     pendingDelete?.let { entry ->

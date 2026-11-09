@@ -2,6 +2,9 @@ package app.luxion.fitarchiveapp.ui
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.ComposeUiTest
+import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.hasText
@@ -246,9 +249,16 @@ class AppFlowsTest {
     private fun goal(db: EasyFoodDatabase) =
         kotlinx.coroutines.runBlocking { SqlDelightWeightStore(db.weightEntryQueries).goal() }?.targetKg
 
-    /** El historial es una lista perezosa: hay que desplazarla hasta la fila para que exista. */
-    private fun ComposeUiTest.scrollToRow(description: String) =
+    /**
+     * Los registros son una lista perezosa: hay que desplazarla hasta la fila para que exista, y luego hasta el final
+     * para que el FAB «Registrar peso» no quede encima de sus botones.
+     */
+    private fun ComposeUiTest.scrollToRow(description: String): SemanticsNodeInteraction {
         onNode(hasScrollAction()).performScrollToNode(hasContentDescription(description))
+        onNode(hasScrollAction()).performTouchInput { swipeUp() }
+        waitForIdle()
+        return onNodeWithContentDescription(description)
+    }
 
     private fun ComposeUiTest.openWeight() {
         waitForText("Nada apuntado hoy")
@@ -256,12 +266,19 @@ class AppFlowsTest {
         waitForText("Registrar peso")
     }
 
+    /** El formulario de peso vive en un diálogo que abre el FAB. */
+    private fun ComposeUiTest.openWeightForm() {
+        onNodeWithText("Registrar peso").performClick()
+        waitForText("Guardar peso")
+    }
+
     @Test
     fun weightCanBeRecordedEditedAndDeleted() = runApp { db ->
         openWeight()
-        waitForText("Aún no has registrado tu peso. Guarda el primero arriba para ver cómo evoluciona.")
+        waitForText("Aún no has registrado tu peso. Toca «Registrar peso» para guardar el primero y ver cómo evoluciona.")
 
         // Alta con coma decimal y fecha por defecto (hoy).
+        openWeightForm()
         onNodeWithText("Peso").performTextInput("78,46")
         onNodeWithText("Guardar peso").performClick()
         waitForText("Peso guardado")
@@ -271,16 +288,17 @@ class AppFlowsTest {
         onNodeWithContentDescription("Editar peso del 2026-11-04").assertIsDisplayed()
 
         // Segundo registro con punto decimal y fecha anterior: la gráfica ya calcula la diferencia.
+        openWeightForm()
         onNodeWithText("Fecha").performTextReplacement("2026-10-30")
         onNodeWithText("Peso").performTextInput("80.0")
         onNodeWithText("Guardar peso").performClick()
         waitUntil(timeoutMillis = 20_000) { weights(db).size == 2 }
-        waitForText("−1,5 kg desde el 30 oct")
+        waitForText("−1,5 kg")
+        waitForText("desde el 30 oct")
 
         // Editar el peso más reciente.
         scrollToRow("Editar peso del 2026-11-04")
         onNodeWithContentDescription("Editar peso del 2026-11-04").performClick()
-        onNode(hasScrollAction()).performScrollToIndex(0) // el formulario queda arriba
         waitForText("Editar registro")
         onNodeWithText("Peso").performTextReplacement("77,0")
         onNodeWithText("Guardar cambios").performClick()
@@ -306,7 +324,7 @@ class AppFlowsTest {
         waitForText("Toca pesarse")
         waitForText("Aún no has registrado tu peso.")
         onNodeWithText("Registrar peso").performClick()
-        waitForText("Guardar peso")
+        openWeightForm()
         onNodeWithText("Peso").performTextInput("78,5")
         onNodeWithText("Guardar peso").performClick()
         waitForText("Peso guardado")
@@ -340,6 +358,7 @@ class AppFlowsTest {
     @Test
     fun invalidWeightAndFutureDateAreRejected()= runApp { db ->
         openWeight()
+        openWeightForm()
         onNodeWithText("Guardar peso").performClick()
         waitForText("Escribe tu peso")
         onNodeWithText("Peso").performTextInput("5")
@@ -360,14 +379,43 @@ class AppFlowsTest {
             s.save(NewWeightEntry("2026-11-04", 80.0), 3L)
         }
         openWeight()
-        waitForText("−2,0 kg desde el 20 oct") // 30 días
+        waitForText("−2,0 kg") // 1M
+        waitForText("desde el 20 oct")
         onNodeWithText("Todo").performClick()
-        waitForText("−10,0 kg desde el 1 jun")
-        onNodeWithText("90 días").performClick()
-        waitForText("−2,0 kg desde el 20 oct")
+        waitForText("−10,0 kg")
+        waitForText("desde el 1 jun")
+        onNodeWithText("3M").performClick()
+        waitForText("−2,0 kg")
+        waitForText("desde el 20 oct")
         onNodeWithContentDescription("Gráfica de peso: 2 registros, de 20 oct a 4 nov, último 80,0 kg").assertIsDisplayed()
         scrollToRow("Editar peso del 2026-06-01")
         onNodeWithContentDescription("Editar peso del 2026-06-01").assertIsDisplayed() // el historial lo muestra todo
+    }
+
+    @Test
+    fun weightPeriodsFilterByWindowBoundaries() = runApp { db ->
+        kotlinx.coroutines.runBlocking {
+            val s = SqlDelightWeightStore(db.weightEntryQueries)
+            s.save(NewWeightEntry("2026-08-06", 85.0), 1L) // hoy − 90 días: fuera de 3M
+            s.save(NewWeightEntry("2026-08-07", 84.0), 2L) // hoy − 89 días: primer día de 3M
+            s.save(NewWeightEntry("2026-10-05", 82.0), 3L) // hoy − 30 días: fuera de 1M
+            s.save(NewWeightEntry("2026-10-06", 81.0), 4L) // hoy − 29 días: primer día de 1M
+            s.save(NewWeightEntry("2026-11-04", 80.0), 5L)
+        }
+        openWeight()
+        waitForText("−1,0 kg")
+        waitForText("desde el 6 oct") // 1M: 2 registros
+        onNodeWithContentDescription("Gráfica de peso: 2 registros, de 6 oct a 4 nov, último 80,0 kg").assertIsDisplayed()
+        onNodeWithText("3M").performClick()
+        waitForText("−4,0 kg")
+        waitForText("desde el 7 ago") // 3M: 4 registros
+        onNodeWithContentDescription("Gráfica de peso: 4 registros, de 7 ago a 4 nov, último 80,0 kg").assertIsDisplayed()
+        onNodeWithText("Todo").performClick()
+        waitForText("−5,0 kg")
+        waitForText("desde el 6 ago") // Todo: 5 registros
+        onNodeWithContentDescription("Gráfica de peso: 5 registros, de 6 ago a 4 nov, último 80,0 kg").assertIsDisplayed()
+        onNodeWithText("1M").performClick()
+        waitForText("desde el 6 oct")
     }
 
     @Test
