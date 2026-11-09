@@ -3,6 +3,7 @@ package app.luxion.fitarchiveapp.ui.screens
 import app.luxion.fitarchiveapp.data.DiaryStore
 import app.luxion.fitarchiveapp.data.GoalStore
 import app.luxion.fitarchiveapp.data.generic.GenericFoodFormat
+import app.luxion.fitarchiveapp.domain.MealPlan
 import app.luxion.fitarchiveapp.model.DailyGoals
 import app.luxion.fitarchiveapp.model.DiaryEntry
 import app.luxion.fitarchiveapp.model.MealType
@@ -70,11 +71,12 @@ fun dataSourceOf(key: String?): DataSource = when {
 }
 
 /**
- * Agrega las entradas del día. Las entradas sin dato (porciones sin tamaño o kcal desconocidas) no
+ * Agrega las entradas del día en las secciones de [mealsPerDay] comidas al día (`null` = las de por defecto). Las entradas sin dato (porciones sin tamaño o kcal desconocidas) no
  * suman; su fila muestra «—».
  */
-fun buildDiaryUiState(date: String, entries: List<DiaryEntry>, goals: DailyGoals): DiaryUiState {
-    val meals = MealType.entries.map { meal ->
+fun buildDiaryUiState(date: String, entries: List<DiaryEntry>, goals: DailyGoals, mealsPerDay: Int? = null): DiaryUiState {
+    // Solo las comidas del preset, más las que ya no lo son pero tienen entradas (no se oculta ningún dato).
+    val meals = MealPlan.visible(mealsPerDay, entries.mapTo(mutableSetOf()) { it.meal }).map { meal ->
         val rows = entries.filter { it.meal == meal }
         MealUi(
             meal = meal,
@@ -126,6 +128,7 @@ class DiaryPresenter(
     private val goals: GoalStore,
     private val scope: CoroutineScope,
     today: String,
+    private val mealsPerDay: Int? = null,
 ) {
     private val _state = MutableStateFlow(DiaryUiState(date = today))
     val state: StateFlow<DiaryUiState> = _state.asStateFlow()
@@ -135,7 +138,7 @@ class DiaryPresenter(
     fun load(date: String = _state.value.date) {
         scope.launch {
             _state.value = try {
-                buildDiaryUiState(date, diary.entriesForDate(date), goals.get())
+                buildDiaryUiState(date, diary.entriesForDate(date), goals.get(), mealsPerDay)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

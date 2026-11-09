@@ -115,6 +115,8 @@ class SqlDelightProductSearchStoreTest {
         // Esquema v1 (sin FTS): se reconstruye la tabla y se aplica la migración 1 -> 2.
         old.execute(null, "CREATE TABLE ProductEntity (barcode TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, brand TEXT, image_url TEXT, kcal REAL, protein_g REAL, carbs_g REAL, sugars_g REAL, fat_g REAL, saturated_fat_g REAL, fiber_g REAL, salt_g REAL, serving_size_g REAL, serving_label TEXT, source TEXT NOT NULL DEFAULT 'OPEN_FOOD_FACTS', cached_at INTEGER NOT NULL)", 0)
         old.execute(null, "INSERT INTO ProductEntity(barcode, name, brand, cached_at) VALUES ('9', 'Queso fresco', 'Pascual', 0)", 0)
+        // Una BD v1 real ya tenía el diario (la migración 7 -> 8 lo reconstruye).
+        old.execute(null, "CREATE TABLE DiaryEntryEntity (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, meal TEXT NOT NULL, barcode TEXT, name TEXT NOT NULL, quantity REAL NOT NULL, unit TEXT NOT NULL, serving_size_g REAL, kcal_100g REAL, protein_100g REAL, carbs_100g REAL, fat_100g REAL, created_at INTEGER NOT NULL)", 0)
         EasyFoodDatabase.Schema.migrate(old, 1, EasyFoodDatabase.Schema.version)
         val migrated = SqlDelightProductSearchStore(EasyFoodDatabase(old).productSearchQueries)
         assertEquals(listOf("Queso fresco"), migrated.search("queso").map { it.name })

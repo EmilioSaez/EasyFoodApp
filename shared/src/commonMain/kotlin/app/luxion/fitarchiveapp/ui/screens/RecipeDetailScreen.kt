@@ -40,7 +40,6 @@ import app.luxion.fitarchiveapp.data.DiaryStore
 import app.luxion.fitarchiveapp.data.RecipeStore
 import app.luxion.fitarchiveapp.domain.RecipeCalculator
 import app.luxion.fitarchiveapp.model.MacroTotals
-import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.model.Recipe
 import app.luxion.fitarchiveapp.ui.components.EmptyState
 import app.luxion.fitarchiveapp.ui.components.EmptyStateAction
@@ -77,6 +76,7 @@ fun RecipeDetailScreen(
     recipeStore: RecipeStore,
     diaryStore: DiaryStore,
     today: () -> String,
+    mealChoices: MealChoices,
 ) {
     var state by remember(route) { mutableStateOf<DetailState>(DetailState.Loading) }
     var reload by remember(route) { mutableStateOf(0) }
@@ -133,16 +133,16 @@ fun RecipeDetailScreen(
                     secondaryAction = EmptyStateAction("Volver") { navigator.pop() },
                     modifier = Modifier.fillMaxSize(),
                 )
-                is DetailState.Ready -> RecipeContent(navigator, s.recipe, diaryStore, today)
+                is DetailState.Ready -> RecipeContent(navigator, s.recipe, diaryStore, today, mealChoices)
             }
         }
     }
 }
 
 @Composable
-private fun RecipeContent(navigator: Navigator, recipe: Recipe, diaryStore: DiaryStore, today: () -> String) {
+private fun RecipeContent(navigator: Navigator, recipe: Recipe, diaryStore: DiaryStore, today: () -> String, mealChoices: MealChoices) {
     val scope = rememberCoroutineScope()
-    var meal by remember(recipe) { mutableStateOf(MealType.LUNCH) }
+    var meal by remember(recipe) { mutableStateOf(mealChoices.defaultMeal()) }
     var portionsText by remember(recipe) { mutableStateOf("1") }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -216,7 +216,7 @@ private fun RecipeContent(navigator: Navigator, recipe: Recipe, diaryStore: Diar
         Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
             Column(Modifier.fillMaxWidth().padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                    MealType.entries.forEach { m ->
+                    mealChoices.options().forEach { m ->
                         FilterChip(selected = meal == m, onClick = { meal = m }, label = { Text(m.label) })
                     }
                 }

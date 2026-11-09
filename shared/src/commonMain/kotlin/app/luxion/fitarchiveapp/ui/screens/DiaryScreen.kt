@@ -39,7 +39,6 @@ import app.luxion.fitarchiveapp.data.GoalStore
 import app.luxion.fitarchiveapp.data.WeightStore
 import app.luxion.fitarchiveapp.domain.WeightReminder
 import app.luxion.fitarchiveapp.ui.components.WeightReminderCard
-import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.model.Quantity
 import app.luxion.fitarchiveapp.model.QuantityUnit
 import app.luxion.fitarchiveapp.ui.components.DiaryEntryRow
@@ -68,9 +67,10 @@ fun DiaryScreen(
     goalStore: GoalStore,
     weightStore: WeightStore,
     today: String,
+    mealsPerDay: Int? = null,
 ) {
     val scope = rememberCoroutineScope()
-    val presenter = remember(diaryStore, goalStore) { DiaryPresenter(diaryStore, goalStore, scope, today) }
+    val presenter = remember(diaryStore, goalStore, mealsPerDay) { DiaryPresenter(diaryStore, goalStore, scope, today, mealsPerDay) }
     val state by presenter.state.collectAsState()
     val snackbar = remember { SnackbarHostState() }
     var editing by remember { mutableStateOf<EntryUi?>(null) }
@@ -137,7 +137,7 @@ fun DiaryScreen(
         snackbarHost = { SnackbarHost(snackbar) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = { navigator.push(Route.Add(MealType.SNACK)) },
+                onClick = { navigator.push(Route.Add()) },
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             ) { Text("+ Añadir alimento") }
@@ -163,49 +163,42 @@ fun DiaryScreen(
                         modifier = Modifier.padding(top = Spacing.xxxl),
                     )
                 }
-            } else if (!state.loading && state.isEmpty) {
-                Column(Modifier.fillMaxWidth().weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    if (showWeightReminder) {
-                        WeightReminderCard(weightDays, registerWeight, Modifier.padding(Spacing.l))
-                    }
-                    EmptyState(
-                        icon = "▤",
-                        title = if (state.date == today) "Nada apuntado hoy" else "Nada apuntado este día",
-                        message = "Añade lo que comas para ver tus calorías y macros del día.",
-                        primaryAction = EmptyStateAction("Añadir alimento") { navigator.push(Route.Add(MealType.SNACK)) },
-                        // Sin objetivo, «Fijar objetivo» ya está en la cabecera: no se duplica.
-                        secondaryAction = if (state.goalKcal == null) null
-                        else EmptyStateAction("Fijar objetivo") { navigator.navigateTab(TopLevelTab.Goals) },
-                        modifier = Modifier.padding(top = Spacing.xxxl),
-                    )
-                }
-            } else {
-                LazyColumn(
-                    Modifier.fillMaxWidth().weight(1f),
-                    contentPadding = PaddingValues(start = Spacing.l, end = Spacing.l, top = Spacing.m, bottom = 104.dp),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.m),
-                ) {
-                    if (showWeightReminder) item("weight-reminder") { WeightReminderCard(weightDays, registerWeight) }
-                    items(state.meals, key = { it.meal }) { meal ->
-                        MealSection(
-                            title = meal.meal.label,
-                            summary = macroSummary(meal.kcal, meal.proteinG, meal.carbsG, meal.fatG),
-                            onAdd = { navigator.push(Route.Add(meal.meal)) },
-                            isEmpty = meal.entries.isEmpty(),
-                        ) {
-                            meal.entries.forEach { entry ->
-                                DiaryEntryRow(
-                                    name = entry.name,
-                                    quantityText = entry.quantity.format(),
-                                    source = entry.source,
-                                    kcal = entry.kcal,
-                                    doubtful = entry.doubtful,
-                                    onClick = {
-                                        navigator.push(Route.ProductDetail(entry.barcode, meal.meal, entry.id))
-                                    },
-                                    onLongClick = { editing = entry },
-                                )
-                            }
+                EmptyState(
+                    icon = "▤",
+                    title = if (state.date == today) "Nada apuntado hoy" else "Nada apuntado este día",
+                    message = "Añade lo que comas para ver tus calorías y macros del día.",
+                    primaryAction = EmptyStateAction("Añadir alimento") { navigator.push(Route.Add()) },
+                    secondaryAction = EmptyStateAction("Fijar objetivo") { navigator.navigateTab(TopLevelTab.Goals) },
+                    modifier = Modifier.padding(top = Spacing.xxxl),
+                )
+            }
+        } else {
+            LazyColumn(
+                Modifier.fillMaxSize().padding(padding),
+                contentPadding = PaddingValues(start = Spacing.l, end = Spacing.l, top = Spacing.l, bottom = 104.dp),
+                verticalArrangement = Arrangement.spacedBy(Spacing.m),
+            ) {
+                if (showWeightReminder) item("weight-reminder") { WeightReminderCard(weightDays, registerWeight) }
+                item { DaySummaryCard(state, onSetGoal = { navigator.navigateTab(TopLevelTab.Goals) }) }
+                items(state.meals, key = { it.meal }) { meal ->
+                    MealSection(
+                        title = meal.meal.label,
+                        summary = macroSummary(meal.kcal, meal.proteinG, meal.carbsG, meal.fatG),
+                        onAdd = { navigator.push(Route.Add(meal.meal)) },
+                        isEmpty = meal.entries.isEmpty(),
+                    ) {
+                        meal.entries.forEach { entry ->
+                            DiaryEntryRow(
+                                name = entry.name,
+                                quantityText = entry.quantity.format(),
+                                source = entry.source,
+                                kcal = entry.kcal,
+                                doubtful = entry.doubtful,
+                                onClick = {
+                                    navigator.push(Route.ProductDetail(entry.barcode, meal.meal, entry.id))
+                                },
+                                onLongClick = { editing = entry },
+                            )
                         }
                     }
                 }

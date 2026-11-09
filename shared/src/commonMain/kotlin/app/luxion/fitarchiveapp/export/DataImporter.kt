@@ -5,6 +5,8 @@ import app.luxion.fitarchiveapp.db.CustomFoodQueries
 import app.luxion.fitarchiveapp.db.DiaryEntryQueries
 import app.luxion.fitarchiveapp.db.ProductQueries
 import app.luxion.fitarchiveapp.db.RecipeQueries
+import app.luxion.fitarchiveapp.db.SettingsQueries
+import app.luxion.fitarchiveapp.domain.MealPlan
 import app.luxion.fitarchiveapp.db.WeightEntryQueries
 import app.luxion.fitarchiveapp.model.NewWeightEntry
 import app.luxion.fitarchiveapp.model.RecipeIngredient
@@ -55,6 +57,8 @@ import kotlinx.coroutines.withContext
  * - Si el archivo trae la misma fecha dos veces, vale el de `updatedAtMillis` más reciente.
  * - El **peso objetivo** (uno solo) cuenta en el informe de pesos: sin objetivo local se añade; igual, se ignora;
  *   distinto, gana el de `updatedAtMillis` más reciente (con empate, el local). Fuera de rango es inválido.
+ * - Las **comidas al día** (`mealsPerDay`, opcional) solo se toman si este dispositivo aún no ha elegido; si ya hay
+ *   ajuste local se conserva. Un archivo sin el campo no cambia nada; fuera de 3 a 6 es inválido.
  *
  * **Recetas**
  * - Identidad: igual que los alimentos propios: `(id, createdAtMillis)` y, si no hay coincidencia, el nombre sin
@@ -96,6 +100,7 @@ class DataImporter(private val target: ImportTarget) {
         val weights = planWeights(file.weights, target.weights(), invalid)
         val recipes = planRecipes(file.recipes, target.recipes(), invalid)
         val goal = planWeightGoal(file.weightGoal, target.weightGoal(), invalid)
+        val meals = planMealsPerDay(file.mealsPerDay, target.mealsPerDay(), invalid)
         return ImportPlan(
             changes = ImportChanges(
                 products = products.writes,
@@ -106,6 +111,7 @@ class DataImporter(private val target: ImportTarget) {
                 recipesToAdd = recipes.adds,
                 recipesToUpdate = recipes.updates,
                 weightGoal = goal.write,
+                mealsPerDay = meals,
             ),
             report = ImportReport(
                 products.counts, foods.counts, diary.counts, invalid, weights.counts + goal.counts, recipes.counts,
@@ -301,6 +307,19 @@ class DataImporter(private val target: ImportTarget) {
         }
     }
 
+    /**
+     * Comidas al día: solo se toma la del archivo si este dispositivo aún no ha elegido (así la primera vez no se
+     * vuelve a preguntar); si ya hay un ajuste local, gana el local. Sin el campo (archivos antiguos) no cambia nada.
+     */
+    private fun planMealsPerDay(incoming: Int?, local: Int?, invalid: MutableList<String>): Int? {
+        if (incoming == null) return null
+        if (!MealPlan.isValid(incoming)) {
+            invalid += "Comidas al día ($incoming): fuera de rango"
+            return null
+        }
+        return if (local == null) incoming else null
+    }
+
     // --- Diario ---
 
     private class DiaryPlan(val adds: List<ExportedDiaryEntry>, val counts: ImportCounts)
@@ -357,11 +376,13 @@ data class ImportChanges(
     val recipesToUpdate: List<RecipeUpdate> = emptyList(),
     /** Peso objetivo a fijar, o `null` si no cambia. */
     val weightGoal: ExportedWeightGoal? = null,
+    /** Comidas al día a fijar, o `null` si no cambia. */
+    val mealsPerDay: Int? = null,
 ) {
     val isEmpty: Boolean
         get() = products.isEmpty() && customFoodsToAdd.isEmpty() && customFoodsToUpdate.isEmpty() &&
             diaryEntriesToAdd.isEmpty() && weights.isEmpty() && recipesToAdd.isEmpty() && recipesToUpdate.isEmpty() &&
-            weightGoal == null
+            weightGoal == null && mealsPerDay == null
 }
 
 /** Sustituye los datos de la receta local [localId] por los de [recipe] (se conservan su id y `createdAtMillis`). */
@@ -428,9 +449,10 @@ class SqlDelightImportTarget(
     private val customFoodQueries: CustomFoodQueries,
     private val weightQueries: WeightEntryQueries,
     private val recipeQueries: RecipeQueries,
+    private val settingsQueries: SettingsQueries,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : ImportTarget, ExportSource by SqlDelightExportSource(
-    productQueries, diaryQueries, customFoodQueries, weightQueries, recipeQueries, dispatcher,
+    productQueries, diaryQueries, customFoodQueries, weightQueries, recipeQueries, settingsQueries, dispatcher,
 ) {
 
     override suspend fun apply(changes: ImportChanges): Unit = withContext(dispatcher) {
@@ -478,6 +500,7 @@ class SqlDelightImportTarget(
                 recipeQueries.writeIngredients(id, r.toNewRecipe().ingredients)
             }
             changes.weightGoal?.let { weightQueries.upsertGoal(it.targetKg, it.updatedAtMillis) }
+            changes.mealsPerDay?.let { settingsQueries.upsertMealsPerDay(it.toLong()) }
             changes.diaryEntriesToAdd.forEach { e ->
                 diaryQueries.insert(
                     date = e.date, meal = e.meal.name, barcode = e.barcode, name = e.name, quantity = e.quantity,
