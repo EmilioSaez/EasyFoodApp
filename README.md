@@ -9,9 +9,8 @@ App multiplataforma (Kotlin Multiplatform + Compose Multiplatform) para **contar
 - **Escáner de códigos de barras** (solo Android) y entrada manual de EAN. La consulta por EAN va a [Open Food Facts](https://world.openfoodfacts.org).
 - **Ficha de producto**: cantidad, tabla nutricional por 100 g y aviso cuando los datos faltan o parecen erróneos.
 - **Alimento propio**: crear, editar y borrar alimentos introducidos a mano.
-- **Recetas**: combinan ingredientes de la base y se añaden al diario.
-- **Objetivos y TDEE**: cálculo del gasto energético, ritmo, objetivo fijo y ajuste manual de kcal/macros; actividad sugerida por los pasos diarios (Health Connect / HealthKit).
-- **Peso**: registro con gráfica, peso objetivo, estimación de cuándo se alcanza y aviso semanal.
+- **Objetivos y TDEE**: cálculo del gasto energético, ritmo y ajuste manual de kcal/macros.
+- **Agua diaria**: tarjeta en el Diario con «+ Vaso», «+ 500 ml», «+ 1 L» y deshacer, y progreso frente a un objetivo (2 L por defecto, editable en Objetivos).
 - **Sin cuentas ni servidor**: los datos viven en el dispositivo (offline-first, SQLDelight).
 
 ## Plataformas
@@ -24,7 +23,7 @@ App multiplataforma (Kotlin Multiplatform + Compose Multiplatform) para **contar
 
 ## Datos: exportar e importar
 
-La pantalla **Datos** (icono ⇅ del Diario y de Objetivos) exporta el perfil a un JSON versionado (alimentos propios, favoritos, diario y productos consultados; la base genérica no se exporta porque ya viene con la app) e importa fusionando, con vista previa y detección de duplicados. También transfiere por QR y por red local con código de emparejamiento de un solo uso.
+La pantalla **Datos** (icono ⇅ del Diario y de Objetivos) exporta el perfil a un JSON versionado (alimentos propios, diario, pesos, recetas, agua y productos consultados; la base genérica no se exporta porque ya viene con la app) e importa fusionando, con vista previa y detección de duplicados. También transfiere por QR y por red local con código de emparejamiento de un solo uso.
 
 El seguimiento de lo que falta está en [ROADMAP.md](ROADMAP.md).
 

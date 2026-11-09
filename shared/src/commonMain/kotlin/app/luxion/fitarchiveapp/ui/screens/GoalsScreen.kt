@@ -44,6 +44,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.data.GoalStore
+import app.luxion.fitarchiveapp.data.WaterStore
+import app.luxion.fitarchiveapp.ui.components.WaterGoalRow
 import app.luxion.fitarchiveapp.domain.ActivityLevel
 import app.luxion.fitarchiveapp.domain.Goal
 import app.luxion.fitarchiveapp.domain.MealPlan
@@ -75,6 +77,7 @@ fun GoalsScreen(
     today: () -> String = { "" },
     mealsPerDay: Int? = null,
     onMealsPerDayChange: (Int) -> Unit = {},
+    waterStore: WaterStore? = null,
 ) {
     var saved by remember { mutableStateOf(DailyGoals()) }
     var sex by remember { mutableStateOf(Sex.MALE) }
@@ -275,6 +278,13 @@ fun GoalsScreen(
             Section("Comidas al día") {
                 // Se guarda al elegir, aparte de «Guardar objetivos». Sin elección previa, el Diario usa el preset por defecto.
                 MealsPerDayPicker(mealsPerDay ?: MealPlan.DEFAULT_MEALS, onMealsPerDayChange)
+            }
+
+            if (waterStore != null) {
+                Section("Agua") {
+                    // Se guarda al pulsar, aparte de «Guardar objetivos»; el Diario la compara con el agua del día.
+                    WaterGoalRow(waterStore)
+                }
             }
 
             MacroSplitCard(

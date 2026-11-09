@@ -12,6 +12,7 @@ import app.luxion.fitarchiveapp.db.FavoriteFoodQueries
 import app.luxion.fitarchiveapp.db.ProductQueries
 import app.luxion.fitarchiveapp.db.SettingsQueries
 import app.luxion.fitarchiveapp.db.RecipeQueries
+import app.luxion.fitarchiveapp.db.WaterQueries
 import app.luxion.fitarchiveapp.db.WeightEntryQueries
 import app.luxion.fitarchiveapp.model.CustomFood
 import app.luxion.fitarchiveapp.model.DiaryEntry
@@ -30,7 +31,8 @@ interface ExportSource {
     suspend fun recipes(): List<ExportedRecipe> = emptyList()
     suspend fun weightGoal(): ExportedWeightGoal? = null
     suspend fun mealsPerDay(): Int? = null
-    suspend fun favorites(): List<ExportedFavorite> = emptyList()
+    suspend fun water(): List<ExportedWater> = emptyList()
+    suspend fun waterGoal(): ExportedWaterGoal? = null
 }
 
 /** Genera el JSON de exportación a partir de [source]. */
@@ -50,7 +52,8 @@ class DataExporter(
         recipes = source.recipes(),
         weightGoal = source.weightGoal(),
         mealsPerDay = source.mealsPerDay(),
-        favorites = source.favorites(),
+        water = source.water(),
+        waterGoal = source.waterGoal(),
     )
 
     suspend fun exportToJson(): String = ExportCodec.encode(buildFile())
@@ -99,21 +102,14 @@ class SqlDelightExportSource(
     private val settingsQueries: SettingsQueries? = null,
     private val favoriteQueries: FavoriteFoodQueries? = null,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
+    private val waterQueries: WaterQueries? = null,
 ) : ExportSource {
-    override suspend fun favorites(): List<ExportedFavorite> = withContext(dispatcher) {
-        val favorites = favoriteQueries?.selectAll()?.executeAsList().orEmpty()
-        if (favorites.isEmpty()) return@withContext emptyList()
-        val customById = customFoodQueries?.selectAll()?.executeAsList().orEmpty().associateBy { it.id }
-        favorites.mapNotNull { f ->
-            val customId = FavoriteKeys.customIdOf(f.key)
-            when {
-                customId == null -> ExportedFavorite(barcode = f.key, createdAtMillis = f.created_at)
-                // Un alimento propio borrado deja un favorito huérfano: no se exporta.
-                else -> customById[customId]?.let {
-                    ExportedFavorite(customName = it.name, customBrand = it.brand, createdAtMillis = f.created_at)
-                }
-            }
-        }
+    override suspend fun water(): List<ExportedWater> = withContext(dispatcher) {
+        waterQueries?.selectAll()?.executeAsList().orEmpty().map { ExportedWater(it.date, it.ml.toInt(), it.updated_at) }
+    }
+
+    override suspend fun waterGoal(): ExportedWaterGoal? = withContext(dispatcher) {
+        waterQueries?.selectGoal()?.executeAsOneOrNull()?.let { ExportedWaterGoal(it.goal_ml.toInt(), it.updated_at) }
     }
 
     override suspend fun mealsPerDay(): Int? = withContext(dispatcher) {

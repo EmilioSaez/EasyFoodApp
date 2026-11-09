@@ -30,21 +30,24 @@ data class ExportFile(
     val weightGoal: ExportedWeightGoal? = null,
     /** Comidas al día (3 a 6). Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como `null`. */
     val mealsPerDay: Int? = null,
-    /** Alimentos favoritos. Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como vacío. */
-    val favorites: List<ExportedFavorite> = emptyList(),
+    /** Agua por día. Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como vacío. */
+    val water: List<ExportedWater> = emptyList(),
+    /** Objetivo diario de agua. Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como `null`. */
+    val waterGoal: ExportedWaterGoal? = null,
 )
 
-/**
- * Alimento favorito. Es portable entre dispositivos: un producto (EAN o `generic:<id>`) viaja por su [barcode]; un
- * alimento propio, cuyo id es local de cada dispositivo, por su [customName] y [customBrand]. Solo uno de los dos
- * grupos va informado.
- */
 @Serializable
-data class ExportedFavorite(
-    val barcode: String? = null,
-    val customName: String? = null,
-    val customBrand: String? = null,
-    val createdAtMillis: Long = 0,
+data class ExportedWater(
+    /** Fecha ISO-8601 (`YYYY-MM-DD`); un total por día. */
+    val date: String,
+    val ml: Int,
+    val updatedAtMillis: Long = 0,
+)
+
+@Serializable
+data class ExportedWaterGoal(
+    val goalMl: Int,
+    val updatedAtMillis: Long = 0,
 )
 
 @Serializable

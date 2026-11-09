@@ -62,6 +62,7 @@ fun ImportReport.rows(): List<ImportPreviewRow> = listOf(
     ImportPreviewRow("Alimentos propios", customFoods),
     ImportPreviewRow("Entradas del diario", diaryEntries),
     ImportPreviewRow("Pesos", weights),
+    ImportPreviewRow("Agua", water),
     ImportPreviewRow("Recetas", recipes),
     ImportPreviewRow("Favoritos", favorites),
 ).filter { it.counts.hasAny }
@@ -79,9 +80,9 @@ fun ImportCounts.describe(): String = listOfNotNull(
 
 /** Resumen de una sola frase del resultado de una importación ya aplicada. */
 fun ImportReport.summary(): String {
-    val added = products.added + customFoods.added + diaryEntries.added + weights.added + recipes.added + favorites.added
-    val updated = products.updated + customFoods.updated + diaryEntries.updated + weights.updated + recipes.updated + favorites.updated
-    val skipped = products.unchanged + customFoods.unchanged + diaryEntries.unchanged + weights.unchanged + recipes.unchanged + favorites.unchanged
+    val added = products.added + customFoods.added + diaryEntries.added + weights.added + water.added + recipes.added
+    val updated = products.updated + customFoods.updated + diaryEntries.updated + weights.updated + water.updated + recipes.updated
+    val skipped = products.unchanged + customFoods.unchanged + diaryEntries.unchanged + weights.unchanged + water.unchanged + recipes.unchanged
     return when {
         added + updated == 0 -> "No había nada nuevo que importar."
         else -> buildString {

@@ -33,7 +33,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.data.DiaryStore
 import app.luxion.fitarchiveapp.data.GoalStore
+import app.luxion.fitarchiveapp.data.WaterStore
 import app.luxion.fitarchiveapp.data.WeightStore
+import app.luxion.fitarchiveapp.ui.components.WaterCard
 import app.luxion.fitarchiveapp.domain.WeightReminder
 import app.luxion.fitarchiveapp.ui.components.WeightReminderCard
 import app.luxion.fitarchiveapp.model.Quantity
@@ -64,6 +66,7 @@ fun DiaryScreen(
     weightStore: WeightStore,
     today: String,
     mealsPerDay: Int? = null,
+    waterStore: WaterStore? = null,
 ) {
     val scope = rememberCoroutineScope()
     val presenter = remember(diaryStore, goalStore, mealsPerDay) { DiaryPresenter(diaryStore, goalStore, scope, today, mealsPerDay) }
@@ -155,6 +158,7 @@ fun DiaryScreen(
                     ) {
                         item("header") { DiaryFullHeader(state, presenter, onSetGoal) }
                         if (showWeightReminder) item("weight-reminder") { WeightReminderCard(weightDays, registerWeight) }
+                        if (waterStore != null) item("water") { WaterCard(waterStore, state.date) }
                         if (state.isEmpty) {
                             // Ayuda discreta de primer uso: no sustituye a las tarjetas de comida.
                             item("empty-hint") {

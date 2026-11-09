@@ -291,7 +291,7 @@ Scaffold
 │       arco/barra de progreso con DOS marcas: límite inferior y superior del margen de cumplimiento (objetivo ±10 %),
 │          con sus kcal debajo (p. ej. 2.327 y 2.844 en la captura)
 │       3 columnas de macros: «Proteínas · 0 / 141 g» + barra fina del color del macro (P/H/G)
-├─ Lista que se desplaza: aviso «Toca pesarse» (si toca) · tarjeta por comida (§2.9)
+├─ Lista que se desplaza: aviso «Toca pesarse» (si toca) · tarjeta de agua (§2.13) · tarjeta por comida (§2.9)
 │     tarjeta de comida: título (titleLarge) · «🔥 386 kcal · 17 P | 62 H | 8 G» (bodySmall) · entradas (DiaryEntryRow) ·
 │     botón ancho «+» (secondaryContainer) → Añadir alimento con la comida preseleccionada
 └─ NavigationBar estándar (§1.7): Diario · Alimentos · Recetas · Mi peso · Objetivos
@@ -310,15 +310,21 @@ Scaffold
 - **Implementación.** La fila anclada (‹ «Hoy ▾» › · racha · ⇅ Datos) va fuera de la lista; la franja y la tarjeta son el primer elemento de la lista y, en cuanto se desplaza, aparece encima de la lista el `DiaryHeader` compacto (no se superpone a las tarjetas). La barra del objetivo es una barra con dos marcas (arco descartado); la escala llega a max(objetivo × 1,3; consumidas). «Hoy ▾» abre el selector de fecha de Material (`DatePicker`). Las kcal por día salen de `DiaryStore.daySummaries` (consulta `selectDailyKcal`, sin migración); estado de día y racha, de `DayStatus`.
 - **No se incluye** de la captura: banner Premium, foto de perfil, botón «Terminar día», pestañas Social y Coach, menús «⋯». «Coach» queda para más adelante, si se añade una IA con clave propia (Fase 11, pendiente).
 
-### 2.13 Copiar comida y copiar día (Fase 12)
-Atajo del Diario para no volver a apuntar lo que se repite. No hay tabla nueva: copiar es crear entradas nuevas (`DiaryStore.add`) a partir de las del día mostrado.
-- **«Copiar» en cada tarjeta de comida** (texto junto al título, solo si la comida tiene entradas) y **«Copiar día»** (primer elemento de la lista, solo si el día tiene entradas). Ambos abren `CopyDialog`.
-- **Destino.** Fecha: por defecto el día anterior al mostrado, con ‹ › para moverse y la fecha para abrir el selector de Material. Comida (solo en «Copiar»): por defecto «La misma» (la equivalente), o cualquiera del preset (§2.9) para llevar la comida a otra distinta, también del mismo día. «Copiar día» lleva cada comida a su equivalente.
-- **Qué se copia.** Cada entrada con su cantidad y unidad, tamaño de porción y valores por 100 g (como el diario, es una instantánea), en el mismo orden (`createdAt` crece con el orden de origen) y sin tocar el origen.
-- **Comida que no existe en el destino.** Si la comida de origen no está en el preset activo (p. ej. tiene entradas de Merienda y el preset es de 3), no se pregunta: va a la comida activa más cercana por hora típica (`MealPlan.closest`; con empate, la primera del día) y el aviso lo dice («… a la más cercana»). Si el usuario elige comida destino, manda su elección.
-- **Validaciones.** Copiar una comida sobre sí misma (mismo día y misma comida) o el día sobre sí mismo se rechaza («Elige otro día u otra comida.») porque duplicaría las entradas; sin entradas, «No hay nada que copiar.». Un fallo de base de datos da «No se pudo copiar…».
-- **Resultado.** El Diario sigue en el día de origen y un snackbar confirma «Copiado a 3 de noviembre de 2026: 2 alimentos».
-- **Implementación.** Lógica pura en `DiaryCopy` (`targetMeal`, `plan`); orquestación en `DiaryPresenter.copyMeal` y `copyDay`.
+### 2.13 Agua diaria (Fase 12)
+Registro del agua bebida cada día, con progreso frente a un objetivo diario.
+```
+Diario: tarjeta «Agua» (entre el aviso de peso y las tarjetas de comida; `surfaceVariant`)
+├─ Fila: «Agua» · «1,25 de 2 L» (titleMedium)
+├─ Barra de progreso (se llena hasta el objetivo; pasarse no la desborda)
+├─ Botones rápidos: «+ Vaso» (250 ml) · «+ 500 ml» · «+ 1 L»
+└─ «Deshacer (−N ml)» tras sumar: quita la última suma; solo en esta pantalla y este día
+Objetivos: sección «Agua» → «− 2 L al día +» en pasos de un vaso (250 ml); se guarda al pulsar
+```
+- **Datos.** Un total en ml por día (la fecha ISO es la clave; un día a 0 ml no tiene fila) y un objetivo único. Sin objetivo guardado vale 2 L (`WaterRules.DEFAULT_GOAL_ML`). Límites: objetivo de 500 a 10 000 ml (en la UI, en pasos de 250); total de un día de 0 a 20 000 ml (se recorta). `WaterStore.add(date, deltaMl, now)` suma (o resta, para deshacer) dentro de una transacción.
+- **Día mostrado.** La tarjeta sigue al día elegido en el Diario (franja, ‹ ›, selector): se puede apuntar agua de otro día. «Deshacer» recuerda solo la última suma del día en pantalla.
+- **Persistencia.** Migración `8.sqm` (v8 a v9, idempotente): tablas `WaterEntity(date, ml, updated_at)` y `WaterGoalEntity(id = 1, goal_ml, updated_at)` (`Water.sq`). Se guardan en tablas aparte (no en `SettingsEntity`) para no depender de otras migraciones.
+- **Exportar e importar.** `ExportFile.water` (`date`, `ml`, `updatedAtMillis`) y `ExportFile.waterGoal` (`goalMl`, `updatedAtMillis`). Son campos opcionales nuevos, así que **`schemaVersion` sigue en 1**: los archivos anteriores se leen sin agua y los de ahora los ignora una app antigua. Fusión sin duplicados, igual que los pesos: la identidad es la fecha; igual total, se ignora; distinto, gana el de `updatedAtMillis` más reciente (empate: el local); la misma fecha dos veces en el archivo, la más reciente; el objetivo sigue la misma regla. Totales fuera de 1 a 20 000 ml, fechas mal formadas y objetivos fuera de rango se omiten y se listan. El informe de importación muestra una fila «Agua».
+- **Implementación.** `WaterCard` y `WaterGoalRow` (`ui/components/WaterCard.kt`), `WaterStore` / `SqlDelightWaterStore` y `WaterRules` / `WaterDay` (`model/Water.kt`). `DiaryScreen`, `GoalsScreen` y `App` reciben `waterStore` (opcional: sin él no se muestra la tarjeta ni el ajuste). `SqlDelightImportTarget` y `SqlDelightExportSource` reciben `waterQueries` como último parámetro opcional.
 
 ## 3. Componentes compartidos (en `shared/ui`)
 `EasyFoodTheme` · `CalorieRing` · `MacroProgressRow` · `MacroDot` · `SourceAvatar` / `SourceChip` (enum `DataSource { OpenFoodFacts, Generic, Custom }`) · `DoubtfulChip` · `DoubtfulDataBanner` · `MealSection` · `DiaryEntryRow` · `FoodResultRow` · `QuantitySelector` · `NutritionTable` · `EmptyState` · `NumberField` (OutlinedTextField con sufijo de unidad) · `FoodSearch` (buscador de alimentos de «Añadir» y del editor de recetas).
