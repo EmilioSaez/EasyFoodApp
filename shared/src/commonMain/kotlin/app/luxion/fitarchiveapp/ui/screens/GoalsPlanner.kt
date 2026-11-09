@@ -19,10 +19,10 @@ data class GoalsPlan(
 
 /** Lógica de la pantalla Objetivos (docs/design.md §2.6), sin dependencias de UI. */
 object GoalsPlanner {
-    /** Ritmos del slider en kg/semana. */
-    val PACES = listOf(0.0, 0.25, 0.5, 0.75, 1.0)
+    /** Ritmos del slider en kg/semana (sin 0: «no perder ni ganar» es Mantener). */
+    val PACES = listOf(0.25, 0.5, 0.75, 1.0)
     const val KCAL_PER_KG_PER_WEEK = 1100
-    const val DEFAULT_PACE_INDEX = 2
+    const val DEFAULT_PACE_INDEX = 1
     private const val FAT_KCAL_SHARE = 0.25
 
     fun paceKcal(paceIndex: Int): Int = (PACES[paceIndex.coerceIn(PACES.indices)] * KCAL_PER_KG_PER_WEEK).roundToInt()
