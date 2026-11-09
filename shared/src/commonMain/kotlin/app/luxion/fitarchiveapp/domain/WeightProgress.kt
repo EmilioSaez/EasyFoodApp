@@ -124,9 +124,6 @@ object WeightProgress {
         return WeightProjection.Estimated(epochDayToIsoDate(targetDay), (targetDay - todayDay).toInt(), WeightRules.round(slope * 7))
     }
 
-    /** Máximo de puntos con marcador; por encima solo se dibuja la línea para que siga siendo legible. */
-    const val MAX_MARKED_POINTS = 45
-
     /** Registros de [range] terminados en [today] (inclusive), ordenados por fecha. */
     fun inRange(entries: List<WeightEntry>, range: WeightRange, today: String): List<WeightEntry> {
         val sorted = entries.sortedBy { it.date }
