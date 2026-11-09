@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.MaterialTheme
@@ -26,7 +25,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -145,23 +143,10 @@ fun DiaryScreen(
                     )
                 }
             } else if (!state.loading) {
-                val listState = rememberLazyListState()
-                // Cabecera colapsable: en cuanto se desplaza, franja y tarjeta se pliegan en el DiaryHeader compacto.
-                val collapsed by remember {
-                    derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0 }
-                }
+                // La franja semanal y la tarjeta de objetivo son el primer elemento de la lista: se desplazan con ella.
                 Column(Modifier.fillMaxWidth().weight(1f)) {
-                    if (collapsed) {
-                        // Anclado sobre la lista: el objetivo y cómo se va, siempre visibles (sin tapar tarjetas).
-                        DiaryHeader(
-                            state,
-                            onSetGoal = onSetGoal,
-                            modifier = Modifier.padding(start = Spacing.l, end = Spacing.l, top = Spacing.s),
-                        )
-                    }
                     LazyColumn(
                         Modifier.fillMaxWidth().weight(1f),
-                        state = listState,
                         contentPadding = PaddingValues(start = Spacing.l, end = Spacing.l, top = Spacing.s, bottom = 104.dp),
                         verticalArrangement = Arrangement.spacedBy(Spacing.m),
                     ) {
