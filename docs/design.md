@@ -94,16 +94,17 @@ Tarjetas planas: el contraste viene del color del contenedor, sin sombra. Solo l
 ## 2. Pantallas
 
 ### 2.1 Diario del día (`DiaryScreen`)
+> **Cambios de la Fase 10** (ver §2.9 y §2.10): el resumen del objetivo pasa a una cabecera fija que no se desplaza, y las secciones de comida dependen del número de comidas al día que elige el usuario.
 ```
 Scaffold
 ├─ CenterAlignedTopAppBar: IconButton(‹) · título «Hoy» + subtítulo fecha (bodySmall) · IconButton(›)
 ├─ LazyColumn (padding 16, spacedBy 12)
-│  ├─ DaySummaryCard  (surfaceContainerLow, large)
+│  ├─ DaySummaryCard  (surfaceContainerLow, large) — pasa a la cabecera fija (§2.10)
 │  │  ├─ CalorieRing 120 dp: track surfaceContainerHighest, progreso primary, trazo 10 dp, extremo redondo
 │  │  │   centro: restantes (headlineSmall) + «kcal restantes» (bodySmall)
 │  │  │   si se pasa del objetivo: arco en error y texto «X kcal de más»
 │  │  └─ Column: «1.215 / 2.100 kcal» + 3 × MacroProgressRow (label, «68 / 130 g», LinearProgressIndicator 6 dp con color de macro)
-│  └─ MealSection × 4 (Desayuno, Comida, Cena, Snacks)  OutlinedCard (surfaceContainerLowest, outlineVariant)
+│  └─ MealSection × N (según «comidas al día», §2.9)  OutlinedCard (surfaceContainerLowest, outlineVariant)
 │     ├─ cabecera: nombre (titleMedium) + «386 kcal · P 17 · H 62 · G 8» (bodySmall) + IconButton(+) → Añadir con la comida preseleccionada
 │     ├─ vacía: texto bodyMedium onSurfaceVariant
 │     └─ DiaryEntryRow × n (ListItem): nombre (1 línea, ellipsis) · «cantidad · origen» · SourceBadge/DoubtfulChip · kcal (labelLarge) a la derecha
@@ -113,20 +114,25 @@ Scaffold
 ```
 Estado: `DiaryUiState(date, goalKcal, consumedKcal, macros: List<MacroProgress>, meals: List<MealUi>)`.
 
-### 2.2 Añadir alimento (`AddFoodScreen`)
+### 2.2 Añadir alimento / pestaña Alimentos (`AddFoodScreen`)
+> **Fase 10:** sin selector de comida ni filtros de origen; muestra todos los alimentos. Los accesos rápidos pasan a «Recientes · Escáner · Alimento propio».
 ```
-TopAppBar: ← · «Añadir a» · FilterChip/menú desplegable con la comida (Comida ▾)
+TopAppBar: ← · «Alimentos»   (sin selector de comida)
 SearchBar (inline, extraLarge, surfaceContainerHigh): icono lupa · texto · IconButton borrar
 Fila de 3 accesos rápidos (grid 3 col, gap 8, alto 72, medium):
-   Escanear (primaryContainer) · Código EAN · Alimento propio (surfaceContainer)
-FilterChips en LazyRow: Todos (seleccionado) · Genérico · Open Food Facts · Propios
-Cabecera «Resultados · 24» (titleSmall primary)  · sin texto: «Recientes»
-LazyColumn de FoodResultRow (ListItem 72): SourceAvatar 40 · nombre / «marca · tamaño · EAN» · «255» + «kcal/100 g»
+   Recientes (primaryContainer) · Escáner · Alimento propio (surfaceContainer)
+Sin texto en la búsqueda: lista «Recientes» (los últimos alimentos distintos del diario, del más reciente al más antiguo)
+Con texto: cabecera «Resultados · 24» (titleSmall primary) y LazyColumn de FoodResultRow (ListItem 72):
+   SourceAvatar 40 · nombre / «marca · tamaño · EAN» · «255» + «kcal/100 g»
 ```
+- **Sin filtros:** se eliminan las fichas «Todos · Genérico · Open Food Facts · Propios» y el filtro por origen. Los resultados mezclan todos los orígenes (genérico, Open Food Facts y propios); el origen sigue visible en cada fila con `SourceAvatar`/`SourceChip`.
+- **Sin comida preseleccionada:** la pestaña Alimentos ya no pide la comida arriba. Al abrir la ficha de un alimento desde la pestaña, la comida se elige en la propia ficha (por defecto la comida que toca por la hora, §2.9). Si se llega desde el «+» de una sección del Diario, la comida viene preseleccionada y no se pregunta de nuevo.
+- **«Recientes»:** la lista de recientes se ve por defecto cuando no hay texto; el botón sirve para volver a ella tras buscar (borra el texto). No necesita tabla nueva: se deriva de `DiaryEntry`.
+- **«Escáner»:** sustituye a «Código EAN». Abre `ScannerScreen`, que ya incluye la entrada manual de EAN (§2.3). En escritorio no hay cámara y el botón abre directamente la entrada manual.
 - Búsqueda: debounce de 300 ms y FTS local; Open Food Facts solo si hay red, mezclado detrás de los resultados locales.
-- En escritorio, «Escanear» se oculta y «Código EAN» pasa a primaryContainer.
 
 ### 2.3 Escáner + EAN manual (`ScannerScreen`)
+> Se accede desde el botón «Escáner» (antes «Código EAN»); la entrada manual del EAN sigue dentro de esta pantalla.
 ```
 Box fondo scrim #000000
 ├─ vista previa de cámara (expect/actual: CameraX+ML Kit / AVFoundation)
@@ -220,6 +226,33 @@ Validación en línea tras intentar guardar: nombre obligatorio y al menos un in
 **Añadir al diario:** una receta entra en el diario como un conjunto de alimentos, **una entrada por ingrediente**, con los gramos del ingrediente × (raciones comidas ÷ raciones de la receta); sin raciones se añade la receta entera. Es lo más simple porque reutiliza el diario tal cual (cada entrada se edita o borra por separado, cuenta para los macros del día y se exporta sin cambios) y no hace falta un tipo de entrada nuevo. El diario no guarda de qué receta viene cada entrada.
 
 **Exportar/importar:** las recetas viajan en el campo opcional `recipes` del JSON (los archivos anteriores no lo traen y se leen como vacío); política de duplicados en `DataImporter`.
+
+### 2.9 Comidas del día (Fase 10)
+Cuántas comidas hace el usuario al día y cómo se llaman.
+- **Primera vez:** al abrir la app por primera vez (sin ajuste guardado) se muestra una pantalla `MealsSetupScreen` antes del Diario: «¿Cuántas comidas haces al día?» con opciones 3, 4, 5 y 6 (SegmentedButton o filas con RadioButton) y la lista de comidas que resulta de cada opción. Botón «Continuar» (no se puede saltar; hay una opción por defecto marcada: 4). Se puede cambiar después en Objetivos («Comidas al día»).
+- **Presets** (en orden de aparición en el día):
+
+| Comidas | Secciones |
+|---|---|
+| 3 | Desayuno · Comida · Cena |
+| 4 | Desayuno · Comida · Merienda · Cena |
+| 5 | Desayuno · Almuerzo · Comida · Merienda · Cena |
+| 6 | Desayuno · Almuerzo · Comida · Merienda · Cena · Recena |
+
+- **Modelo:** `MealType` se amplía con los tipos nuevos (Almuerzo = media mañana, Recena); los valores ya guardados (`BREAKFAST`, `LUNCH`, `DINNER`, `SNACK`) siguen siendo válidos y no se migran los datos: `SNACK` se muestra como «Merienda». Los ajustes se guardan en una tabla de ajustes nueva (migración 7.sqm, v7 a v8), con `meals_per_day` (3 a 6) y nulo si aún no se ha elegido (eso dispara la pantalla de primera vez).
+- **Diario:** muestra solo las secciones del preset elegido. Si al reducir el número hay entradas en una comida que ya no existe, esa sección sigue apareciendo (con sus entradas) para no ocultar datos.
+- **Añadir alimento:** cada alimento se añade a una comida concreta: desde el «+» de la sección (preseleccionada) o eligiéndola en la ficha del alimento (por defecto, la comida más cercana a la hora actual). El selector de la ficha lista solo las comidas activas.
+- **Exportar/importar:** `meals_per_day` viaja en el JSON como campo opcional (compatible con archivos antiguos); importar un archivo sin él no cambia el ajuste.
+
+### 2.10 Cabecera fija del Diario (Fase 10)
+- **Siempre visible:** bajo la barra de fecha, una cabecera que NO se desplaza con la lista (queda anclada arriba) con el objetivo y cómo se va: `CalorieRing` compacto o barra, «consumidas / objetivo kcal», «X kcal restantes» (o «X kcal de más» en error) y los tres macros (P/H/G) con su progreso.
+- **Sin objetivo:** en lugar del progreso, la misma cabecera muestra «Sin objetivo diario» y el botón «Fijar objetivo» que abre Objetivos.
+- **Sustituye** a `DaySummaryCard`, que deja de formar parte de la lista. La lista (comidas) se desplaza por debajo.
+- El aviso «Toca pesarse» sigue siendo una tarjeta de la lista (no de la cabecera).
+- Altura contenida (unos 120 dp) para no quitar espacio en móviles pequeños; en pantallas con poca altura, los macros pueden ir en una sola línea.
+
+### 2.11 Gráfica de peso: un punto por registro (Fase 10)
+En `WeightChart` (Mi peso) se dibuja un punto por cada registro, no solo el primero y el último. El último registro se destaca (punto relleno, mayor); los demás son puntos más pequeños. La línea los une. Accesibilidad: la descripción de la gráfica sigue resumiendo «N registros, de X a Y, último Z kg».
 
 ## 3. Componentes compartidos (en `shared/ui`)
 `EasyFoodTheme` · `CalorieRing` · `MacroProgressRow` · `MacroDot` · `SourceAvatar` / `SourceChip` (enum `DataSource { OpenFoodFacts, Generic, Custom }`) · `DoubtfulChip` · `DoubtfulDataBanner` · `MealSection` · `DiaryEntryRow` · `FoodResultRow` · `QuantitySelector` · `NutritionTable` · `EmptyState` · `NumberField` (OutlinedTextField con sufijo de unidad) · `FoodSearch` (buscador de alimentos de «Añadir» y del editor de recetas).
