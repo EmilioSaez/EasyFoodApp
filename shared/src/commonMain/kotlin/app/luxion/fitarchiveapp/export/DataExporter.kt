@@ -21,6 +21,7 @@ interface ExportSource {
     suspend fun diaryEntries(): List<DiaryEntry>
     suspend fun customFoods(): List<ExportedCustomFood> = emptyList()
     suspend fun weights(): List<ExportedWeight> = emptyList()
+    suspend fun weightGoal(): ExportedWeightGoal? = null
 }
 
 /** Genera el JSON de exportación a partir de [source]. */
@@ -37,6 +38,7 @@ class DataExporter(
         diaryEntries = source.diaryEntries().map { it.toExported() },
         customFoods = source.customFoods(),
         weights = source.weights(),
+        weightGoal = source.weightGoal(),
     )
 
     suspend fun exportToJson(): String = ExportCodec.encode(buildFile())
@@ -79,6 +81,10 @@ class SqlDelightExportSource(
         weightQueries?.selectAll()?.executeAsList().orEmpty().map {
             ExportedWeight(it.date, it.weight_kg, it.created_at, it.updated_at)
         }
+    }
+
+    override suspend fun weightGoal(): ExportedWeightGoal? = withContext(dispatcher) {
+        weightQueries?.selectGoal()?.executeAsOneOrNull()?.let { ExportedWeightGoal(it.target_kg, it.updated_at) }
     }
 
     override suspend fun customFoods(): List<ExportedCustomFood> = withContext(dispatcher) {

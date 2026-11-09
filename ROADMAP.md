@@ -90,5 +90,5 @@ Riesgo: no hay Mac local. La ruta es la que sigue FitArchiveApp (sesión hermana
 - [ ] Pasos diarios leídos del sensor (Health Connect en Android, HealthKit en iOS) que permitan reevaluar el gasto (TDEE)
 - [x] Registro de peso con gráfica de evolución y progreso, incluido en exportar e importar (migración v4 → v5)
 - [ ] Aviso dentro de la app cuando toca registrar el peso (cada semana)
-- [ ] Peso objetivo elegido por el usuario; al actualizar el peso, mostrar lo lejos que se está de lograrlo y una estimación de cuándo se llegará
+- [x] Peso objetivo elegido por el usuario; al actualizar el peso, mostrar lo lejos que se está de lograrlo y una estimación de cuándo se llegará (migración v5 → v6, incluido en exportar e importar)
 - [ ] (Pendiente, sin decidir) IA para guiar el registro de comidas, opcional y con la clave de API propia del usuario (guardada solo en el dispositivo, nunca en el repo)
