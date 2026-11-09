@@ -92,3 +92,12 @@ Riesgo: no hay Mac local. La ruta es la que sigue FitArchiveApp (sesión hermana
 - [x] Aviso dentro de la app cuando toca registrar el peso (cada semana): tarjeta en el Diario derivada de los registros, sin tabla nueva
 - [x] Peso objetivo elegido por el usuario; al actualizar el peso, mostrar lo lejos que se está de lograrlo y una estimación de cuándo se llegará (migración v5 → v6, incluido en exportar e importar)
 - [ ] (Pendiente, sin decidir) IA para guiar el registro de comidas, opcional y con la clave de API propia del usuario (guardada solo en el dispositivo, nunca en el repo)
+
+## Fase 10: Pulido del uso diario
+
+Especificación en `docs/design.md` §2.1, §2.2, §2.9, §2.10 y §2.11. Cada punto es un PR.
+
+- [ ] Pestaña Alimentos sin filtros: sin selector de comida (Desayuno/Comida/Cena/Snacks) ni fichas de origen (Todos/Genérico/Open Food Facts/Propios); accesos rápidos «Recientes · Escáner · Alimento propio» (antes «Escanear · Código EAN · Alimento propio») y lista de recientes derivada del diario
+- [ ] Gráfica de peso con un punto por cada registro
+- [ ] Diario con cabecera fija arriba que siempre muestra el objetivo y cómo se va (consumo, restantes y macros)
+- [ ] Comidas al día: pantalla de primera vez que pregunta cuántas comidas se hacen (3 a 6), secciones del Diario según el preset (Desayuno, Almuerzo, Comida, Merienda, Cena, Recena) y alimentos añadidos a una comida concreta; ajuste en Objetivos; migración v7 a v8, incluido en exportar e importar
