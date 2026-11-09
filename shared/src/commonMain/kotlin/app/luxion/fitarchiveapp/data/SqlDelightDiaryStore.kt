@@ -2,6 +2,7 @@ package app.luxion.fitarchiveapp.data
 
 import app.luxion.fitarchiveapp.db.DiaryEntryEntity
 import app.luxion.fitarchiveapp.db.DiaryEntryQueries
+import app.luxion.fitarchiveapp.domain.DaySummary
 import app.luxion.fitarchiveapp.model.DiaryEntry
 import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.model.NewDiaryEntry
@@ -19,6 +20,10 @@ class SqlDelightDiaryStore(
 ) : DiaryStore {
     override suspend fun entriesForDate(date: String): List<DiaryEntry> = withContext(dispatcher) {
         queries.selectByDate(date).executeAsList().map { it.toDomain() }
+    }
+
+    override suspend fun daySummaries(from: String, to: String): List<DaySummary> = withContext(dispatcher) {
+        queries.selectDailyKcal(from, to).executeAsList().map { DaySummary(it.date, it.kcal ?: 0.0) }
     }
 
     override suspend fun find(id: Long): DiaryEntry? = withContext(dispatcher) {

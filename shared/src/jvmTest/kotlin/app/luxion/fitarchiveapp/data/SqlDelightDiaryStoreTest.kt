@@ -144,4 +144,24 @@ class SqlDelightDiaryStoreTest {
         assertEquals(listOf("Nutella", "MI PAN", "Galletas"), recent.map { it.name })
         assertEquals(listOf("Nutella", "MI PAN"), store.recentFoods(2).map { it.name })
     }
+
+    @Test
+    fun daySummariesAddKcalPerDayInRangeAndIgnoreUnknownData() = runTest {
+        val per100 = Nutrients(kcal = 200.0, proteinG = 1.0, carbsG = 1.0, fatG = 1.0)
+        fun entry(date: String, qty: Quantity, nutrients: Nutrients = per100, serving: Double? = null) =
+            nutella.copy(date = date, quantity = qty, nutrients = nutrients, servingSizeG = serving)
+        store.add(entry("2026-11-03", Quantity(100.0, QuantityUnit.GRAMS)), 1)
+        store.add(entry("2026-11-04", Quantity(100.0, QuantityUnit.GRAMS)), 2) // 200
+        store.add(entry("2026-11-04", Quantity(2.0, QuantityUnit.SERVINGS), serving = 50.0), 3) // 200
+        store.add(entry("2026-11-04", Quantity(1.0, QuantityUnit.SERVINGS)), 4) // porción sin tamaño: no suma
+        store.add(entry("2026-11-05", Quantity(100.0, QuantityUnit.GRAMS), Nutrients(null, null, null, null)), 5) // sin kcal
+        store.add(entry("2026-11-09", Quantity(100.0, QuantityUnit.GRAMS)), 6)
+
+        val summaries = store.daySummaries("2026-11-04", "2026-11-08")
+
+        assertEquals(listOf("2026-11-04", "2026-11-05"), summaries.map { it.date })
+        assertEquals(400.0, summaries[0].kcal, 1e-9)
+        assertEquals(0.0, summaries[1].kcal, 1e-9) // hay registro aunque no sume kcal
+        assertEquals(emptyList(), store.daySummaries("2026-12-01", "2026-12-31"))
+    }
 }
