@@ -27,16 +27,16 @@ class GoalsPlannerTest {
     @Test
     fun paceAdjustsTargetByGoal() {
         // 0,5 kg/sem = 550 kcal/día
-        assertEquals(2759 - 550, GoalsPlanner.plan(profile(Goal.LOSE), 2).targetKcal)
-        assertEquals(2759 + 550, GoalsPlanner.plan(profile(Goal.GAIN), 2).targetKcal)
+        assertEquals(2759 - 550, GoalsPlanner.plan(profile(Goal.LOSE), 1).targetKcal)
+        assertEquals(2759 + 550, GoalsPlanner.plan(profile(Goal.GAIN), 1).targetKcal)
         // 2759 − 1100 = 1659 < TMB (1780): se limita al TMB
-        assertEquals(1780, GoalsPlanner.plan(profile(Goal.LOSE), 4).targetKcal)
+        assertEquals(1780, GoalsPlanner.plan(profile(Goal.LOSE), 3).targetKcal)
     }
 
     @Test
     fun targetNeverBelowBmrAndFlagsIt() {
         val p = profile(Goal.LOSE, sex = Sex.FEMALE, weight = 50.0, activity = ActivityLevel.SEDENTARY)
-        val plan = GoalsPlanner.plan(p, 4)
+        val plan = GoalsPlanner.plan(p, 3)
         assertTrue(plan.limited)
         assertEquals(maxOf(plan.bmrKcal, 1200), plan.targetKcal)
     }
@@ -59,7 +59,7 @@ class GoalsPlannerTest {
     @Test
     fun resolvePrefersOverridesThenPlanThenSaved() {
         val p = profile(Goal.MAINTAIN)
-        val plan = GoalsPlanner.plan(p, 2)
+        val plan = GoalsPlanner.plan(p, GoalsPlanner.DEFAULT_PACE_INDEX)
         val saved = DailyGoals(kcal = 1800, proteinG = 100, carbsG = 200, fatG = 60)
 
         assertEquals(saved, GoalsPlanner.resolve(null, null, saved, null, null, null, null))
@@ -74,7 +74,7 @@ class GoalsPlannerTest {
     @Test
     fun fixedGoalsIgnoreTheCalculator() {
         val p = profile(Goal.MAINTAIN)
-        val plan = GoalsPlanner.plan(p, 2)
+        val plan = GoalsPlanner.plan(p, GoalsPlanner.DEFAULT_PACE_INDEX)
         val saved = DailyGoals(kcal = 1800, proteinG = 100, carbsG = 200, fatG = 60, fixed = true)
 
         assertEquals(saved, GoalsPlanner.resolve(plan, p, saved, null, null, null, null, fixed = true))

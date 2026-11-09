@@ -1,16 +1,18 @@
 package app.luxion.fitarchiveapp.ui.navigation
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 
-/** Barra inferior: Diario · Alimentos · Recetas · Mi peso · Objetivos (indicador `secondaryContainer`). */
+/** Barra inferior estándar: Diario · Alimentos · Recetas · Mi peso · Objetivos (indicador transparente, seleccionado en `primary`). */
 @Composable
 fun EasyFoodNavigationBar(selected: TopLevelTab, navigator: Navigator) {
-    NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+    val scheme = MaterialTheme.colorScheme
+    NavigationBar(containerColor = scheme.surfaceContainerLow) {
         TopLevelTab.entries.forEach { tab ->
             NavigationBarItem(
                 selected = tab == selected,
@@ -18,7 +20,11 @@ fun EasyFoodNavigationBar(selected: TopLevelTab, navigator: Navigator) {
                 icon = { Text(tab.icon) },
                 label = { Text(tab.label) },
                 colors = NavigationBarItemDefaults.colors(
-                    indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                    selectedIconColor = scheme.primary,
+                    selectedTextColor = scheme.primary,
+                    unselectedIconColor = scheme.onSurfaceVariant,
+                    unselectedTextColor = scheme.onSurfaceVariant,
+                    indicatorColor = Color.Transparent,
                 ),
             )
         }
