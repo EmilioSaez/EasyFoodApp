@@ -1,17 +1,13 @@
 package app.luxion.fitarchiveapp.ui.screens
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -50,8 +46,9 @@ private sealed interface SearchState {
 
 /**
  * Buscador de alimentos compartido por «Añadir» y por el editor de recetas (docs/design.md §2.2): campo de
- * búsqueda (FTS local + alimentos propios), filtro por origen y lista de resultados. Open Food Facts solo aparece
- * si el producto ya está en la caché local. [quickActions] se pinta entre el campo y los filtros;
+ * búsqueda (FTS local + alimentos propios) y lista de resultados, mezclando todos los orígenes (cada fila muestra el
+ * suyo). Open Food Facts solo aparece si el producto ya está en la caché local. [quickActions] se pinta bajo el campo;
+ * [idleContent] ocupa el sitio de los resultados mientras no hay texto (por defecto, una invitación a buscar);
  * [emptyPrimary] y [emptySecondary] son las acciones del estado «sin resultados».
  */
 @Composable
@@ -65,8 +62,8 @@ fun FoodSearch(
     emptyPrimary: EmptyStateAction? = null,
     emptySecondary: EmptyStateAction? = null,
     quickActions: @Composable () -> Unit = {},
+    idleContent: (@Composable () -> Unit)? = null,
 ) {
-    var filter by remember { mutableStateOf(SourceFilter.All) }
     var retry by remember { mutableStateOf(0) }
     var state by remember { mutableStateOf<SearchState>(SearchState.Idle) }
 
@@ -94,22 +91,18 @@ fun FoodSearch(
             if (state is SearchState.Loading) LinearProgressIndicator(Modifier.fillMaxWidth())
         }
         quickActions()
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = Spacing.l, vertical = Spacing.s),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.s),
-        ) {
-            items(SourceFilter.entries) { f ->
-                FilterChip(selected = filter == f, onClick = { filter = f }, label = { Text(f.label) })
-            }
-        }
         when (val s = state) {
             SearchState.Loading -> Unit
-            SearchState.Idle -> EmptyState(
-                icon = "⌕",
-                title = "Busca un alimento",
-                message = "Escribe el nombre o la marca, o usa el código de barras.",
-                modifier = Modifier.fillMaxWidth(),
-            )
+            SearchState.Idle -> if (idleContent != null) {
+                idleContent()
+            } else {
+                EmptyState(
+                    icon = "⌕",
+                    title = "Busca un alimento",
+                    message = "Escribe el nombre o la marca, o usa el código de barras.",
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             SearchState.Failed -> EmptyState(
                 icon = "!",
                 title = "No se pudo buscar",
@@ -119,16 +112,12 @@ fun FoodSearch(
                 modifier = Modifier.fillMaxWidth(),
             )
             is SearchState.Done -> {
-                val shown = remember(s, filter) { s.picks.filter { filter.source == null || it.result.source == filter.source } }
+                val shown = s.picks
                 if (shown.isEmpty()) {
                     EmptyState(
                         icon = "⌕",
                         title = "Sin resultados para «${query.trim()}»",
-                        message = if (filter == SourceFilter.All) {
-                            "Prueba con otra palabra o añade el alimento tú mismo."
-                        } else {
-                            "No hay resultados de este origen. Prueba con «Todos»."
-                        },
+                        message = "Prueba con otra palabra o añade el alimento tú mismo.",
                         primaryAction = emptyPrimary,
                         secondaryAction = emptySecondary,
                         modifier = Modifier.fillMaxWidth(),

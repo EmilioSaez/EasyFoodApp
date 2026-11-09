@@ -103,7 +103,7 @@ class AppFlowsTest {
 
     private fun ComposeUiTest.addNutellaByManualEan() {
         onNodeWithText("+ Añadir alimento").performClick()
-        onNodeWithText("Código EAN").performClick()
+        onNodeWithText("Escáner").performClick()
         onNodeWithText("Código EAN").performTextInput(nutella.barcode)
         onNodeWithText("Buscar producto").performClick()
         waitForText("Añadir a Merienda")
@@ -402,6 +402,57 @@ class AppFlowsTest {
         assertGoalOnThreeDays("2.759")
     }
 
+    private fun fillDiary(db: EasyFoodDatabase, goalKcal: Int?) = kotlinx.coroutines.runBlocking {
+        val diary = SqlDelightDiaryStore(db.diaryEntryQueries)
+        for (i in 0 until 14) {
+            diary.add(
+                NewDiaryEntry(
+                    "2026-11-04", MealType.entries[i % 4], null, "Alimento $i", Quantity(100.0, QuantityUnit.GRAMS), null,
+                    Nutrients(100.0, 1.0, 10.0, 1.0),
+                ),
+                createdAtMillis = i.toLong(),
+            )
+        }
+        if (goalKcal != null) SqlDelightGoalStore(db.dailyGoalQueries).save(DailyGoals(kcal = goalKcal))
+    }
+
+    /** Los datos se insertan tras el primer render: se vuelve al Diario para que se recarguen. */
+    private fun ComposeUiTest.reloadDiary() {
+        onAllNodesWithText("Objetivos").onLast().performClick()
+        waitForText("Tus datos")
+        onNodeWithText("Diario").performClick()
+    }
+
+    @Test
+    fun diaryHeaderStaysVisibleWhileScrollingTheList() = runApp(recentWeight = true) { db ->
+        fillDiary(db, goalKcal = 1000)
+        reloadDiary()
+        waitForText("Alimento 0")
+        onNodeWithText("1.400 / 1.000 kcal").assertIsDisplayed()
+        onNodeWithText("400 kcal de más").assertIsDisplayed()
+        onNode(hasScrollAction()).performScrollToNode(hasText("Alimento 13"))
+        onNodeWithText("1.400 / 1.000 kcal").assertIsDisplayed()
+        onNodeWithText("400 kcal de más").assertIsDisplayed()
+    }
+
+    @Test
+    fun diaryHeaderWithoutGoalOffersToSetIt() = runApp(recentWeight = true) { db ->
+        fillDiary(db, goalKcal = null)
+        reloadDiary()
+        waitForText("Alimento 0")
+        onNode(hasScrollAction()).performScrollToNode(hasText("Alimento 13"))
+        onNodeWithText("Sin objetivo diario").assertIsDisplayed()
+        onNodeWithText("Fijar objetivo").performClick()
+        waitForText("Tus datos")
+    }
+
+    @Test
+    fun emptyDiaryWithoutGoalShowsASingleSetGoalAction() = runApp(recentWeight = true) { _ ->
+        waitForText("Nada apuntado hoy")
+        onNodeWithText("Sin objetivo diario").assertIsDisplayed()
+        onNodeWithText("Fijar objetivo").assertIsDisplayed() // un solo nodo: sin duplicar en el estado vacío
+    }
+
     private fun ComposeUiTest.createPanCasero() {
         onNodeWithText("+ Añadir alimento").performClick()
         onNodeWithText("Alimento propio").performClick()
@@ -461,7 +512,7 @@ class AppFlowsTest {
     fun copyAsCustomFoodPrefillsFormAndSavesCopy() = runApp { db ->
         waitForText("Nada apuntado hoy")
         onNodeWithText("+ Añadir alimento").performClick()
-        onNodeWithText("Código EAN").performClick()
+        onNodeWithText("Escáner").performClick()
         onNodeWithText("Código EAN").performTextInput(nutella.barcode)
         onNodeWithText("Buscar producto").performClick()
         waitForText("Añadir a Merienda")

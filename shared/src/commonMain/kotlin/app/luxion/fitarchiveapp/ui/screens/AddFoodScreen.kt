@@ -2,9 +2,12 @@ package app.luxion.fitarchiveapp.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -14,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,17 +27,20 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.data.CustomFoodStore
+import app.luxion.fitarchiveapp.data.DiaryStore
 import app.luxion.fitarchiveapp.data.ProductSearchStore
 import app.luxion.fitarchiveapp.scanner.isBarcodeScannerSupported
 import app.luxion.fitarchiveapp.ui.components.EmptyStateAction
-import app.luxion.fitarchiveapp.ui.components.label
+import app.luxion.fitarchiveapp.ui.components.FoodResultRow
 import app.luxion.fitarchiveapp.ui.navigation.Navigator
 import app.luxion.fitarchiveapp.ui.navigation.Route
 import app.luxion.fitarchiveapp.ui.theme.Spacing
+import kotlinx.coroutines.CancellationException
 
 /**
- * Añadir alimento (docs/design.md §2.2): el buscador compartido ([FoodSearch]) más accesos rápidos al
- * escáner y a los alimentos propios.
+ * Pestaña Alimentos / añadir alimento (docs/design.md §2.2): el buscador compartido ([FoodSearch]) sin filtros más
+ * accesos rápidos «Recientes · Escáner · Alimento propio». Sin texto se ven los recientes del diario. La comida solo
+ * viene preseleccionada ([Route.Add.meal]) si se llega desde el «+» de una sección del Diario; si no, se elige en la ficha.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,9 +49,23 @@ fun AddFoodScreen(
     route: Route.Add,
     searchStore: ProductSearchStore? = null,
     customFoods: CustomFoodStore? = null,
+    diaryStore: DiaryStore? = null,
 ) {
     val meal = route.meal
     var query by remember { mutableStateOf("") }
+    // null = aún cargando; lista vacía = sin recientes.
+    var recents by remember { mutableStateOf<List<FoodResult>?>(null) }
+
+    LaunchedEffect(diaryStore, customFoods) {
+        recents = try {
+            val entries = diaryStore?.recentFoods(RECENT_FOODS_LIMIT).orEmpty()
+            recentFoodResults(entries, customFoods?.all().orEmpty())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -64,16 +85,20 @@ fun AddFoodScreen(
             onQueryChange = { query = it },
             searchStore = searchStore,
             customFoods = customFoods,
-            onPick = { navigator.push(Route.ProductDetail(barcode = it.result.key, meal = meal)) },
+            onPick = { navigator.push(Route.ProductDetail(barcode = it.result.key, meal = route.meal)) },
             modifier = Modifier.padding(padding),
-            emptyPrimary = EmptyStateAction("Crear alimento propio") { navigator.push(Route.CustomFood(meal = meal)) },
-            emptySecondary = EmptyStateAction("Escanear código") { navigator.push(Route.Scanner(meal)) },
+            emptyPrimary = EmptyStateAction("Crear alimento propio") { navigator.push(Route.CustomFood(meal = route.meal)) },
+            emptySecondary = EmptyStateAction("Escanear código") { navigator.push(Route.Scanner(route.meal)) },
             quickActions = {
                 QuickActions(
-                    onScan = { navigator.push(Route.Scanner(meal)) },
-                    onCustom = { navigator.push(Route.CustomFood(meal = meal)) },
-                    modifier = Modifier.padding(horizontal = Spacing.l),
+                    onRecent = { query = "" },
+                    onScan = { navigator.push(Route.Scanner(route.meal)) },
+                    onCustom = { navigator.push(Route.CustomFood(meal = route.meal)) },
+                    modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s),
                 )
+            },
+            idleContent = {
+                RecentFoodsList(recents) { navigator.push(Route.ProductDetail(barcode = it.key, meal = route.meal)) }
             },
         )
     }
@@ -81,7 +106,7 @@ fun AddFoodScreen(
 
 /** Escanear · Código EAN · Alimento propio. En escritorio no hay escáner: «Código EAN» pasa a destacado. */
 @Composable
-private fun QuickActions(onScan: () -> Unit, onCustom: () -> Unit, modifier: Modifier = Modifier) {
+private fun QuickActions(onRecent: () -> Unit, onScan: () -> Unit, onCustom: () -> Unit, modifier: Modifier = Modifier) {
     val tall = Modifier.height(72.dp)
     val primary = ButtonDefaults.buttonColors(
         containerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -92,18 +117,12 @@ private fun QuickActions(onScan: () -> Unit, onCustom: () -> Unit, modifier: Mod
         contentColor = MaterialTheme.colorScheme.onSurface,
     )
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-        if (isBarcodeScannerSupported) {
-            Button(onClick = onScan, modifier = tall.weight(1f), shape = MaterialTheme.shapes.medium, colors = primary) {
-                Text("Escanear")
-            }
+        Button(onClick = onRecent, modifier = tall.weight(1f), shape = MaterialTheme.shapes.medium, colors = primary) {
+            Text("Recientes")
         }
-        // El escáner y la entrada manual de EAN comparten pantalla (docs/design.md §2.3).
-        Button(
-            onClick = onScan,
-            modifier = tall.weight(1f),
-            shape = MaterialTheme.shapes.medium,
-            colors = if (isBarcodeScannerSupported) neutral else primary,
-        ) { Text("Código EAN") }
+        Button(onClick = onScan, modifier = tall.weight(1f), shape = MaterialTheme.shapes.medium, colors = neutral) {
+            Text("Escáner")
+        }
         Button(onClick = onCustom, modifier = tall.weight(1f), shape = MaterialTheme.shapes.medium, colors = neutral) {
             Text("Alimento propio")
         }

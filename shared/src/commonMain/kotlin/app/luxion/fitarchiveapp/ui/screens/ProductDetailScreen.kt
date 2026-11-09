@@ -39,12 +39,14 @@ import app.luxion.fitarchiveapp.data.CustomFoodStore
 import app.luxion.fitarchiveapp.data.ProductRepository
 import app.luxion.fitarchiveapp.data.generic.GenericFoodFormat
 import app.luxion.fitarchiveapp.data.ProductResult
+import app.luxion.fitarchiveapp.domain.mealForHour
 import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.model.NewDiaryEntry
 import app.luxion.fitarchiveapp.model.Nutrients
 import app.luxion.fitarchiveapp.model.Product
 import app.luxion.fitarchiveapp.model.QuantityUnit
 import app.luxion.fitarchiveapp.model.dataWarnings
+import app.luxion.fitarchiveapp.time.currentHour
 import app.luxion.fitarchiveapp.ui.components.DataSource
 import app.luxion.fitarchiveapp.ui.components.DoubtfulDataBanner
 import app.luxion.fitarchiveapp.ui.components.MacroDot
