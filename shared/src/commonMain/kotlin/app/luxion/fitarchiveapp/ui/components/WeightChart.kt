@@ -9,6 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -26,10 +27,13 @@ import app.luxion.fitarchiveapp.ui.screens.formatKg
 /**
  * Gráfica de línea del peso dibujada con [Canvas] (sin librerías: funciona igual en Android, escritorio e iOS).
  * Cada registro tiene su punto; el último se destaca (relleno y mayor) y la línea los une.
+ * Si [goalKg] cae dentro del eje, se dibuja como línea discontinua.
  */
 @Composable
-fun WeightChart(model: WeightChartModel, modifier: Modifier = Modifier) {
+fun WeightChart(model: WeightChartModel, modifier: Modifier = Modifier, goalKg: Double? = null) {
     val line = MaterialTheme.colorScheme.primary
+    val goalColor = MaterialTheme.colorScheme.tertiary
+    val showGoal = goalKg != null && goalKg >= model.yMin && goalKg <= model.yMax
     val grid = MaterialTheme.colorScheme.outlineVariant
     val label = MaterialTheme.colorScheme.onSurfaceVariant
     val measurer = rememberTextMeasurer()
@@ -39,7 +43,8 @@ fun WeightChart(model: WeightChartModel, modifier: Modifier = Modifier) {
     val description = "Gráfica de peso: ${model.points.size} " +
         (if (model.points.size == 1) "registro" else "registros") +
         ", de ${formatDayMonth(first.date)} a ${formatDayMonth(last.date)}, " +
-        "último ${formatKg(last.weightKg)}"
+        "último ${formatKg(last.weightKg)}" +
+        (if (showGoal) ", objetivo ${formatKg(goalKg)}" else "")
 
     Canvas(modifier.fillMaxWidth().height(200.dp).semantics { contentDescription = description }) {
         val tickLabels: List<Pair<Double, TextLayoutResult>> =
@@ -70,6 +75,15 @@ fun WeightChart(model: WeightChartModel, modifier: Modifier = Modifier) {
             val left = (px(x) - text.size.width * (if (x == 0f) 0f else if (x == 1f) 1f else 0.5f))
                 .coerceIn(0f, size.width - text.size.width)
             drawText(text, topLeft = Offset(left, size.height - bottomPad + 6.dp.toPx()))
+        }
+
+        if (showGoal) {
+            val y = py(model.yFraction(goalKg))
+            drawLine(
+                goalColor, Offset(leftPad, y), Offset(leftPad + plotW, y),
+                strokeWidth = 2.dp.toPx(),
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 6.dp.toPx())),
+            )
         }
 
         val pts = model.points.map { Offset(px(it.x), py(it.y)) }
