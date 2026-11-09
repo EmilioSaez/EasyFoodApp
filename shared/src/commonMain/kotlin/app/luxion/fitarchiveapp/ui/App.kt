@@ -84,6 +84,7 @@ fun App(
                                 route,
                                 searchStore = searchStore,
                                 customFoods = customFoodStore,
+                                diaryStore = diaryStore,
                             )
                             is Route.Scanner -> ScannerScreen(navigator, route, repository)
                             is Route.CustomFood -> CustomFoodScreen(navigator, route, customFoodStore, route.foodId)

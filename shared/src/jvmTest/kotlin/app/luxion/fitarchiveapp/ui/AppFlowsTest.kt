@@ -88,7 +88,7 @@ class AppFlowsTest {
 
     private fun ComposeUiTest.addNutellaByManualEan() {
         onNodeWithText("+ Añadir alimento").performClick()
-        onNodeWithText("Código EAN").performClick()
+        onNodeWithText("Escáner").performClick()
         onNodeWithText("Código EAN").performTextInput(nutella.barcode)
         onNodeWithText("Buscar producto").performClick()
         waitForText("Añadir a Snacks")
@@ -446,7 +446,7 @@ class AppFlowsTest {
     fun copyAsCustomFoodPrefillsFormAndSavesCopy() = runApp { db ->
         waitForText("Nada apuntado hoy")
         onNodeWithText("+ Añadir alimento").performClick()
-        onNodeWithText("Código EAN").performClick()
+        onNodeWithText("Escáner").performClick()
         onNodeWithText("Código EAN").performTextInput(nutella.barcode)
         onNodeWithText("Buscar producto").performClick()
         waitForText("Añadir a Snacks")
@@ -476,10 +476,46 @@ class AppFlowsTest {
         onNodeWithText("Buscar alimento").performTextInput("manzana")
         waitForText("Manzana cruda")
         onNodeWithText("Manzana cruda").performClick()
-        waitForText("Añadir a Snacks")
+        // Desde la pestaña no hay comida preseleccionada: la ficha propone la que toca por la hora.
+        waitUntil(timeoutMillis = 20_000) { onAllNodes(hasText("Añadir a ", substring = true)).fetchSemanticsNodes().isNotEmpty() }
         waitForText("Genérico")
         // La clave interna no se enseña como si fuera un código de barras.
         kotlin.test.assertTrue(onAllNodes(hasText("generic:1")).fetchSemanticsNodes().isEmpty())
         kotlin.test.assertTrue(onAllNodes(hasContentDescription("Copiar como alimento propio")).fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun foodsTabHasNoMealPickerNorSourceFilters() = runApp(recentWeight = true) { _ ->
+        waitForText("Nada apuntado hoy")
+        onNodeWithText("Alimentos").performClick()
+        waitForText("Buscar alimento")
+        onNodeWithText("Recientes").assertIsDisplayed()
+        onNodeWithText("Escáner").assertIsDisplayed()
+        onNodeWithText("Alimento propio").assertIsDisplayed()
+        for (gone in listOf("Todos", "Genérico", "Open Food Facts", "Propios", "Código EAN")) {
+            kotlin.test.assertTrue(onAllNodes(hasText(gone)).fetchSemanticsNodes().isEmpty(), gone)
+        }
+        kotlin.test.assertTrue(onAllNodes(hasText("▾", substring = true)).fetchSemanticsNodes().isEmpty())
+        waitForText("Aún no hay recientes")
+    }
+
+    @Test
+    fun recentsListShowsDiaryFoodsAndTheButtonReturnsToIt() = runApp(recentWeight = true) { _ ->
+        waitForText("Nada apuntado hoy")
+        addNutellaByManualEan()
+        waitForText("Nutella")
+
+        onNodeWithText("Alimentos").performClick()
+        waitForText("Últimos alimentos · 1")
+        onNodeWithText("Nutella").assertIsDisplayed()
+
+        onNodeWithText("Buscar alimento").performTextInput("zzzz")
+        waitForText("Sin resultados para «zzzz»")
+        kotlin.test.assertTrue(onAllNodes(hasText("Últimos alimentos", substring = true)).fetchSemanticsNodes().isEmpty())
+        onNodeWithText("Recientes").performClick()
+        waitForText("Últimos alimentos · 1")
+
+        onNodeWithText("Nutella").performClick()
+        waitUntil(timeoutMillis = 20_000) { onAllNodes(hasText("Añadir a ", substring = true)).fetchSemanticsNodes().isNotEmpty() }
     }
 }

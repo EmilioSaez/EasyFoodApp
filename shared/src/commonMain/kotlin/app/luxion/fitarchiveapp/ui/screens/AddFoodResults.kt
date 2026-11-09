@@ -24,17 +24,6 @@ data class FoodResult(
     val kcalPer100g: Double?,
 )
 
-/** Filtro por origen de los FilterChips; `null` en [source] = todos. */
-enum class SourceFilter(val label: String, val source: DataSource?) {
-    All("Todos", null),
-    Generic("Genérico", DataSource.Generic),
-    OpenFoodFacts("Open Food Facts", DataSource.OpenFoodFacts),
-    Custom("Propios", DataSource.Custom),
-}
-
-fun List<FoodResult>.filteredBy(filter: SourceFilter): List<FoodResult> =
-    if (filter.source == null) this else filter { it.source == filter.source }
-
 fun Product.toFoodResult(): FoodResult {
     val isGeneric = barcode.startsWith(GenericFoodFormat.KEY_PREFIX)
     val parts = listOfNotNull(
