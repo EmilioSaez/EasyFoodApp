@@ -1,13 +1,6 @@
--- Migración v8 -> v9: registro de agua diario y su objetivo. Idempotente.
--- Un total por día (la fecha ISO es la clave) y un objetivo único (id = 1); sin fila de objetivo = 2 L por defecto.
-CREATE TABLE IF NOT EXISTS WaterEntity (
-    date TEXT NOT NULL PRIMARY KEY CHECK (length(date) = 10),
-    ml INTEGER NOT NULL CHECK (ml > 0 AND ml <= 20000),
-    updated_at INTEGER NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS WaterGoalEntity (
+-- Migración v8 -> v9: versión de los datos de la base genérica (ver Product.sq). Idempotente.
+-- Sin fila = versión 0: los alimentos GENERIC ya cargados (nombres en inglés) se reimportan al arrancar.
+CREATE TABLE IF NOT EXISTS GenericFoodsMetaEntity (
     id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
-    goal_ml INTEGER NOT NULL CHECK (goal_ml >= 500 AND goal_ml <= 10000),
-    updated_at INTEGER NOT NULL
+    data_version INTEGER NOT NULL
 );
