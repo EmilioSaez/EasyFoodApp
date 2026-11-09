@@ -68,7 +68,7 @@ Para comprobar que compilan los targets de iOS sin Mac (solo klibs, no enlaza el
 ## Datos y licencias
 
 - **Productos con código de barras**: [Open Food Facts](https://world.openfoodfacts.org), base abierta aportada por la comunidad bajo licencia ODbL. Los datos pueden ser incorrectos o estar incompletos; la app los marca para revisión cuando detecta valores dudosos.
-- **Alimentos genéricos** (fruta, pan, carne…): [USDA FoodData Central](https://fdc.nal.usda.gov/), conjunto SR Legacy, dominio público (CC0 1.0). Los nombres están en inglés. Detalles en [docs/generic-foods.md](docs/generic-foods.md).
+- **Alimentos genéricos** (fruta, pan, carne…): [USDA FoodData Central](https://fdc.nal.usda.gov/), conjunto SR Legacy, dominio público (CC0 1.0). Los nombres están traducidos al español (traducción propia con IA, embebida y offline). Detalles en [docs/generic-foods.md](docs/generic-foods.md).
 - BEDCA se descartó por no ofrecer licencia de redistribución.
 
 ## Documentación

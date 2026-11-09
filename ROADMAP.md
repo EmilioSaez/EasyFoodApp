@@ -112,3 +112,7 @@ Especificación en `docs/design.md` §1.7, §2.6 y §2.12. Cada punto es un PR; 
 - [ ] Tema de ApexApp: paleta oscura y clara, tipografías Sora e Inter, formas de 4 dp, espaciado y barra de navegación estándar (§1.7)
 - [x] Diario rediseñado (las tarjetas de comida salen siempre, también con el día vacío): franja semanal con los días coloreados según se hayan completado (objetivo ±10 %), racha de días completados, tarjeta de objetivo con el margen marcado y tarjetas de comida con «+», con cabecera colapsable (§2.12)
 - [ ] (Pendiente, sin decidir) «Coach» con IA y clave de API propia del usuario; se une al punto de IA de la Fase 9
+
+## Fase 12: Atajos y base en español
+
+- [x] Base genérica en español: los 7 793 nombres de USDA traducidos con IA (español de España, marcas tal cual) en `generic_foods_es.tsv`, embebidos y offline; el importador los guarda como nombre, la búsqueda FTS funciona en español (sin tildes) y las instalaciones existentes se reimportan al arrancar (migración v8 a v9, versión de datos). Ver docs/generic-foods.md

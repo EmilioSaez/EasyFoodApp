@@ -91,4 +91,25 @@ class GenericFoodSeederTest {
         assertIs<GenericSeedState.Failed>(s.state.value)
         assertEquals(0, importer.importedCount())
     }
+
+    @Test
+    fun reimportsWhenStoredDataVersionIsOlder() = runTest {
+        // Instalación anterior: alimentos GENERIC cargados en inglés y sin versión de datos.
+        importer.import(sample, 0)
+        db.productQueries.upsertGenericDataVersion(1)
+        val translations = (listOf(GenericFoodFormat.TRANSLATION_MAGIC, GenericFoodFormat.TRANSLATION_COLUMNS.joinToString("\t")) +
+            "1\tAlimento número 1").joinToString("\n")
+        val s = GenericFoodSeeder(importer, nowMillis = { 5 }, readResource = { reads++; sample }, readTranslations = { translations })
+        s.ensureSeeded()
+        assertEquals(GenericSeedState.Done, s.state.value)
+        assertEquals(1, reads)
+        assertEquals("Alimento número 1", db.productQueries.selectByBarcode("generic:1").executeAsOne().name)
+        assertEquals(GenericFoodFormat.DATA_VERSION, importer.importedDataVersion())
+        assertEquals(600, importer.importedCount())
+
+        // Ya está al día: otro arranque no vuelve a leer el recurso.
+        GenericFoodSeeder(importer, nowMillis = { 5 }, readResource = { reads++; sample }, readTranslations = { translations })
+            .ensureSeeded()
+        assertEquals(1, reads)
+    }
 }
