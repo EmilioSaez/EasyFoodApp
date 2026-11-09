@@ -131,4 +131,17 @@ class SqlDelightDiaryStoreTest {
         assertFailsWith<IllegalArgumentException> { Quantity(-1.0, QuantityUnit.SERVINGS) }
         assertFailsWith<IllegalArgumentException> { Quantity(Double.NaN, QuantityUnit.GRAMS) }
     }
+
+    @Test
+    fun recentFoodsReturnsLatestEntryOfEachDistinctFoodNewestFirst() = runTest {
+        store.add(nutella.copy(name = "Nutella vieja"), 100L)
+        store.add(nutella.copy(barcode = "8410000000001", name = "Galletas"), 200L)
+        store.add(nutella.copy(barcode = null, name = "Mi pan"), 300L)
+        store.add(nutella.copy(barcode = null, name = "MI PAN"), 350L)
+        store.add(nutella, 400L)
+
+        val recent = store.recentFoods(10)
+        assertEquals(listOf("Nutella", "MI PAN", "Galletas"), recent.map { it.name })
+        assertEquals(listOf("Nutella", "MI PAN"), store.recentFoods(2).map { it.name })
+    }
 }

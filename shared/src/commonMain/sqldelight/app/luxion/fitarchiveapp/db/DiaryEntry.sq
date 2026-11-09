@@ -40,6 +40,17 @@ INSERT INTO DiaryEntryEntity(
     kcal_100g, protein_100g, carbs_100g, fat_100g, created_at
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
+-- Última entrada de cada alimento distinto (clave: EAN o, sin él, el nombre), la más reciente primero.
+selectRecent:
+SELECT e.* FROM DiaryEntryEntity AS e
+WHERE e.id = (
+    SELECT e2.id FROM DiaryEntryEntity AS e2
+    WHERE COALESCE(e2.barcode, lower(e2.name)) = COALESCE(e.barcode, lower(e.name))
+    ORDER BY e2.created_at DESC, e2.id DESC LIMIT 1
+)
+ORDER BY e.created_at DESC, e.id DESC
+LIMIT ?;
+
 lastInsertedId:
 SELECT last_insert_rowid();
 

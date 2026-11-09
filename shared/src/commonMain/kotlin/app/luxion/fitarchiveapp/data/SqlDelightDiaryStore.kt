@@ -25,6 +25,10 @@ class SqlDelightDiaryStore(
         queries.selectById(id).executeAsOneOrNull()?.toDomain()
     }
 
+    override suspend fun recentFoods(limit: Int): List<DiaryEntry> = withContext(dispatcher) {
+        queries.selectRecent(limit.toLong()).executeAsList().map { it.toDomain() }
+    }
+
     override suspend fun add(entry: NewDiaryEntry, createdAtMillis: Long): Long = withContext(dispatcher) {
         queries.transactionWithResult {
             queries.insert(

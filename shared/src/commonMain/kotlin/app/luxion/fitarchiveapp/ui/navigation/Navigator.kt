@@ -11,11 +11,11 @@ sealed interface Route {
     /** Diario del día (pantalla de inicio). */
     data object Diary : Route
 
-    /** Añadir alimento; [meal] es la comida preseleccionada. */
-    data class Add(val meal: MealType = MealType.SNACK) : Route
+    /** Añadir alimento; [meal] es la comida preseleccionada (`null` desde la pestaña: se elige en la ficha). */
+    data class Add(val meal: MealType? = null) : Route
 
     /** Escáner de cámara + entrada manual de EAN. */
-    data class Scanner(val meal: MealType = MealType.SNACK) : Route
+    data class Scanner(val meal: MealType? = null) : Route
 
     /**
      * Crear alimento propio; [barcode] viene prerrelleno si se abre desde un EAN no encontrado.
@@ -24,7 +24,7 @@ sealed interface Route {
      */
     data class CustomFood(
         val barcode: String? = null,
-        val meal: MealType = MealType.SNACK,
+        val meal: MealType? = null,
         val foodId: Long? = null,
         val prefill: CustomFoodFormState? = null,
         val brand: String? = null,
@@ -36,7 +36,7 @@ sealed interface Route {
      */
     data class ProductDetail(
         val barcode: String? = null,
-        val meal: MealType = MealType.SNACK,
+        val meal: MealType? = null,
         val entryId: Long? = null,
     ) : Route
 

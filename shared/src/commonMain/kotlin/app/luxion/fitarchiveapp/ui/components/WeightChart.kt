@@ -20,20 +20,18 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.domain.WeightChartModel
-import app.luxion.fitarchiveapp.domain.WeightProgress
 import app.luxion.fitarchiveapp.ui.screens.formatDayMonth
 import app.luxion.fitarchiveapp.ui.screens.formatKg
 
 /**
  * Gráfica de línea del peso dibujada con [Canvas] (sin librerías: funciona igual en Android, escritorio e iOS).
- * Con pocos puntos se marcan todos; con muchos solo se dibuja la línea y se destaca el último.
+ * Cada registro tiene su punto; el último se destaca (relleno y mayor) y la línea los une.
  */
 @Composable
 fun WeightChart(model: WeightChartModel, modifier: Modifier = Modifier) {
     val line = MaterialTheme.colorScheme.primary
     val grid = MaterialTheme.colorScheme.outlineVariant
     val label = MaterialTheme.colorScheme.onSurfaceVariant
-    val surface = MaterialTheme.colorScheme.surface
     val measurer = rememberTextMeasurer()
     val labelStyle = MaterialTheme.typography.labelSmall.copy(color = label)
     val first = model.points.first().entry
@@ -82,13 +80,8 @@ fun WeightChart(model: WeightChartModel, modifier: Modifier = Modifier) {
             }
             drawPath(path, line, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
         }
-        if (pts.size <= WeightProgress.MAX_MARKED_POINTS) {
-            pts.forEach {
-                drawCircle(line, 4.dp.toPx(), it)
-                drawCircle(surface, 2.dp.toPx(), it)
-            }
-        }
-        // El último registro siempre destacado.
+        // Un punto por registro (pequeño); el último, destacado: relleno y mayor.
+        pts.dropLast(1).forEach { drawCircle(line, 3.dp.toPx(), it) }
         drawCircle(line, 6.dp.toPx(), pts.last())
     }
 }
