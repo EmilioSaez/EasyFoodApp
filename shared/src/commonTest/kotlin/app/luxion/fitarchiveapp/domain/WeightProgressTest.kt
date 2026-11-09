@@ -184,7 +184,32 @@ class WeightProgressTest {
         assertEquals(0f, c.points.first().x)
         assertEquals(1f, c.points.last().x)
         c.points.forEach { assertTrue(it.y in 0f..1f) }
-        assertTrue(c.points.size > WeightProgress.MAX_MARKED_POINTS)
+    }
+
+    @Test
+    fun chartHasOnePointPerEntryInEachRange() {
+        val today = "2026-11-09"
+        val d0 = isoDateToEpochDay(today)!!
+        // Un registro al día durante 120 días (el más antiguo, a 119 días de hoy).
+        val series = (0 until 120).map { w(epochDayToIsoDate(d0 - 119 + it), 80.0 - it * 0.05) }
+        for ((range, expected) in listOf(WeightRange.DAYS_30 to 30, WeightRange.DAYS_90 to 90, WeightRange.ALL to 120)) {
+            val visible = WeightProgress.inRange(series, range, today)
+            val c = WeightProgress.chart(visible)!!
+            assertEquals(expected, c.points.size, "$range")
+            assertEquals(visible.map { it.date }, c.points.map { it.entry.date }, "$range")
+            assertEquals(0f, c.points.first().x)
+            assertEquals(1f, c.points.last().x)
+            // x crece con el tiempo y la y refleja el peso (más peso = más arriba).
+            c.points.zipWithNext().forEach { (a, b) -> assertTrue(a.x < b.x && a.y > b.y, "$range") }
+            c.points.forEach { assertEquals(c.yFraction(it.entry.weightKg), it.y, 1e-6f) }
+        }
+    }
+
+    @Test
+    fun sameDayEntriesKeepOnePointEach() {
+        val c = WeightProgress.chart(listOf(w("2026-11-05", 78.5), w("2026-11-05", 78.0)))!!
+        assertEquals(2, c.points.size)
+        assertEquals(listOf(0.5f, 0.5f), c.points.map { it.x })
     }
 
     // --- Formato ---
