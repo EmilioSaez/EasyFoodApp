@@ -42,7 +42,7 @@ Riesgo: escáner distinto en cada plataforma.
 Riesgo: productos sin código de barras (fruta, pan, carne).
 
 - [x] Alimentos propios con entrada manual
-- [x] Importar base genérica USDA (SR Legacy, CC0) embebida; BEDCA descartada por licencia (ver docs/generic-foods.md). Falta lanzar la importación en el arranque
+- [x] Importar base genérica USDA (SR Legacy, CC0) embebida; BEDCA descartada por licencia (ver docs/generic-foods.md). La importación se lanza en el arranque (`GenericFoodSeeder`) en Android, escritorio e iOS
 - [x] Búsqueda por texto (FTS)
 - [x] Mostrar el origen del dato en la UI (Open Food Facts, genérico, propio)
 
@@ -106,13 +106,15 @@ Especificación en `docs/design.md` §2.1, §2.2, §2.9, §2.10 y §2.11. Cada p
 
 Especificación en `docs/design.md` §1.7, §2.6 y §2.12. Cada punto es un PR; el Diario va después del tema.
 
-- [ ] Ritmo de perder/ganar sin mínimo de 0 kg/semana: el slider empieza en 0,25 kg/sem (`GoalsPlanner.PACES` sin el 0,0); «Mantener» sigue siendo la forma de no perder ni ganar
 - [x] Tema de ApexApp: paleta oscura y clara, tipografías Sora e Inter, formas de 4 dp, espaciado y barra de navegación estándar (§1.7)
 - [x] Ritmo de perder/ganar sin mínimo de 0 kg/semana: el slider empieza en 0,25 kg/sem (`GoalsPlanner.PACES` sin el 0,0); «Mantener» sigue siendo la forma de no perder ni ganar
-- [ ] Tema de ApexApp: paleta oscura y clara, tipografías Sora e Inter, formas de 4 dp, espaciado y barra de navegación estándar (§1.7)
 - [x] Diario rediseñado (las tarjetas de comida salen siempre, también con el día vacío): franja semanal con los días coloreados según se hayan completado (objetivo ±10 %), racha de días completados, tarjeta de objetivo con el margen marcado y tarjetas de comida con «+», con cabecera colapsable (§2.12)
 - [ ] (Pendiente, sin decidir) «Coach» con IA y clave de API propia del usuario; se une al punto de IA de la Fase 9
 
 ## Fase 12: Atajos y base en español
 
 - [x] Registro de agua diario: tarjeta en el Diario con «+ Vaso», «+ 500 ml», «+ 1 L» y «Deshacer», progreso frente a un objetivo diario (2 L por defecto, editable en Objetivos); migración v8 a v9, incluido en exportar e importar (§2.13)
+Cada punto es un PR.
+
+- [x] Favoritos de alimentos: estrella en la ficha y en los resultados de búsqueda, acceso rápido «Favoritos» junto a «Recientes» en la pestaña Alimentos (`docs/design.md` §2.2); migración v8 → v9, incluido en exportar e importar (colección opcional `favorites`, sin subir la versión del formato)
+- [x] Copiar una comida o un día entero a otra fecha o comida desde el Diario («Copiar» en cada tarjeta y «Copiar día»), sin tabla nueva (`docs/design.md` §2.13)

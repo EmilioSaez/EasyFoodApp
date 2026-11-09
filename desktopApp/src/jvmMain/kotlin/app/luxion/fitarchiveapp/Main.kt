@@ -8,6 +8,7 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import app.luxion.fitarchiveapp.data.OpenFoodFactsClient
 import app.luxion.fitarchiveapp.data.ProductRepository
 import app.luxion.fitarchiveapp.data.SqlDelightCustomFoodStore
+import app.luxion.fitarchiveapp.data.SqlDelightFavoriteStore
 import app.luxion.fitarchiveapp.data.SqlDelightDiaryStore
 import app.luxion.fitarchiveapp.data.SqlDelightGoalStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductSearchStore

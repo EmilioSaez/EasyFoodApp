@@ -64,6 +64,7 @@ fun ImportReport.rows(): List<ImportPreviewRow> = listOf(
     ImportPreviewRow("Pesos", weights),
     ImportPreviewRow("Agua", water),
     ImportPreviewRow("Recetas", recipes),
+    ImportPreviewRow("Favoritos", favorites),
 ).filter { it.counts.hasAny }
 
 private val ImportCounts.hasAny get() = added + updated + unchanged + keptLocal + invalid > 0

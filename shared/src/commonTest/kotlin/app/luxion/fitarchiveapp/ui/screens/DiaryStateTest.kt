@@ -326,4 +326,80 @@ class DiaryPresenterTest {
         p.updateQuantity(1, Quantity(50.0, QuantityUnit.GRAMS))
         assertEquals(DiaryPresenter.SAVE_ERROR, p.state.value.message)
     }
+
+    private val prev = "2026-11-03"
+
+    @Test
+    fun copyMealDuplicatesItsEntriesWithTheirQuantitiesIntoTheTargetDay() = runTest {
+        val grams = Quantity(35.0, QuantityUnit.GRAMS)
+        val servings = Quantity(2.0, QuantityUnit.SERVINGS)
+        val diary = FakeDiary(
+            listOf(
+                entry(1, MealType.LUNCH, quantity = grams),
+                entry(2, MealType.LUNCH, quantity = servings, servingSizeG = 30.0),
+                entry(3, MealType.DINNER),
+            ),
+        )
+        val p = presenter(diary)
+        p.load()
+        p.copyMeal(MealType.LUNCH, prev, null)
+        val copied = diary.rows.filter { it.date == prev }
+        assertEquals(listOf(MealType.LUNCH, MealType.LUNCH), copied.map { it.meal })
+        assertEquals(listOf(grams, servings), copied.map { it.quantity })
+        assertEquals(30.0, copied[1].servingSizeG)
+        assertTrue(copied[0].createdAtMillis < copied[1].createdAtMillis)
+        assertEquals(3, diary.rows.count { it.date == DAY }) // el origen no cambia
+        assertEquals(DAY, p.state.value.date)
+        assertEquals("Copiado a 3 de noviembre de 2026: 2 alimentos", p.state.value.message)
+    }
+
+    @Test
+    fun copyMealCanTargetAnotherMealOfTheSameDay() = runTest {
+        val diary = FakeDiary(listOf(entry(1, MealType.BREAKFAST)))
+        val p = presenter(diary)
+        p.load()
+        p.copyMeal(MealType.BREAKFAST, DAY, MealType.SNACK)
+        assertEquals(listOf(MealType.BREAKFAST, MealType.SNACK), diary.rows.map { it.meal })
+    }
+
+    @Test
+    fun copyingAMealOntoItselfIsRejected() = runTest {
+        val diary = FakeDiary(listOf(entry(1, MealType.BREAKFAST)))
+        val p = presenter(diary)
+        p.load()
+        p.copyMeal(MealType.BREAKFAST, DAY, null)
+        p.copyMeal(MealType.BREAKFAST, DAY, MealType.BREAKFAST)
+        p.copyDay(DAY)
+        assertEquals(1, diary.rows.size)
+        assertEquals(DiaryPresenter.COPY_SAME_ERROR, p.state.value.message)
+    }
+
+    @Test
+    fun copyDayCopiesEveryMealAndMapsMealsMissingFromThePreset() = runTest {
+        val diary = FakeDiary(
+            listOf(entry(1, MealType.BREAKFAST), entry(2, MealType.SNACK), entry(3, MealType.LATE_SNACK)),
+        )
+        val p = DiaryPresenter(diary, FakeGoals(), backgroundScope + UnconfinedTestDispatcher(testScheduler), DAY, mealsPerDay = 3)
+        p.load()
+        p.copyDay(prev)
+        // Preset de 3: Desayuno · Comida · Cena. La Merienda empata entre Comida y Cena (gana la primera) y la Recena va a la Cena.
+        assertEquals(
+            listOf(MealType.BREAKFAST, MealType.LUNCH, MealType.DINNER),
+            diary.rows.filter { it.date == prev }.map { it.meal },
+        )
+        assertTrue(p.state.value.message!!.contains("más cercana"))
+    }
+
+    @Test
+    fun copyingAnEmptyMealOrFailingReportsAMessageAndWritesNothing() = runTest {
+        val diary = FakeDiary(listOf(entry(1, MealType.BREAKFAST)))
+        val p = presenter(diary)
+        p.load()
+        p.copyMeal(MealType.LUNCH, prev, null)
+        assertEquals(DiaryPresenter.COPY_EMPTY, p.state.value.message)
+        diary.failing = true
+        p.copyDay(prev)
+        assertEquals(DiaryPresenter.COPY_ERROR, p.state.value.message)
+        assertEquals(1, diary.rows.size)
+    }
 }

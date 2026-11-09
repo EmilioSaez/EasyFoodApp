@@ -111,20 +111,20 @@ class QrTransferTest {
         SqlDelightCustomFoodStore(src.customFoodQueries).create(
             NewCustomFood("Pan casero", "Horno", Nutrients(250.0, 8.0, 50.0, 2.0), 40.0, "1 rebanada"), 50L,
         )
-        val exported = DataExporter(SqlDelightExportSource(src.productQueries, src.diaryEntryQueries, src.customFoodQueries, src.weightEntryQueries, src.recipeQueries, src.settingsQueries)) { 5_000L }
+        val exported = DataExporter(SqlDelightExportSource(src.productQueries, src.diaryEntryQueries, src.customFoodQueries, src.weightEntryQueries, src.recipeQueries, src.settingsQueries, src.favoriteFoodQueries)) { 5_000L }
             .exportToJson()
 
         val rx = QrTransferReceiver()
         QrTransfer.split(exported, 120).shuffled(Random(1)).forEach { rx.accept(it) }
 
         val dst = newDb()
-        val importer = DataImporter(SqlDelightImportTarget(dst.productQueries, dst.diaryEntryQueries, dst.customFoodQueries, dst.weightEntryQueries, dst.recipeQueries, dst.settingsQueries))
+        val importer = DataImporter(SqlDelightImportTarget(dst.productQueries, dst.diaryEntryQueries, dst.customFoodQueries, dst.weightEntryQueries, dst.recipeQueries, dst.settingsQueries, dst.favoriteFoodQueries))
         assertEquals(ImportCounts(added = 1), rx.preview(importer).report.products)
         val report = rx.import(importer)
         assertEquals(ImportCounts(added = 1), report.products)
         assertEquals(ImportCounts(added = 1), report.customFoods)
         assertEquals(ImportCounts(added = 1), report.diaryEntries)
-        val back = DataExporter(SqlDelightExportSource(dst.productQueries, dst.diaryEntryQueries, dst.customFoodQueries, dst.weightEntryQueries, dst.recipeQueries, dst.settingsQueries)) { 5_000L }
+        val back = DataExporter(SqlDelightExportSource(dst.productQueries, dst.diaryEntryQueries, dst.customFoodQueries, dst.weightEntryQueries, dst.recipeQueries, dst.settingsQueries, dst.favoriteFoodQueries)) { 5_000L }
         assertEquals(ExportCodec.decode(exported), ExportCodec.decode(back.exportToJson()))
     }
 

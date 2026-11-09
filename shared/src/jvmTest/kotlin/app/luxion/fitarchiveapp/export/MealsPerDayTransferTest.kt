@@ -24,7 +24,7 @@ class MealsPerDayTransferTest {
         val diary = SqlDelightDiaryStore(db.diaryEntryQueries)
         val target = SqlDelightImportTarget(
             db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries,
-            db.recipeQueries, db.settingsQueries,
+            db.recipeQueries, db.settingsQueries, db.favoriteFoodQueries,
         )
         val exporter = DataExporter(target) { 5_000L }
         val importer = DataImporter(target)

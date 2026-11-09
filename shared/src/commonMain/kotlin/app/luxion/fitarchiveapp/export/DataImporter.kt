@@ -1,8 +1,10 @@
 package app.luxion.fitarchiveapp.export
 
+import app.luxion.fitarchiveapp.data.FavoriteKeys
 import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
 import app.luxion.fitarchiveapp.db.CustomFoodQueries
 import app.luxion.fitarchiveapp.db.DiaryEntryQueries
+import app.luxion.fitarchiveapp.db.FavoriteFoodQueries
 import app.luxion.fitarchiveapp.db.ProductQueries
 import app.luxion.fitarchiveapp.db.RecipeQueries
 import app.luxion.fitarchiveapp.db.SettingsQueries
@@ -79,6 +81,14 @@ import kotlinx.coroutines.withContext
  * - Existe con contenido distinto: gana el de `updatedAtMillis` más reciente (se reemplazan también los ingredientes);
  *   con empate, el local.
  * - Una receta sin ingredientes, sin nombre, con raciones fuera de rango o con un ingrediente inválido se omite entera.
+ *
+ * **Favoritos**
+ * - Identidad: el `barcode` (EAN o `generic:<id>`) o, en un alimento propio, nombre + marca sin distinguir
+ *   mayúsculas ni espacios sobrantes (el id de un alimento propio es local de cada dispositivo).
+ * - No existe en local: se añade, conservando su fecha. Existe: duplicado, se ignora (un favorito no tiene contenido
+ *   que pueda diferir, así que no hay conflictos). Nunca se desmarca nada local.
+ * - Un favorito propio solo se admite si ese alimento existe en local o llega en el mismo archivo; si no, es
+ *   inválido. Uno sin `barcode` ni nombre, o con ambos, también.
  *
  * **Elementos inválidos** (cantidad ≤ 0, fecha mal formada, nutrientes negativos, nombre vacío…): se
  * omiten y se listan en el informe; el resto se importa.
@@ -171,6 +181,10 @@ class DataImporter(private val target: ImportTarget) {
         val adds: List<ExportedCustomFood>,
         val updates: List<CustomFoodUpdate>,
         val counts: ImportCounts,
+        /** Alimento del archivo reconocido como un alimento local con otro nombre/marca (clave de favorito → el local). */
+        val renamed: Map<String, ExportedCustomFood> = emptyMap(),
+        /** Claves de favorito de todos los alimentos propios que habrá tras la importación (locales, ya actualizados, y nuevos). */
+        val finalKeys: Set<String> = emptySet(),
     )
 
     /** Alimento local o ya añadido en esta importación (`localId == null`). */
@@ -184,6 +198,7 @@ class DataImporter(private val target: ImportTarget) {
         val known = local.mapTo(mutableListOf()) { KnownFood(it.id, it) }
         val adds = mutableListOf<ExportedCustomFood>()
         val updates = linkedMapOf<Long, CustomFoodUpdate>()
+        val matched = linkedMapOf<String, KnownFood>()
         var c = ImportCounts()
         for (raw in incoming) {
             val f = raw.normalized()
@@ -193,6 +208,7 @@ class DataImporter(private val target: ImportTarget) {
             }
             val match = known.firstOrNull { it.food.id == f.id && it.food.createdAtMillis == f.createdAtMillis }
                 ?: known.firstOrNull { it.food.key() == f.key() }
+            if (match != null) matched[f.favoriteKey()] = match
             when {
                 match == null -> { c = c.copy(added = c.added + 1); adds += f; known += KnownFood(null, f) }
                 match.food.sameContent(f) -> c = c.copy(unchanged = c.unchanged + 1)
@@ -205,7 +221,8 @@ class DataImporter(private val target: ImportTarget) {
                 else -> c = c.copy(keptLocal = c.keptLocal + 1)
             }
         }
-        return FoodPlan(adds, updates.values.toList(), c)
+        val renamed = matched.mapValues { it.value.food }.filter { (key, food) -> key != food.favoriteKey() }
+        return FoodPlan(adds, updates.values.toList(), c, renamed, known.mapTo(mutableSetOf()) { it.food.favoriteKey() })
     }
 
     private fun ExportedCustomFood.normalized() = copy(
@@ -522,6 +539,7 @@ class SqlDelightImportTarget(
     private val weightQueries: WeightEntryQueries,
     private val recipeQueries: RecipeQueries,
     private val settingsQueries: SettingsQueries,
+    private val favoriteQueries: FavoriteFoodQueries,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val waterQueries: WaterQueries? = null,
 ) : ImportTarget, ExportSource by SqlDelightExportSource(

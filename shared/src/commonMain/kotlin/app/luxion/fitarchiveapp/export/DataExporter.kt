@@ -1,12 +1,14 @@
 package app.luxion.fitarchiveapp.export
 
 import app.luxion.fitarchiveapp.data.CachedProduct
+import app.luxion.fitarchiveapp.data.FavoriteKeys
 import app.luxion.fitarchiveapp.data.readAll
 import app.luxion.fitarchiveapp.data.toCached
 import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
 import app.luxion.fitarchiveapp.data.toDomain
 import app.luxion.fitarchiveapp.db.CustomFoodQueries
 import app.luxion.fitarchiveapp.db.DiaryEntryQueries
+import app.luxion.fitarchiveapp.db.FavoriteFoodQueries
 import app.luxion.fitarchiveapp.db.ProductQueries
 import app.luxion.fitarchiveapp.db.SettingsQueries
 import app.luxion.fitarchiveapp.db.RecipeQueries
@@ -98,6 +100,7 @@ class SqlDelightExportSource(
     private val weightQueries: WeightEntryQueries? = null,
     private val recipeQueries: RecipeQueries? = null,
     private val settingsQueries: SettingsQueries? = null,
+    private val favoriteQueries: FavoriteFoodQueries? = null,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val waterQueries: WaterQueries? = null,
 ) : ExportSource {

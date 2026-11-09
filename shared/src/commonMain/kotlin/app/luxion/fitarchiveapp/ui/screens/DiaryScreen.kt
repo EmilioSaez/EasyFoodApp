@@ -74,6 +74,7 @@ fun DiaryScreen(
     val snackbar = remember { SnackbarHostState() }
     var editing by remember { mutableStateOf<EntryUi?>(null) }
     var pickingDate by remember { mutableStateOf(false) }
+    var copying by remember { mutableStateOf<CopyRequest?>(null) }
 
     // Aviso semanal de peso: se recalcula cada vez que se abre el Diario, así desaparece al registrar.
     var weightDue by remember { mutableStateOf(false) }
@@ -174,11 +175,17 @@ fun DiaryScreen(
                                 }
                             }
                         }
+                        if (!state.isEmpty) {
+                            item("copy-day") {
+                                TextButton(onClick = { copying = CopyRequest(null) }) { Text("Copiar día") }
+                            }
+                        }
                         items(state.meals, key = { it.meal }) { meal ->
                             MealSection(
                                 title = meal.meal.label,
                                 summary = mealSummary(meal.kcal, meal.proteinG, meal.carbsG, meal.fatG),
                                 onAdd = { navigator.push(Route.Add(meal.meal)) },
+                                onCopy = if (meal.entries.isEmpty()) null else { { copying = CopyRequest(meal.meal) } },
                                 isEmpty = meal.entries.isEmpty(),
                             ) {
                                 meal.entries.forEach { entry ->
@@ -207,6 +214,19 @@ fun DiaryScreen(
             date = state.date,
             onPick = { pickingDate = false; presenter.select(it) },
             onDismiss = { pickingDate = false },
+        )
+    }
+
+    copying?.let { request ->
+        CopyDialog(
+            request = request,
+            sourceDate = state.date,
+            mealsPerDay = mealsPerDay,
+            onDismiss = { copying = null },
+            onConfirm = { date, meal ->
+                copying = null
+                if (request.meal == null) presenter.copyDay(date) else presenter.copyMeal(request.meal, date, meal)
+            },
         )
     }
 

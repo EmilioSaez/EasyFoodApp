@@ -4,6 +4,7 @@ import app.luxion.fitarchiveapp.data.DiaryStore
 import app.luxion.fitarchiveapp.data.GoalStore
 import app.luxion.fitarchiveapp.data.generic.GenericFoodFormat
 import app.luxion.fitarchiveapp.domain.DayStatus
+import app.luxion.fitarchiveapp.domain.DiaryCopy
 import app.luxion.fitarchiveapp.domain.DaySummary
 import app.luxion.fitarchiveapp.domain.MealPlan
 import app.luxion.fitarchiveapp.model.DailyGoals
@@ -74,7 +75,7 @@ data class DiaryUiState(
     val loading: Boolean = true,
     /** La carga del día falló (base de datos ilegible): se muestra un estado de error con «Reintentar». */
     val loadFailed: Boolean = false,
-    /** Fallo puntual de una acción (editar, borrar, deshacer); la UI lo enseña una vez y llama a [DiaryPresenter.consumeMessage]. */
+    /** Aviso puntual de una acción (fallo al editar, borrar o deshacer; confirmación o fallo al copiar); la UI lo enseña una vez y llama a [DiaryPresenter.consumeMessage]. */
     val message: String? = null,
 ) {
     val isEmpty: Boolean get() = meals.all { it.entries.isEmpty() }
@@ -177,6 +178,7 @@ class DiaryPresenter(
     private val scope: CoroutineScope,
     private val today: String,
     private val mealsPerDay: Int? = null,
+    private val nowMillis: () -> Long = { kotlin.time.Clock.System.now().toEpochMilliseconds() },
 ) {
     private val _state = MutableStateFlow(DiaryUiState(date = today))
     val state: StateFlow<DiaryUiState> = _state.asStateFlow()
@@ -185,6 +187,7 @@ class DiaryPresenter(
 
     fun load(date: String = _state.value.date) {
         scope.launch {
+            val pending = _state.value.message // un aviso aún no mostrado sobrevive a la recarga
             _state.value = try {
                 // Resumen de kcal de todo el historial hasta el fin de la semana (o hoy): franja y racha salen de él.
                 val upTo = maxOf(IsoDate.plusDays(IsoDate.weekStart(date), 6), today)
@@ -196,7 +199,7 @@ class DiaryPresenter(
                 throw e
             } catch (e: Exception) {
                 DiaryUiState(date = date, loading = false, loadFailed = true)
-            }
+            }.let { if (it.message == null) it.copy(message = pending) else it }
         }
     }
 
@@ -264,7 +267,54 @@ class DiaryPresenter(
         }
     }
 
+    /**
+     * Copia las entradas de [meal] del día mostrado a [targetDate]; en [targetMeal] o, con `null`, en la comida equivalente.
+     * No hace nada si el destino es la misma comida del mismo día (duplicaría las entradas).
+     */
+    fun copyMeal(meal: MealType, targetDate: String, targetMeal: MealType?) {
+        if (targetDate == _state.value.date && (targetMeal ?: meal) == meal) return fail(COPY_SAME_ERROR)
+        copy(targetDate) { entries -> entries.filter { it.meal == meal } to (targetMeal ?: DiaryCopy.targetMeal(meal, activeMeals)) }
+    }
+
+    /** Copia todas las comidas del día mostrado a [targetDate], cada una a su comida equivalente. */
+    fun copyDay(targetDate: String) {
+        if (targetDate == _state.value.date) return fail(COPY_SAME_ERROR)
+        copy(targetDate) { it to null }
+    }
+
+    private val activeMeals get() = MealPlan.preset(mealsPerDay)
+
+    private fun copy(targetDate: String, select: (List<DiaryEntry>) -> Pair<List<DiaryEntry>, MealType?>) {
+        val sourceDate = _state.value.date
+        scope.launch {
+            val count: Int
+            val remapped: Boolean
+            try {
+                val (entries, meal) = select(diary.entriesForDate(sourceDate))
+                if (entries.isEmpty()) return@launch fail(COPY_EMPTY)
+                val plan = DiaryCopy.plan(entries, targetDate, meal, activeMeals)
+                // Instantes crecientes: conservan el orden de las filas dentro de cada comida.
+                val now = nowMillis()
+                plan.entries.forEachIndexed { i, e -> diary.add(e, now + i) }
+                count = plan.entries.size
+                remapped = plan.remapped
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                return@launch fail(COPY_ERROR)
+            }
+            _state.value = _state.value.copy(
+                message = "Copiado a ${IsoDate.long(targetDate)}: $count " + (if (count == 1) "alimento" else "alimentos") +
+                    if (remapped) " (algunas comidas, a la más cercana)" else "",
+            )
+            load()
+        }
+    }
+
     companion object {
+        const val COPY_ERROR = "No se pudo copiar. Inténtalo de nuevo."
+        const val COPY_EMPTY = "No hay nada que copiar."
+        const val COPY_SAME_ERROR = "Elige otro día u otra comida."
         const val SAVE_ERROR = "No se pudo guardar el cambio. Inténtalo de nuevo."
         const val DELETE_ERROR = "No se pudo borrar. Inténtalo de nuevo."
         const val UNDO_ERROR = "No se pudo deshacer el borrado."

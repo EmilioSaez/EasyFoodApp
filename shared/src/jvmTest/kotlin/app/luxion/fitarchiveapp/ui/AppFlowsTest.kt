@@ -23,6 +23,7 @@ import app.luxion.fitarchiveapp.data.ProductRemoteSource
 import app.luxion.fitarchiveapp.data.ProductRepository
 import app.luxion.fitarchiveapp.data.SqlDelightCustomFoodStore
 import app.luxion.fitarchiveapp.data.SqlDelightDiaryStore
+import app.luxion.fitarchiveapp.data.SqlDelightFavoriteStore
 import app.luxion.fitarchiveapp.data.SqlDelightGoalStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductSearchStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductStore
@@ -803,5 +804,73 @@ class AppFlowsTest {
 
         onNodeWithText("Nutella").performClick()
         waitUntil(timeoutMillis = 20_000) { onAllNodes(hasText("Añadir a ", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    @Test
+    fun foodsTabHasFavoritesShortcut() = runApp(recentWeight = true) { _ ->
+        waitForText("Nada apuntado hoy")
+        onNodeWithText("Alimentos").performClick()
+        waitForText("Buscar alimento")
+        onNodeWithText("Favoritos").assertIsDisplayed()
+        onNodeWithText("Favoritos").performClick()
+        waitForText("Aún no tienes favoritos")
+        onNodeWithText("Recientes").performClick()
+        waitForText("Aún no hay recientes")
+    }
+
+    @Test
+    fun starInSearchResultsMarksAndUnmarksFavorites() = runApp(
+        recentWeight = true,
+        seed = { db ->
+            kotlinx.coroutines.runBlocking {
+                SqlDelightCustomFoodStore(db.customFoodQueries)
+                    .create(NewCustomFood("Pan casero", null, Nutrients(250.0, 8.0, 50.0, 2.0)), 1L)
+            }
+        },
+    ) { db ->
+        waitForText("Nada apuntado hoy")
+        onNodeWithText("Alimentos").performClick()
+        waitForText("Buscar alimento")
+        onNodeWithText("Buscar alimento").performTextInput("pan")
+        waitForText("Resultados · 1")
+
+        onNodeWithContentDescription("Añadir Pan casero a favoritos").performClick()
+        waitUntil(timeoutMillis = 20_000) {
+            onAllNodes(hasContentDescription("Quitar Pan casero de favoritos")).fetchSemanticsNodes().isNotEmpty()
+        }
+        val id = db.customFoodQueries.selectAll().executeAsOne().id
+        kotlin.test.assertEquals(listOf("custom:$id"), db.favoriteFoodQueries.selectKeys().executeAsList())
+
+        onNodeWithText("Favoritos").performClick()
+        waitForText("Favoritos · 1")
+        onNodeWithText("Pan casero").assertIsDisplayed()
+
+        onNodeWithContentDescription("Quitar Pan casero de favoritos").performClick()
+        waitForText("Aún no tienes favoritos")
+        kotlin.test.assertEquals(emptyList(), db.favoriteFoodQueries.selectKeys().executeAsList())
+    }
+
+    @Test
+    fun starInProductSheetAddsTheFoodToFavorites() = runApp(recentWeight = true) { db ->
+        waitForText("Nada apuntado hoy")
+        addNutellaByManualEan()
+        waitForText("Nutella")
+
+        onNodeWithText("Alimentos").performClick()
+        waitForText("Últimos alimentos · 1")
+        onNodeWithText("Nutella").performClick()
+        waitUntil(timeoutMillis = 20_000) { onAllNodes(hasText("Añadir a ", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+
+        onNodeWithContentDescription("Añadir Nutella a favoritos").performClick()
+        waitUntil(timeoutMillis = 20_000) {
+            onAllNodes(hasContentDescription("Quitar Nutella de favoritos")).fetchSemanticsNodes().isNotEmpty()
+        }
+        kotlin.test.assertEquals(listOf(nutella.barcode), db.favoriteFoodQueries.selectKeys().executeAsList())
+
+        onNodeWithContentDescription("Atrás").performClick()
+        waitForText("Buscar alimento")
+        onNodeWithText("Favoritos").performClick()
+        waitForText("Favoritos · 1")
+        onNodeWithText("Nutella").assertIsDisplayed()
     }
 }
