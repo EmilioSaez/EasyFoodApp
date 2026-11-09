@@ -1,0 +1,6 @@
+-- Migración v5 -> v6: peso objetivo del usuario (ver WeightEntry.sq). Idempotente.
+CREATE TABLE IF NOT EXISTS WeightGoalEntity (
+    id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+    target_kg REAL NOT NULL CHECK (target_kg >= 20 AND target_kg <= 500),
+    updated_at INTEGER NOT NULL
+);

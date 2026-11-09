@@ -10,10 +10,13 @@ import app.luxion.fitarchiveapp.ui.screens.formatDayMonth
 import app.luxion.fitarchiveapp.ui.screens.formatDayMonthYear
 import app.luxion.fitarchiveapp.ui.screens.formatKg
 import app.luxion.fitarchiveapp.ui.screens.formatKgDelta
+import app.luxion.fitarchiveapp.ui.screens.goalSummaryText
+import app.luxion.fitarchiveapp.ui.screens.projectionText
 import app.luxion.fitarchiveapp.ui.screens.weightDateError
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -195,5 +198,134 @@ class WeightProgressTest {
         assertEquals("−1,5 kg", formatKgDelta(-1.5))
         assertEquals("+0,3 kg", formatKgDelta(0.3))
         assertEquals("Sin cambios", formatKgDelta(0.0))
+    }
+
+    // --- Peso objetivo y proyección ---
+
+    /** Un registro cada [every] días desde [from], bajando (o subiendo) [perDay] kg al día desde [start]. */
+    private fun trend(from: String, n: Int, start: Double, perDay: Double, every: Int = 1): List<WeightEntry> {
+        val d0 = isoDateToEpochDay(from)!!
+        return (0 until n).map { w(epochDayToIsoDate(d0 + it * every), start + perDay * it * every) }
+    }
+
+    @Test
+    fun noGoalOrNoEntriesGivesNoProgress() {
+        assertNull(WeightProgress.goalProgress(trend("2026-11-01", 10, 80.0, -0.1), null, "2026-11-10"))
+        assertNull(WeightProgress.goalProgress(emptyList(), 70.0, "2026-11-10"))
+    }
+
+    @Test
+    fun remainingAndPercentFromFirstEntry() {
+        val p = WeightProgress.goalProgress(listOf(w("2026-11-01", 90.0), w("2026-11-10", 85.0)), 80.0, "2026-11-10")!!
+        assertEquals(5.0, p.remainingKg)
+        assertEquals(50, p.percent)
+        assertEquals(85.0, p.currentKg)
+        assertEquals(false, p.reached)
+        assertEquals("Te faltan 5,0 kg (50 % del camino)", goalSummaryText(p))
+    }
+
+    @Test
+    fun goalAboveCurrentWeightWorksForGaining() {
+        val p = WeightProgress.goalProgress(listOf(w("2026-11-01", 60.0), w("2026-11-10", 63.0)), 70.0, "2026-11-10")!!
+        assertEquals(7.0, p.remainingKg)
+        assertEquals(30, p.percent)
+    }
+
+    @Test
+    fun reachedGoalHas100PercentNoRemainingAndNoProjection() {
+        val down = WeightProgress.goalProgress(listOf(w("2026-11-01", 90.0), w("2026-11-10", 79.5)), 80.0, "2026-11-10")!!
+        assertEquals(true, down.reached); assertEquals(100, down.percent); assertEquals(0.0, down.remainingKg)
+        assertNull(down.projection)
+        val up = WeightProgress.goalProgress(listOf(w("2026-11-01", 60.0), w("2026-11-10", 70.0)), 70.0, "2026-11-10")!!
+        assertEquals(true, up.reached); assertEquals("¡Objetivo alcanzado!", goalSummaryText(up))
+    }
+
+    @Test
+    fun movingAwayFromGoalClampsPercentAtZero() {
+        val p = WeightProgress.goalProgress(listOf(w("2026-11-01", 85.0), w("2026-11-10", 88.0)), 80.0, "2026-11-10")!!
+        assertEquals(0, p.percent)
+        assertEquals(8.0, p.remainingKg)
+    }
+
+    @Test
+    fun startingExactlyAtGoalDoesNotDivideByZero() {
+        val p = WeightProgress.goalProgress(listOf(w("2026-11-01", 80.0), w("2026-11-10", 81.0)), 80.0, "2026-11-10")!!
+        assertEquals(0, p.percent)
+        assertEquals(1.0, p.remainingKg)
+    }
+
+    @Test
+    fun tooFewEntriesOrTooShortSpanGivesNotEnoughData() {
+        val two = listOf(w("2026-11-01", 90.0), w("2026-11-20", 88.0))
+        assertEquals(WeightProjection.NotEnoughData, WeightProgress.goalProgress(two, 80.0, "2026-11-20")!!.projection)
+        val tight = trend("2026-11-01", 4, 90.0, -0.2) // 4 registros en 3 días
+        assertEquals(WeightProjection.NotEnoughData, WeightProgress.goalProgress(tight, 80.0, "2026-11-04")!!.projection)
+    }
+
+    @Test
+    fun oldEntriesOutsideTheWindowDoNotCountAsTrend() {
+        // Muchos registros hace meses y solo dos recientes: la ventana de 28 días no llega a 3.
+        val entries = trend("2026-06-01", 10, 95.0, -0.1) + listOf(w("2026-11-01", 85.0), w("2026-11-10", 84.0))
+        assertEquals(WeightProjection.NotEnoughData, WeightProgress.goalProgress(entries, 80.0, "2026-11-10")!!.projection)
+    }
+
+    @Test
+    fun trendTowardGoalEstimatesDate() {
+        // 0,1 kg/día durante 15 días: 90 → 88,6; faltan 8,6 kg → 86 días tras el último registro (2026-11-15).
+        val entries = trend("2026-11-01", 15, 90.0, -0.1)
+        val p = WeightProgress.goalProgress(entries, 80.0, "2026-11-15")!!
+        val est = assertIs<WeightProjection.Estimated>(p.projection)
+        assertEquals(-0.7, est.kgPerWeek)
+        assertEquals(86, est.daysLeft)
+        assertEquals(epochDayToIsoDate(isoDateToEpochDay("2026-11-15")!! + 86), est.date)
+        assertTrue(projectionText(est).contains("Llegarías el "))
+    }
+
+    @Test
+    fun estimateCountsFromTodayWhenLastEntryIsOld() {
+        val entries = trend("2026-11-01", 15, 90.0, -0.1) // último registro 2026-11-15
+        val est = assertIs<WeightProjection.Estimated>(
+            WeightProgress.goalProgress(entries, 80.0, "2026-12-01")!!.projection,
+        )
+        assertEquals(86 - 16, est.daysLeft) // 16 días desde el último registro hasta hoy
+    }
+
+    @Test
+    fun estimateInThePastIsClampedToToday() {
+        val entries = trend("2026-11-01", 15, 90.0, -0.1)
+        val est = assertIs<WeightProjection.Estimated>(
+            WeightProgress.goalProgress(entries, 80.0, "2027-06-01")!!.projection,
+        )
+        assertEquals(0, est.daysLeft)
+        assertEquals("2027-06-01", est.date)
+        assertTrue(projectionText(est).startsWith("Llegarías hoy"))
+    }
+
+    @Test
+    fun trendInTheOppositeDirectionOrFlatIsMovingAway() {
+        val gaining = trend("2026-11-01", 15, 85.0, 0.1)
+        assertEquals(WeightProjection.MovingAway, WeightProgress.goalProgress(gaining, 80.0, "2026-11-15")!!.projection)
+        val flat = trend("2026-11-01", 15, 85.0, 0.0)
+        assertEquals(WeightProjection.MovingAway, WeightProgress.goalProgress(flat, 80.0, "2026-11-15")!!.projection)
+        val losingButWantToGain = trend("2026-11-01", 15, 70.0, -0.1)
+        assertEquals(WeightProjection.MovingAway, WeightProgress.goalProgress(losingButWantToGain, 80.0, "2026-11-15")!!.projection)
+    }
+
+    @Test
+    fun verySlowTrendIsTooSlow() {
+        // 0,012 kg/día hacia un objetivo a 20 kg: >730 días.
+        val entries = trend("2026-11-01", 15, 100.0, -0.012)
+        assertEquals(WeightProjection.TooSlow, WeightProgress.goalProgress(entries, 80.0, "2026-11-15")!!.projection)
+    }
+
+    @Test
+    fun trendUsesRegressionNotJustEndpoints() {
+        // Un pesaje atípico en medio no debe disparar la estimación como lo haría una recta primero-último.
+        val entries = listOf(
+            w("2026-11-01", 90.0), w("2026-11-05", 89.6), w("2026-11-09", 92.0), w("2026-11-13", 88.8), w("2026-11-17", 88.4),
+        )
+        val est = assertIs<WeightProjection.Estimated>(WeightProgress.goalProgress(entries, 80.0, "2026-11-17")!!.projection)
+        assertTrue(est.kgPerWeek < 0)
+        assertTrue(est.daysLeft > 60)
     }
 }

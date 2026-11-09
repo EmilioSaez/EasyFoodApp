@@ -2,6 +2,7 @@ package app.luxion.fitarchiveapp.domain
 
 import app.luxion.fitarchiveapp.model.WeightEntry
 import app.luxion.fitarchiveapp.model.WeightRules
+import app.luxion.fitarchiveapp.model.epochDayToIsoDate
 import app.luxion.fitarchiveapp.model.isoDateToEpochDay
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -35,7 +36,94 @@ data class WeightChartModel(
     fun yFraction(kg: Double): Float = ((kg - yMin) / (yMax - yMin)).toFloat()
 }
 
+/** Qué se sabe de cuándo se llegará al objetivo según la tendencia de los pesajes. */
+sealed interface WeightProjection {
+    /** Pocos registros recientes (hacen falta [WeightProgress.MIN_TREND_ENTRIES] en [WeightProgress.TREND_WINDOW_DAYS] días, repartidos en una semana o más). */
+    data object NotEnoughData : WeightProjection
+
+    /** La tendencia es plana o va en sentido contrario al objetivo. */
+    data object MovingAway : WeightProjection
+
+    /** Se acerca, pero tan despacio que superaría [WeightProgress.MAX_PROJECTION_DAYS] días. */
+    data object TooSlow : WeightProjection
+
+    /** Llegada estimada: [date] ISO, a [daysLeft] días de hoy, con una tendencia de [kgPerWeek] (con signo). */
+    data class Estimated(val date: String, val daysLeft: Int, val kgPerWeek: Double) : WeightProjection
+}
+
+/** Distancia al objetivo; con [projection] solo si aún no se ha alcanzado. */
+data class WeightGoalProgress(
+    val targetKg: Double,
+    val currentKg: Double,
+    /** Kg que faltan (siempre ≥ 0, a 0,1 kg); 0 si se alcanzó. */
+    val remainingKg: Double,
+    /** Avance 0..100 desde el primer registro hasta el objetivo; 100 solo si se alcanzó. */
+    val percent: Int,
+    val reached: Boolean,
+    val projection: WeightProjection?,
+)
+
 object WeightProgress {
+    const val TREND_WINDOW_DAYS = 28
+    const val MIN_TREND_ENTRIES = 3
+    const val MIN_TREND_SPAN_DAYS = 7
+    const val MAX_PROJECTION_DAYS = 730
+
+    /** Por debajo de esta pendiente (kg/día) se considera que el peso no se mueve. */
+    private const val MIN_SLOPE_KG_PER_DAY = 0.01
+
+    /**
+     * Distancia al [targetKg] desde el último registro y estimación de cuándo se llegará según la tendencia
+     * (regresión lineal de los pesajes de los últimos [TREND_WINDOW_DAYS] días). `null` si no hay objetivo
+     * o no hay ningún registro. El porcentaje parte del primer registro del historial.
+     */
+    fun goalProgress(entries: List<WeightEntry>, targetKg: Double?, today: String): WeightGoalProgress? {
+        if (targetKg == null) return null
+        val sorted = entries.sortedBy { it.date }.filter { isoDateToEpochDay(it.date) != null }
+        val first = sorted.firstOrNull() ?: return null
+        val current = sorted.last()
+        val remaining = WeightRules.round(abs(current.weightKg - targetKg))
+        val crossed = when {
+            first.weightKg > targetKg -> current.weightKg <= targetKg
+            first.weightKg < targetKg -> current.weightKg >= targetKg
+            else -> false // empezó en el objetivo: solo cuenta estar en él
+        }
+        val reached = remaining == 0.0 || crossed
+        val span = first.weightKg - targetKg
+        val percent = when {
+            reached -> 100
+            span == 0.0 -> 0
+            else -> floor((first.weightKg - current.weightKg) / span * 100).toInt().coerceIn(0, 99)
+        }
+        return WeightGoalProgress(
+            targetKg = targetKg,
+            currentKg = current.weightKg,
+            remainingKg = if (reached) 0.0 else remaining,
+            percent = percent,
+            reached = reached,
+            projection = if (reached) null else project(sorted, targetKg, today),
+        )
+    }
+
+    private fun project(sorted: List<WeightEntry>, targetKg: Double, today: String): WeightProjection {
+        val lastDay = isoDateToEpochDay(sorted.last().date)!!
+        val recent = sorted.filter { isoDateToEpochDay(it.date)!! > lastDay - TREND_WINDOW_DAYS }
+        val xs = recent.map { isoDateToEpochDay(it.date)!!.toDouble() }
+        if (recent.size < MIN_TREND_ENTRIES || xs.max() - xs.min() < MIN_TREND_SPAN_DAYS) return WeightProjection.NotEnoughData
+        val ys = recent.map { it.weightKg }
+        val mx = xs.average()
+        val my = ys.average()
+        val slope = xs.indices.sumOf { (xs[it] - mx) * (ys[it] - my) } / xs.sumOf { (it - mx) * (it - mx) }
+        val needed = targetKg - sorted.last().weightKg
+        // Hacia el objetivo = misma dirección que lo que falta, y con pendiente apreciable.
+        if (slope * needed <= 0 || abs(slope) < MIN_SLOPE_KG_PER_DAY) return WeightProjection.MovingAway
+        val daysFromLast = ceil(needed / slope).toLong()
+        if (daysFromLast > MAX_PROJECTION_DAYS) return WeightProjection.TooSlow
+        val todayDay = isoDateToEpochDay(today) ?: lastDay
+        val targetDay = maxOf(lastDay + daysFromLast, todayDay)
+        return WeightProjection.Estimated(epochDayToIsoDate(targetDay), (targetDay - todayDay).toInt(), WeightRules.round(slope * 7))
+    }
+
     /** Máximo de puntos con marcador; por encima solo se dibuja la línea para que siga siendo legible. */
     const val MAX_MARKED_POINTS = 45
 

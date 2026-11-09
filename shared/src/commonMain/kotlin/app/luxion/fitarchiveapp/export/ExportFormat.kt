@@ -24,6 +24,14 @@ data class ExportFile(
     val customFoods: List<ExportedCustomFood> = emptyList(),
     /** Registros de peso. Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como vacío. */
     val weights: List<ExportedWeight> = emptyList(),
+    /** Peso objetivo. Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como `null`. */
+    val weightGoal: ExportedWeightGoal? = null,
+)
+
+@Serializable
+data class ExportedWeightGoal(
+    val targetKg: Double,
+    val updatedAtMillis: Long = 0,
 )
 
 @Serializable

@@ -62,6 +62,9 @@ data class NewWeightEntry(val date: String, val weightKg: Double) {
     }
 }
 
+/** Peso objetivo elegido por el usuario. */
+data class WeightGoal(val targetKg: Double, val updatedAtMillis: Long = 0)
+
 object WeightRules {
     const val MIN_KG = 20.0
     const val MAX_KG = 500.0

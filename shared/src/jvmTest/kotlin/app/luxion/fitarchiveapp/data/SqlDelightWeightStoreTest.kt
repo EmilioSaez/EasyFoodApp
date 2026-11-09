@@ -4,12 +4,15 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import app.luxion.fitarchiveapp.db.EasyFoodDatabase
 import app.luxion.fitarchiveapp.model.NewWeightEntry
 import app.luxion.fitarchiveapp.model.WeightEntry
+import app.luxion.fitarchiveapp.model.WeightGoal
 import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class SqlDelightWeightStoreTest {
@@ -98,7 +101,7 @@ class SqlDelightWeightStoreTest {
         driver.execute(null, "DROP TABLE WeightEntryEntity", 0)
 
         EasyFoodDatabase.Schema.migrate(driver, 4, EasyFoodDatabase.Schema.version)
-        assertEquals(5L, EasyFoodDatabase.Schema.version)
+        assertEquals(6L, EasyFoodDatabase.Schema.version)
 
         val migrated = SqlDelightWeightStore(EasyFoodDatabase(driver).weightEntryQueries)
         migrated.save(e("2026-11-01", 80.0), 1L)
@@ -108,5 +111,46 @@ class SqlDelightWeightStoreTest {
         // Idempotente: repetirla sobre una base que ya tiene la tabla no falla ni borra datos.
         EasyFoodDatabase.Schema.migrate(driver, 4, EasyFoodDatabase.Schema.version)
         assertEquals(1, migrated.all().size)
+    }
+
+    // --- Peso objetivo ---
+
+    @Test
+    fun goalIsNullAtStartThenSavedReplacedAndCleared() = runTest {
+        assertNull(store.goal())
+        store.setGoal(72.5, 10L)
+        assertEquals(WeightGoal(72.5, 10L), store.goal())
+        store.setGoal(70.0, 20L)
+        assertEquals(WeightGoal(70.0, 20L), store.goal())
+        store.clearGoal()
+        assertNull(store.goal())
+        store.clearGoal() // sin objetivo: no falla
+    }
+
+    @Test
+    fun goalOutOfRangeIsRejectedByModelAndDatabase() = runTest {
+        assertFailsWith<IllegalArgumentException> { store.setGoal(19.9, 1L) }
+        assertFailsWith<IllegalArgumentException> { store.setGoal(Double.NaN, 1L) }
+        assertNull(store.goal())
+        assertTrue(runCatching { db.weightEntryQueries.upsertGoal(501.0, 0) }.isFailure)
+    }
+
+    @Test
+    fun migrationFromV5CreatesGoalTableAndKeepsWeights() = runTest {
+        // Simula una base v5: con pesos, sin la tabla del objetivo.
+        store.save(e("2026-11-01", 80.0), 1L)
+        driver.execute(null, "DROP TABLE WeightGoalEntity", 0)
+
+        EasyFoodDatabase.Schema.migrate(driver, 5, EasyFoodDatabase.Schema.version)
+
+        val migrated = SqlDelightWeightStore(EasyFoodDatabase(driver).weightEntryQueries)
+        assertNull(migrated.goal())
+        migrated.setGoal(75.0, 2L)
+        assertEquals(75.0, migrated.goal()?.targetKg)
+        assertEquals(1, migrated.all().size)
+
+        // Idempotente: repetirla no falla ni borra el objetivo.
+        EasyFoodDatabase.Schema.migrate(driver, 5, EasyFoodDatabase.Schema.version)
+        assertEquals(75.0, migrated.goal()?.targetKg)
     }
 }
