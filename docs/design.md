@@ -112,6 +112,7 @@ Se copia la configuración de tema de ApexApp (`ApexApp/app/src/main/java/app/lu
 ## 2. Pantallas
 
 ### 2.1 Diario del día (`DiaryScreen`)
+> **Sustituido por §2.12 (Fase 11)**: la estructura de abajo es la de la Fase 10; la vigente es la del Diario rediseñado.
 > **Cambios de la Fase 10** (ver §2.9 y §2.10): el resumen del objetivo pasa a una cabecera fija que no se desplaza, y las secciones de comida dependen del número de comidas al día que elige el usuario.
 ```
 Scaffold
@@ -206,7 +207,7 @@ Estructura: icono 32 dentro de un círculo de 72 (color según el tono) · title
 
 | Caso | Tono | Título | Acciones |
 |---|---|---|---|
-| Diario sin entradas | neutro (secondaryContainer) | Nada apuntado hoy | Añadir alimento · Fijar objetivo |
+| ~~Diario sin entradas~~ | — | Ya no es una pantalla vacía (§2.12): un día sin entradas muestra la cabecera y todas las tarjetas de comida, con una línea discreta «Nada apuntado hoy» | — |
 | Búsqueda sin resultados | neutro | Sin resultados para «…» | Crear alimento propio · Escanear código |
 | EAN no encontrado | aviso (warningContainer) | Código no encontrado | Crear con este código · Escanear otro |
 | Permiso de cámara denegado | error (errorContainer) | Sin acceso a la cámara | Abrir ajustes · Escribir código |
@@ -299,6 +300,8 @@ Scaffold
 - **Racha.** Número de días completados consecutivos que terminan hoy; si hoy aún no está completado, se cuenta hasta ayer y la racha no se rompe hasta que acaba el día. Se calcula del historial del diario y del objetivo vigente (el objetivo es el mismo todos los días, §2.10), sin tabla nueva. Con racha 0, la llama sale apagada.
 - **Margen de cumplimiento:** constante única (±10 %) en la lógica (p. ej. `DayStatus.MARGIN`), usada por los colores de la franja, la racha y las marcas del arco.
 - **Cabecera colapsable.** Con la lista arriba se ve completa (fila, franja y tarjeta). Al desplazar, la franja y la tarjeta se pliegan en el `DiaryHeader` compacto de §2.10, que sigue anclado: el objetivo y cómo se va están siempre visibles.
+- **Día sin entradas (hoy, pasado o futuro).** No hay estado vacío que sustituya a la lista: se ven la cabecera con el objetivo y TODAS las tarjetas de comida del preset (§2.9), cada una con «🔥 0 kcal · 0 P | 0 H | 0 G», «Nada apuntado todavía» y su «+». Como ayuda de primer uso hay una línea discreta («Nada apuntado hoy» / «este día») al principio de la lista, sin acciones duplicadas. Sin objetivo, la tarjeta de objetivo trae «Sin objetivo diario» y «Fijar objetivo».
+- **Implementación.** La fila anclada (‹ «Hoy ▾» › · racha · ⇅ Datos) va fuera de la lista; la franja y la tarjeta son el primer elemento de la lista y, en cuanto se desplaza, aparece encima de la lista el `DiaryHeader` compacto (no se superpone a las tarjetas). La barra del objetivo es una barra con dos marcas (arco descartado); la escala llega a max(objetivo × 1,3; consumidas). «Hoy ▾» abre el selector de fecha de Material (`DatePicker`). Las kcal por día salen de `DiaryStore.daySummaries` (consulta `selectDailyKcal`, sin migración); estado de día y racha, de `DayStatus`.
 - **No se incluye** de la captura: banner Premium, foto de perfil, botón «Terminar día», pestañas Social y Coach, menús «⋯». «Coach» queda para más adelante, si se añade una IA con clave propia (Fase 11, pendiente).
 
 ## 3. Componentes compartidos (en `shared/ui`)
