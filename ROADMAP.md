@@ -82,3 +82,7 @@ Riesgo: no hay Mac local. La ruta es la que sigue FitArchiveApp (sesión hermana
 - [x] Estados vacíos y mensajes de error
 - [x] Rendimiento y revisión de datos dudosos
 - [x] Actualizar el README con el estado real
+
+## Fase 9: Seguimiento
+
+- [x] Objetivo fijo: interruptor en Objetivos que impide que la calculadora TDEE recalcule lo guardado (la calculadora solo sugiere); columna `fixed` con migración v3 → v4

@@ -5,6 +5,8 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.hasContentDescription
@@ -22,8 +24,13 @@ import app.luxion.fitarchiveapp.data.SqlDelightProductSearchStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductStore
 import app.luxion.fitarchiveapp.db.EasyFoodDatabase
 import app.luxion.fitarchiveapp.export.SqlDelightImportTarget
+import app.luxion.fitarchiveapp.model.DailyGoals
+import app.luxion.fitarchiveapp.model.MealType
+import app.luxion.fitarchiveapp.model.NewDiaryEntry
 import app.luxion.fitarchiveapp.model.Nutrients
 import app.luxion.fitarchiveapp.model.Product
+import app.luxion.fitarchiveapp.model.Quantity
+import app.luxion.fitarchiveapp.model.QuantityUnit
 import kotlin.test.Test
 
 /** La [App] completa sobre una base SQLite en memoria y un Open Food Facts simulado. */
@@ -114,6 +121,57 @@ class AppFlowsTest {
         val goals = kotlinx.coroutines.runBlocking { SqlDelightGoalStore(db.dailyGoalQueries).get() }
         // Mifflin-St Jeor, hombre 30 a / 80 kg / 180 cm: BMR 1780 × 1,55 (actividad moderada).
         kotlin.test.assertEquals(2759, goals.kcal!!)
+    }
+
+    @Test
+    fun goalIsTheSameOnEveryDayAndChangingItUpdatesAllOfThem() = runApp { db ->
+        val diary = SqlDelightDiaryStore(db.diaryEntryQueries)
+        val goals = SqlDelightGoalStore(db.dailyGoalQueries)
+        val oneHundredKcal = Nutrients(100.0, 1.0, 10.0, 1.0)
+        kotlinx.coroutines.runBlocking {
+            for ((i, date) in listOf("2026-11-03", "2026-11-04", "2026-11-05").withIndex()) {
+                diary.add(
+                    NewDiaryEntry(
+                        date, MealType.LUNCH, null, "Comida $i", Quantity(100.0, QuantityUnit.GRAMS), null, oneHundredKcal,
+                    ),
+                    createdAtMillis = i.toLong(),
+                )
+            }
+            goals.save(DailyGoals(kcal = 2000))
+        }
+
+        fun ComposeUiTest.openDiary() {
+            // En Objetivos el texto también es el título: la pestaña es el último nodo.
+            onAllNodesWithText("Objetivos").onLast().performClick()
+            waitForText("Tus datos")
+            onNodeWithText("Diario").performClick()
+        }
+
+        fun ComposeUiTest.assertGoalOnThreeDays(goal: String) {
+            val summary = "100 / $goal kcal"
+            openDiary()
+            waitForText(summary) // hoy
+            onNodeWithContentDescription("Día anterior").performClick()
+            waitForText("Comida 0")
+            waitForText(summary)
+            onNodeWithContentDescription("Día siguiente").performClick()
+            onNodeWithContentDescription("Día siguiente").performClick()
+            waitForText("Comida 2")
+            waitForText(summary)
+        }
+
+        assertGoalOnThreeDays("2.000")
+
+        // Cambiar el objetivo desde la pantalla de Objetivos lo cambia en todos los días.
+        onAllNodesWithText("Objetivos").onLast().performClick()
+        waitForText("Tus datos")
+        onNodeWithText("Edad").performTextInput("30")
+        onNodeWithText("Peso").performTextInput("80")
+        onNodeWithText("Altura").performTextInput("180")
+        onNodeWithText("Guardar objetivos").performClick()
+        waitForText("Objetivos guardados")
+        kotlin.test.assertEquals(2759, kotlinx.coroutines.runBlocking { goals.get().kcal })
+        assertGoalOnThreeDays("2.759")
     }
 
     private fun ComposeUiTest.createPanCasero() {
