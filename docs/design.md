@@ -6,6 +6,7 @@ Mockups a 390 dp de ancho (teléfono). En escritorio se usan las mismas pantalla
 ## 1. Tokens
 
 ### 1.1 Color: tema rojo y negro (oscuro por defecto)
+> **Fase 11:** el tema pasa a ser el de ApexApp (§1.7). Si hay diferencias entre esta sección y §1.7, manda §1.7.
 El tema principal es oscuro: fondos casi negros y el rojo como acento. Se pasa a `darkColorScheme(...)`. El esquema claro es opcional; si se quiere, sale de la misma semilla roja (#C00010).
 
 | Rol M3 | Valor |
@@ -91,6 +92,23 @@ Cada macro va siempre con su texto, nunca se distingue solo por el color.
 ### 1.6 Elevación
 Tarjetas planas: el contraste viene del color del contenedor, sin sombra. Solo llevan sombra el FAB (nivel 3) y el snackbar.
 
+### 1.7 Tema de ApexApp (Fase 11)
+Se copia la configuración de tema de ApexApp (`ApexApp/app/src/main/java/app/luxion/apexapp/ui/theme/`: `Color.kt`, `Theme.kt`, `Type.kt`, `Shape.kt`, `Spacing.kt`). Concepto: rojo sobre negro, un solo acento; `tertiary` = éxito, `error` = ámbar (aviso/fallo). Sin color dinámico (`dynamicColor = false`); modo por defecto: seguir al sistema.
+
+**Oscuro:** primary `FF4D4F`, onPrimary `3A0004`, primaryContainer `8C1218`, onPrimaryContainer `FFDAD8` · secondary `BDBDBD`, onSecondary `1A1A1A`, secondaryContainer `2A2A2A`, onSecondaryContainer `EDEDED` · tertiary `5BD68A`, onTertiary `00391B`, tertiaryContainer `14522E`, onTertiaryContainer `B6F2CB` · error `FFB454`, onError `4A2A00`, errorContainer `5C3A0E`, onErrorContainer `FFE0B8` · background `0B0B0B`, onBackground `EDEDED`, surface `0B0B0B`, onSurface `EDEDED`, surfaceVariant `2A2A2A`, onSurfaceVariant `A8A8A8` · surfaceContainerLowest `000000`, Low `141414`, (base) `1A1A1A`, High `222222`, Highest `2A2A2A` · outline `7A7A7A`, outlineVariant `383838` · inverseSurface `EDEDED`, inverseOnSurface `0B0B0B`, inversePrimary `C4161C`.
+
+**Claro:** primary `C4161C`, onPrimary `FFFFFF`, primaryContainer `FFDAD8`, onPrimaryContainer `3A0004` · secondary `4A4A4A`, onSecondary `FFFFFF`, secondaryContainer `E0DCDC`, onSecondaryContainer `0B0B0B` · tertiary `1B7A43`, onTertiary `FFFFFF`, tertiaryContainer `B6F2CB`, onTertiaryContainer `00210F` · error `9A5B00`, onError `FFFFFF`, errorContainer `FFDDB0`, onErrorContainer `2E1A00` · background `F7F5F5`, onBackground `0B0B0B`, surface `F7F5F5`, onSurface `0B0B0B`, surfaceVariant `E0DCDC`, onSurfaceVariant `4A4A4A` · surfaceContainerLowest `FFFFFF`, Low `F1EEEE`, (base) `EAE6E6`, High `E4E0E0`, Highest `E0DCDC` · outline `6E6A6A`, outlineVariant `CAC5C5` · inverseSurface `2A2A2A`, inverseOnSurface `F1EEEE`, inversePrimary `FF4D4F`.
+
+**Tipografía:** Sora (hora y títulos) e Inter (resto), fuentes variables (`sora.ttf`, `inter.ttf`) con pesos Normal/Medium/SemiBold; cifras tabulares (`tnum`) en display y headlineLarge. displayLarge Sora Normal 88/92 ls −3 · displayMedium Sora Normal 56/60 ls −2 · headlineLarge Sora SemiBold 32/36 ls −1 · titleLarge Sora Medium 24/30 ls −0,5 · titleMedium Inter SemiBold 16/22 · bodyLarge Inter Normal 16/24 · bodyMedium Inter Normal 14/20 · labelLarge Inter Medium 14/20 · labelMedium Inter SemiBold 12/16 ls 1,2 (rótulos de sección en mayúsculas) · labelSmall Inter Medium 12/16. El resto de estilos M3, por defecto.
+
+**Formas:** un único radio de 4 dp en extraSmall a extraLarge (esquinas casi rectas); los puntos de estado usan `CircleShape`. **Espaciado:** xs 4, sm 8, md 12, lg 16, xl 24, xxl 32, xxxl 48 y margen horizontal de pantalla 20 dp (se mapea a `object Spacing` existente sin cambiar sus nombres, o se amplía).
+
+**Barra de navegación:** `NavigationBar` M3 estándar (no píldora flotante) con `containerColor = surfaceContainerLow`, indicador transparente, ítem seleccionado en primary y no seleccionado en onSurfaceVariant.
+
+**Colores extra de EasyFood** (macros, aviso, dato dudoso; `easyFoodColors`): se conservan y se adaptan a la paleta nueva sin cambiar sus nombres (ApexApp no define macros). Todo texto cumple contraste AA (4,5:1).
+
+**Hecho por:** copia de valores, no dependencia entre proyectos. Las fuentes se copian a `shared/src/commonMain/composeResources/font/` con su licencia (OFL) si la trae el origen.
+
 ## 2. Pantallas
 
 ### 2.1 Diario del día (`DiaryScreen`)
@@ -175,7 +193,7 @@ TopAppBar «Objetivos»
 ├─ «Tus datos»: SegmentedButton Hombre | Mujer · grid 3 col de OutlinedTextField: Edad (años), Peso (kg), Altura (cm)
 ├─ «Actividad física»: 5 filas RadioButton con nombre, descripción y factor
 │    Sedentaria ×1,2 · Ligera ×1,375 · Moderada ×1,55 · Alta ×1,725 · Muy alta ×1,9
-├─ «Meta»: SegmentedButton Perder | Mantener | Ganar · Slider con ritmo (0 / 0,25 / 0,5 / 0,75 / 1 kg/sem; 1 kg/sem ≈ 1.100 kcal/día)
+├─ «Meta»: SegmentedButton Perder | Mantener | Ganar · Slider con ritmo (0,25 / 0,5 / 0,75 / 1 kg/sem; 1 kg/sem ≈ 1.100 kcal/día). **Fase 11:** sin posición de 0 kg/sem: con Perder o Ganar siempre hay un ritmo real (el mínimo es 0,25 kg/sem); «no perder ni ganar» se elige con «Mantener», que deshabilita el slider
 └─ MacroSplitCard (surfaceContainerLow): barra apilada 12 dp (P/H/G) + 3 filas: punto, nombre, %, gramos · TextButton «Editar» (sliders o gramos/kg)
 BottomBar: Button «Guardar objetivos»
 ```
@@ -253,6 +271,35 @@ Cuántas comidas hace el usuario al día y cómo se llaman.
 
 ### 2.11 Gráfica de peso: un punto por registro (Fase 10)
 En `WeightChart` (Mi peso) se dibuja un punto por cada registro, no solo el primero y el último. El último registro se destaca (punto relleno, mayor); los demás son puntos más pequeños. La línea los une. Accesibilidad: la descripción de la gráfica sigue resumiendo «N registros, de X a Y, último Z kg».
+
+### 2.12 Diario rediseñado (Fase 11)
+Mezcla de la captura de referencia (resumen grande arriba, semana con días y tarjetas de comida con «+») con el tema de EasyFood/ApexApp (§1.7): las formas y colores salen del tema, no de la captura (esquinas de 4 dp, rojo sobre negro). Sustituye a la estructura de §2.1 (conserva su lógica y §2.9/§2.10).
+```
+Scaffold
+├─ Cabecera (siempre anclada; ver «Cabecera colapsable»)
+│  ├─ Fila: «Hoy ▾» (toca → selector de fecha) · derecha: 🔥 racha (icono de llama + nº de días)
+│  ├─ Franja semanal (7 días, lunes a domingo de la semana del día elegido): inicial (L M X J V S D) · número · punto de estado
+│  └─ Tarjeta de objetivo
+│       «kcal» · «consumidas / objetivo» (displayMedium, cifras tabulares)
+│       arco/barra de progreso con DOS marcas: límite inferior y superior del margen de cumplimiento (objetivo ±10 %),
+│          con sus kcal debajo (p. ej. 2.327 y 2.844 en la captura)
+│       3 columnas de macros: «Proteínas · 0 / 141 g» + barra fina del color del macro (P/H/G)
+├─ Lista que se desplaza: aviso «Toca pesarse» (si toca) · tarjeta por comida (§2.9)
+│     tarjeta de comida: título (titleLarge) · «🔥 386 kcal · 17 P | 62 H | 8 G» (bodySmall) · entradas (DiaryEntryRow) ·
+│     botón ancho «+» (secondaryContainer) → Añadir alimento con la comida preseleccionada
+└─ NavigationBar estándar (§1.7): Diario · Alimentos · Recetas · Mi peso · Objetivos
+```
+- **Días de la franja semanal.** Punto de estado bajo cada número, y el número con el mismo color:
+  - **Completado** (verde, `tertiary`): hay comida registrada y las kcal del día quedan dentro del margen del objetivo (objetivo ±10 %).
+  - **No completado** (ámbar, `error`): día pasado con comida registrada pero fuera de margen, o sin registro.
+  - **Hoy** sin completar aún: anillo en `primary` (no cuenta como fallo hasta que acabe el día).
+  - **Futuro**: punto neutro (`outlineVariant`).
+  - **Sin objetivo definido:** no se puede evaluar; los días con registro salen neutros con punto relleno y los demás vacíos.
+  - El día elegido se marca con un círculo (primaryContainer). Tocar un día lo selecciona; deslizar la franja cambia de semana.
+- **Racha.** Número de días completados consecutivos que terminan hoy; si hoy aún no está completado, se cuenta hasta ayer y la racha no se rompe hasta que acaba el día. Se calcula del historial del diario y del objetivo vigente (el objetivo es el mismo todos los días, §2.10), sin tabla nueva. Con racha 0, la llama sale apagada.
+- **Margen de cumplimiento:** constante única (±10 %) en la lógica (p. ej. `DayStatus.MARGIN`), usada por los colores de la franja, la racha y las marcas del arco.
+- **Cabecera colapsable.** Con la lista arriba se ve completa (fila, franja y tarjeta). Al desplazar, la franja y la tarjeta se pliegan en el `DiaryHeader` compacto de §2.10, que sigue anclado: el objetivo y cómo se va están siempre visibles.
+- **No se incluye** de la captura: banner Premium, foto de perfil, botón «Terminar día», pestañas Social y Coach, menús «⋯». «Coach» queda para más adelante, si se añade una IA con clave propia (Fase 11, pendiente).
 
 ## 3. Componentes compartidos (en `shared/ui`)
 `EasyFoodTheme` · `CalorieRing` · `MacroProgressRow` · `MacroDot` · `SourceAvatar` / `SourceChip` (enum `DataSource { OpenFoodFacts, Generic, Custom }`) · `DoubtfulChip` · `DoubtfulDataBanner` · `MealSection` · `DiaryEntryRow` · `FoodResultRow` · `QuantitySelector` · `NutritionTable` · `EmptyState` · `NumberField` (OutlinedTextField con sufijo de unidad) · `FoodSearch` (buscador de alimentos de «Añadir» y del editor de recetas).
