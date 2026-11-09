@@ -1,0 +1,2 @@
+-- Migración v3 -> v4: objetivo fijo (la calculadora TDEE no lo recalcula; ver DailyGoal.sq).
+ALTER TABLE DailyGoalEntity ADD COLUMN fixed INTEGER NOT NULL DEFAULT 0 CHECK (fixed IN (0, 1));

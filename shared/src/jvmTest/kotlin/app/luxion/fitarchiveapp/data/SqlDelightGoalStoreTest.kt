@@ -43,6 +43,38 @@ class SqlDelightGoalStoreTest {
     }
 
     @Test
+    fun fixedFlagRoundTrips() = runTest {
+        val goals = DailyGoals(kcal = 2000, proteinG = 140, fixed = true)
+        store.save(goals)
+        assertEquals(goals, store.get())
+        store.save(goals.copy(fixed = false))
+        assertEquals(false, store.get().fixed)
+    }
+
+    @Test
+    fun migrationFromV3KeepsGoalsAsNotFixed() = runTest {
+        val old = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        EasyFoodDatabase.Schema.create(old)
+        // Estado v3: sin la columna `fixed`.
+        old.execute(null, "DROP TABLE DailyGoalEntity", 0)
+        old.execute(
+            null,
+            "CREATE TABLE DailyGoalEntity (id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1), kcal INTEGER, " +
+                "protein_g INTEGER, carbs_g INTEGER, fat_g INTEGER)",
+            0,
+        )
+        old.execute(null, "INSERT INTO DailyGoalEntity VALUES (1, 2100, 150, 230, 70)", 0)
+
+        EasyFoodDatabase.Schema.migrate(old, 3, EasyFoodDatabase.Schema.version)
+
+        val migrated = SqlDelightGoalStore(EasyFoodDatabase(old).dailyGoalQueries)
+        assertEquals(DailyGoals(2100, 150, 230, 70, fixed = false), migrated.get())
+        migrated.save(DailyGoals(kcal = 2100, fixed = true))
+        assertTrue(migrated.get().fixed)
+        old.close()
+    }
+
+    @Test
     fun partialGoalsKeepNulls() = runTest {
         store.save(DailyGoals(kcal = 1800))
         assertEquals(DailyGoals(kcal = 1800), store.get())
@@ -60,6 +92,50 @@ class SqlDelightGoalStoreTest {
         store.save(DailyGoals(kcal = 2000))
         store.clear()
         assertTrue(store.get().isEmpty)
+    }
+
+    @Test
+    fun goalSurvivesClosingAndReopeningTheDatabase() = runTest {
+        val file = kotlin.io.path.createTempFile("easyfood-goal", ".db").toFile()
+        try {
+            val first = JdbcSqliteDriver("jdbc:sqlite:${file.absolutePath}")
+            EasyFoodDatabase.Schema.create(first)
+            val goals = DailyGoals(kcal = 2400, proteinG = 160, carbsG = 260, fatG = 70)
+            SqlDelightGoalStore(EasyFoodDatabase(first).dailyGoalQueries).save(goals)
+            first.close()
+
+            val second = JdbcSqliteDriver("jdbc:sqlite:${file.absolutePath}")
+            try {
+                val reopened = SqlDelightGoalStore(EasyFoodDatabase(second).dailyGoalQueries)
+                assertEquals(goals, reopened.get())
+                reopened.save(DailyGoals(kcal = 2100))
+                assertEquals(DailyGoals(kcal = 2100), reopened.get())
+                assertEquals(1L, second.executeQuery(
+                    null, "SELECT COUNT(*) FROM DailyGoalEntity", { c ->
+                        app.cash.sqldelight.db.QueryResult.Value(if (c.next().value) c.getLong(0) else null)
+                    }, 0,
+                ).value)
+            } finally {
+                second.close()
+            }
+        } finally {
+            file.delete()
+        }
+    }
+
+    @Test
+    fun onlyOneGoalRowCanExist() = runTest {
+        store.save(DailyGoals(kcal = 2000))
+        store.save(DailyGoals(kcal = 2500))
+        val rows = driver.executeQuery(
+            null, "SELECT COUNT(*) FROM DailyGoalEntity", { c ->
+                app.cash.sqldelight.db.QueryResult.Value(if (c.next().value) c.getLong(0) else null)
+            }, 0,
+        ).value
+        assertEquals(1L, rows)
+        assertFailsWith<Exception> {
+            driver.execute(null, "INSERT INTO DailyGoalEntity(id, kcal) VALUES (2, 1500)", 0)
+        }
     }
 
     @Test

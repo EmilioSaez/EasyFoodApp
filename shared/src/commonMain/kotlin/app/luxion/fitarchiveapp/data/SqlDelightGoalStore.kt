@@ -18,6 +18,7 @@ class SqlDelightGoalStore(
                 proteinG = it.protein_g?.toInt(),
                 carbsG = it.carbs_g?.toInt(),
                 fatG = it.fat_g?.toInt(),
+                fixed = it.fixed != 0L,
             )
         } ?: DailyGoals()
     }
@@ -25,6 +26,7 @@ class SqlDelightGoalStore(
     override suspend fun save(goals: DailyGoals) = withContext(dispatcher) {
         queries.upsert(
             goals.kcal?.toLong(), goals.proteinG?.toLong(), goals.carbsG?.toLong(), goals.fatG?.toLong(),
+            if (goals.fixed) 1L else 0L,
         )
         Unit
     }

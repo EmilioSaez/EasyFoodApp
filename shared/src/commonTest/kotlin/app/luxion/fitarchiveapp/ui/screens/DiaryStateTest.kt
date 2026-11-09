@@ -186,6 +186,45 @@ class DiaryPresenterTest {
     }
 
     @Test
+    fun goalIsTheSameOnPastTodayAndFutureDays() = runTest {
+        val goals = DailyGoals(kcal = 2000, proteinG = 130, carbsG = 220, fatG = 60)
+        val p = presenter(FakeDiary(listOf(entry(1))), FakeGoals(goals))
+        val days = listOf(-400, -30, -1, 0, 1, 30, 400)
+        for (offset in days) {
+            p.load(IsoDate.plusDays(DAY, offset))
+            val s = p.state.value
+            assertEquals(2000, s.goalKcal, "kcal en el día $offset")
+            assertEquals(
+                listOf(130.0, 220.0, 60.0), s.macros.map { it.goalG }, "macros en el día $offset",
+            )
+        }
+    }
+
+    @Test
+    fun changingTheGoalUpdatesEveryDayAndEmptyDaysToo() = runTest {
+        val goals = FakeGoals(DailyGoals(kcal = 2000))
+        val p = presenter(FakeDiary(listOf(entry(1), entry(2, date = "2026-11-10"))), goals)
+        p.load()
+        assertEquals(2000, p.state.value.goalKcal)
+
+        goals.save(DailyGoals(kcal = 2300, proteinG = 150))
+        for (date in listOf("2026-10-01", "2026-11-03", DAY, "2026-11-10", "2027-03-01")) {
+            p.load(date)
+            assertEquals(2300, p.state.value.goalKcal, "kcal el $date")
+            assertEquals(150.0, p.state.value.macros.first().goalG, "proteína el $date")
+        }
+    }
+
+    @Test
+    fun updatingAnEntryKeepsTheGoalOfThatDay() = runTest {
+        val p = presenter(FakeDiary(listOf(entry(1, date = "2026-11-03"))), FakeGoals(DailyGoals(kcal = 1800)))
+        p.load("2026-11-03")
+        p.updateQuantity(1, Quantity(200.0, QuantityUnit.GRAMS))
+        assertEquals(1800, p.state.value.goalKcal)
+        assertEquals("2026-11-03", p.state.value.date)
+    }
+
+    @Test
     fun updateQuantityRecomputesTotals() = runTest {
         val p = presenter(FakeDiary(listOf(entry(1))))
         p.load()
