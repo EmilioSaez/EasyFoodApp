@@ -51,10 +51,16 @@ class AppFlowsTest {
             if (barcode == nutella.barcode) ProductLookup.Found(nutella) else ProductLookup.NotFound
     }
 
-    private fun runApp(block: ComposeUiTest.(EasyFoodDatabase) -> Unit) = runComposeUiTest {
+    /** [recentWeight]: guarda un peso de hoy para que el aviso semanal no ocupe sitio en el Diario. */
+    private fun runApp(recentWeight: Boolean = false, block: ComposeUiTest.(EasyFoodDatabase) -> Unit) = runComposeUiTest {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         EasyFoodDatabase.Schema.create(driver)
         val db = EasyFoodDatabase(driver)
+        if (recentWeight) {
+            kotlinx.coroutines.runBlocking {
+                SqlDelightWeightStore(db.weightEntryQueries).save(NewWeightEntry("2026-11-04", 80.0), 1L)
+            }
+        }
         setContent {
             App(
                 repository = ProductRepository(remote, SqlDelightProductStore(db.productQueries), nowMillis = System::currentTimeMillis),
@@ -87,7 +93,7 @@ class AppFlowsTest {
     }
 
     @Test
-    fun manualEanAddsEntryToDiary() = runApp { _ ->
+    fun manualEanAddsEntryToDiary() = runApp(recentWeight = true) { _ ->
         waitForText("Nada apuntado hoy")
         addNutellaByManualEan()
         waitForText("Nutella")
@@ -96,7 +102,7 @@ class AppFlowsTest {
     }
 
     @Test
-    fun entryCanBeEditedAndDeleted() = runApp { _ ->
+    fun entryCanBeEditedAndDeleted() = runApp(recentWeight = true) { _ ->
         waitForText("Nada apuntado hoy")
         addNutellaByManualEan()
         waitForText("Nutella")
@@ -184,7 +190,43 @@ class AppFlowsTest {
     }
 
     @Test
-    fun invalidWeightAndFutureDateAreRejected() = runApp { db ->
+    fun weightReminderLeadsToWeightScreenAndDisappearsOnceRegistered() = runApp { db ->
+        waitForText("Toca pesarse")
+        waitForText("Aún no has registrado tu peso.")
+        onNodeWithText("Registrar peso").performClick()
+        waitForText("Guardar peso")
+        onNodeWithText("Peso").performTextInput("78,5")
+        onNodeWithText("Guardar peso").performClick()
+        waitForText("Peso guardado")
+        kotlin.test.assertEquals(1, weights(db).size)
+
+        onNodeWithText("Diario").performClick()
+        waitForText("Nada apuntado hoy")
+        kotlin.test.assertTrue(onAllNodes(hasText("Toca pesarse")).fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun weightReminderShowsDaysSinceLastOnlyFromSevenDays() = runApp { db ->
+        kotlinx.coroutines.runBlocking {
+            SqlDelightWeightStore(db.weightEntryQueries).save(NewWeightEntry("2026-10-28", 80.0), 1L) // 7 días
+        }
+        // La pantalla ya se compuso vacía; reabrirla desde otra pestaña fuerza la relectura.
+        waitForText("Nada apuntado hoy")
+        onNodeWithText("Objetivos").performClick()
+        onNodeWithText("Diario").performClick()
+        waitForText("Hace 7 días que no registras tu peso.")
+
+        kotlinx.coroutines.runBlocking {
+            SqlDelightWeightStore(db.weightEntryQueries).save(NewWeightEntry("2026-11-01", 79.0), 2L) // 3 días
+        }
+        onNodeWithText("Objetivos").performClick()
+        onNodeWithText("Diario").performClick()
+        waitForText("Nada apuntado hoy")
+        waitGone("Toca pesarse")
+    }
+
+    @Test
+    fun invalidWeightAndFutureDateAreRejected()= runApp { db ->
         openWeight()
         onNodeWithText("Guardar peso").performClick()
         waitForText("Escribe tu peso")
@@ -283,7 +325,7 @@ class AppFlowsTest {
     }
 
     @Test
-    fun customFoodCanBeFoundAndAddedToDiary() = runApp { _ ->
+    fun customFoodCanBeFoundAndAddedToDiary() = runApp(recentWeight = true) { _ ->
         waitForText("Nada apuntado hoy")
         createPanCasero()
         onNodeWithText("Pan casero").performClick()
