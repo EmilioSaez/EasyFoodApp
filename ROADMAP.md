@@ -89,6 +89,6 @@ Riesgo: no hay Mac local. La ruta es la que sigue FitArchiveApp (sesión hermana
 - [ ] Recetas: pestaña nueva donde se crea una receta con ingredientes de la BD y la cantidad de cada uno; los macros salen de la suma y la receta se añade al diario como un conjunto de alimentos
 - [ ] Pasos diarios leídos del sensor (Health Connect en Android, HealthKit en iOS) que permitan reevaluar el gasto (TDEE)
 - [x] Registro de peso con gráfica de evolución y progreso, incluido en exportar e importar (migración v4 → v5)
-- [ ] Aviso dentro de la app cuando toca registrar el peso (cada semana)
+- [x] Aviso dentro de la app cuando toca registrar el peso (cada semana): tarjeta en el Diario derivada de los registros, sin tabla nueva
 - [ ] Peso objetivo elegido por el usuario; al actualizar el peso, mostrar lo lejos que se está de lograrlo y una estimación de cuándo se llegará
 - [ ] (Pendiente, sin decidir) IA para guiar el registro de comidas, opcional y con la clave de API propia del usuario (guardada solo en el dispositivo, nunca en el repo)
