@@ -52,6 +52,7 @@ class ProductFtsMigrationTest {
         val v2 = listOf(
             "DROP TRIGGER product_fts_insert", "DROP TRIGGER product_fts_update", "DROP TRIGGER product_fts_delete",
             "DROP TABLE ProductFts", "DROP INDEX product_source_idx",
+            "ALTER TABLE DailyGoalEntity DROP COLUMN fixed", // la añade 3.sqm
             "CREATE VIRTUAL TABLE ProductFts USING fts5(name, brand, barcode UNINDEXED, tokenize = 'unicode61 remove_diacritics 2')",
             "CREATE TRIGGER product_fts_insert AFTER INSERT ON ProductEntity BEGIN " +
                 "DELETE FROM ProductFts WHERE barcode = new.barcode; " +
