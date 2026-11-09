@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.luxion.fitarchiveapp.data.DiaryStore
 import app.luxion.fitarchiveapp.data.FavoriteKeys
 import app.luxion.fitarchiveapp.data.FavoriteStore
@@ -48,7 +49,9 @@ import app.luxion.fitarchiveapp.model.Product
 import app.luxion.fitarchiveapp.model.QuantityUnit
 import app.luxion.fitarchiveapp.model.dataWarnings
 import app.luxion.fitarchiveapp.ui.components.DataSource
+import app.luxion.fitarchiveapp.ui.components.DoubtfulChip
 import app.luxion.fitarchiveapp.ui.components.DoubtfulDataBanner
+import app.luxion.fitarchiveapp.ui.components.StackedMacroBar
 import app.luxion.fitarchiveapp.ui.components.MacroDot
 import app.luxion.fitarchiveapp.ui.components.NutritionTable
 import app.luxion.fitarchiveapp.ui.components.QuantitySelector
@@ -345,7 +348,12 @@ private fun DetailContent(
                             }
                         }
                     }
-                    detail.source?.let { SourceChip(it) }
+                    if (detail.source != null || reasons.isNotEmpty()) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalAlignment = Alignment.CenterVertically) {
+                            detail.source?.let { SourceChip(it) }
+                            if (reasons.isNotEmpty()) DoubtfulChip()
+                        }
+                    }
                 }
             }
             if (reasons.isNotEmpty()) {
@@ -362,11 +370,6 @@ private fun DetailContent(
                     shape = MaterialTheme.shapes.large,
                 ) {
                     Column(Modifier.padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
-                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                            mealChoices.options(ready.initialMeal).forEach { m ->
-                                FilterChip(selected = meal == m, onClick = { meal = m }, label = { Text(m.label) })
-                            }
-                        }
                         QuantitySelector(
                             unit = unit,
                             onUnitChange = { newUnit ->
@@ -402,15 +405,11 @@ private fun DetailContent(
                             )
                             Text(
                                 total?.kcal?.let { "${formatKcal(it)} kcal" } ?: "Sin dato",
-                                style = MaterialTheme.typography.displaySmall,
+                                // Sora 44 (display de §1.7, un punto por debajo de displayMedium).
+                                style = MaterialTheme.typography.displayMedium.copy(fontSize = 44.sp, lineHeight = 48.sp, letterSpacing = (-1.5).sp),
                             )
                         }
-                        val colors = MaterialTheme.easyFoodColors
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                            MacroCell("Proteína", total?.proteinG, colors.macroProtein, Modifier.weight(1f))
-                            MacroCell("Hidratos", total?.carbsG, colors.macroCarbs, Modifier.weight(1f))
-                            MacroCell("Grasa", total?.fatG, colors.macroFat, Modifier.weight(1f))
-                        }
+                        StackedMacroBar(total?.proteinG ?: 0.0, total?.carbsG ?: 0.0, total?.fatG ?: 0.0)
                     }
                 }
             }
@@ -430,6 +429,11 @@ private fun DetailContent(
         Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
             Column(Modifier.fillMaxWidth().padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
                 error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                    mealChoices.options(ready.initialMeal).forEach { m ->
+                        FilterChip(selected = meal == m, onClick = { meal = m }, label = { Text(m.label) })
+                    }
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalAlignment = Alignment.CenterVertically) {
                     Button(
                         onClick = {
@@ -463,7 +467,10 @@ private fun DetailContent(
                         },
                         enabled = quantity != null && !saving && (unit == QuantityUnit.GRAMS || servingG != null),
                         modifier = Modifier.weight(1f).height(48.dp),
-                    ) { Text(if (editing) "Guardar cambios" else "Añadir a ${meal.label}") }
+                    ) {
+                        val kcalText = total?.kcal?.let { " · ${formatKcal(it)} kcal" }.orEmpty()
+                        Text(if (editing) "Guardar cambios$kcalText" else "Añadir$kcalText")
+                    }
                     if (editing) {
                         OutlinedButton(
                             onClick = {
