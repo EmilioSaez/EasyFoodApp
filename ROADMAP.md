@@ -101,3 +101,12 @@ Especificación en `docs/design.md` §2.1, §2.2, §2.9, §2.10 y §2.11. Cada p
 - [x] Gráfica de peso con un punto por cada registro
 - [x] Diario con cabecera fija arriba que siempre muestra el objetivo y cómo se va (consumo, restantes y macros)
 - [x] Comidas al día: pantalla de primera vez que pregunta cuántas comidas se hacen (3 a 6), secciones del Diario según el preset (Desayuno, Almuerzo, Comida, Merienda, Cena, Recena) y alimentos añadidos a una comida concreta; ajuste en Objetivos; migración v7 a v8, incluido en exportar e importar
+
+## Fase 11: Tema y Diario nuevo
+
+Especificación en `docs/design.md` §1.7, §2.6 y §2.12. Cada punto es un PR; el Diario va después del tema.
+
+- [ ] Ritmo de perder/ganar sin mínimo de 0 kg/semana: el slider empieza en 0,25 kg/sem (`GoalsPlanner.PACES` sin el 0,0); «Mantener» sigue siendo la forma de no perder ni ganar
+- [ ] Tema de ApexApp: paleta oscura y clara, tipografías Sora e Inter, formas de 4 dp, espaciado y barra de navegación estándar (§1.7)
+- [ ] Diario rediseñado: franja semanal con los días coloreados según se hayan completado (objetivo ±10 %), racha de días completados, tarjeta de objetivo con el margen marcado y tarjetas de comida con «+», con cabecera colapsable (§2.12)
+- [ ] (Pendiente, sin decidir) «Coach» con IA y clave de API propia del usuario; se une al punto de IA de la Fase 9
