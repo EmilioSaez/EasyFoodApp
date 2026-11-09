@@ -1,0 +1,64 @@
+-- Recetas del usuario: un nombre, unas raciones opcionales y una lista de ingredientes.
+-- Cada ingrediente guarda una copia (snapshot) del nombre y de los valores por 100 g del alimento,
+-- como el diario, para que la receta no cambie si la caché de productos se actualiza o se purga.
+-- Los ingredientes se borran desde el almacén (SQLite no aplica ON DELETE CASCADE sin PRAGMA foreign_keys).
+CREATE TABLE IF NOT EXISTS RecipeEntity (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    -- Raciones que salen de la receta; NULL = no indicado.
+    servings INTEGER CHECK (servings IS NULL OR servings > 0),
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS RecipeIngredientEntity (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    recipe_id INTEGER NOT NULL REFERENCES RecipeEntity(id) ON DELETE CASCADE,
+    -- Orden dentro de la receta.
+    position INTEGER NOT NULL,
+    -- EAN o generic:<id>; NULL en un alimento propio.
+    barcode TEXT,
+    name TEXT NOT NULL,
+    -- Cantidad en gramos (o ml).
+    grams REAL NOT NULL CHECK (grams > 0),
+    serving_size_g REAL,
+    -- Valores nutricionales por 100 g; NULL = dato no disponible.
+    kcal_100g REAL,
+    protein_100g REAL,
+    carbs_100g REAL,
+    fat_100g REAL
+);
+
+CREATE INDEX IF NOT EXISTS recipe_ingredient_recipe_idx ON RecipeIngredientEntity(recipe_id, position);
+
+selectAll:
+SELECT * FROM RecipeEntity ORDER BY name COLLATE NOCASE, id;
+
+selectById:
+SELECT * FROM RecipeEntity WHERE id = ?;
+
+insert:
+INSERT INTO RecipeEntity(name, servings, created_at, updated_at) VALUES (?, ?, ?, ?);
+
+lastInsertedId:
+SELECT last_insert_rowid();
+
+update:
+UPDATE RecipeEntity SET name = ?, servings = ?, updated_at = ? WHERE id = ?;
+
+deleteById:
+DELETE FROM RecipeEntity WHERE id = ?;
+
+selectAllIngredients:
+SELECT * FROM RecipeIngredientEntity ORDER BY recipe_id, position, id;
+
+selectIngredients:
+SELECT * FROM RecipeIngredientEntity WHERE recipe_id = ? ORDER BY position, id;
+
+insertIngredient:
+INSERT INTO RecipeIngredientEntity(
+    recipe_id, position, barcode, name, grams, serving_size_g, kcal_100g, protein_100g, carbs_100g, fat_100g
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteIngredients:
+DELETE FROM RecipeIngredientEntity WHERE recipe_id = ?;
