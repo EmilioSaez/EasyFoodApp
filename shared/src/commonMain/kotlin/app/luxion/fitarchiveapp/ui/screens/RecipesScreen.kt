@@ -1,19 +1,21 @@
 package app.luxion.fitarchiveapp.ui.screens
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,14 +23,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.data.RecipeStore
 import app.luxion.fitarchiveapp.model.Recipe
 import app.luxion.fitarchiveapp.ui.components.EmptyState
 import app.luxion.fitarchiveapp.ui.components.EmptyStateAction
 import app.luxion.fitarchiveapp.ui.components.EmptyStateTone
+import app.luxion.fitarchiveapp.ui.components.StackedMacroBar
+import app.luxion.fitarchiveapp.ui.components.formatKcal
+import app.luxion.fitarchiveapp.ui.theme.easyFoodColors
 import app.luxion.fitarchiveapp.ui.navigation.EasyFoodNavigationBar
 import app.luxion.fitarchiveapp.ui.navigation.Navigator
 import app.luxion.fitarchiveapp.ui.navigation.Route
@@ -62,6 +68,15 @@ fun RecipesScreen(navigator: Navigator, recipeStore: RecipeStore) {
 
     Scaffold(
         topBar = { CenterAlignedTopAppBar(title = { Text("Recetas") }) },
+        floatingActionButton = {
+            if ((state as? RecipesState.Ready)?.recipes?.isNotEmpty() == true) {
+                ExtendedFloatingActionButton(
+                    onClick = { navigator.push(Route.RecipeEdit()) },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                ) { Text("Nueva receta") }
+            }
+        },
         bottomBar = { EasyFoodNavigationBar(selected = TopLevelTab.Recipes, navigator = navigator) },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
@@ -84,28 +99,72 @@ fun RecipesScreen(navigator: Navigator, recipeStore: RecipeStore) {
                         modifier = Modifier.fillMaxSize(),
                     )
                 } else {
-                    LazyColumn(Modifier.fillMaxSize()) {
-                        item {
-                            Button(
-                                onClick = { navigator.push(Route.RecipeEdit()) },
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.l, vertical = Spacing.s),
-                            ) { Text("+ Nueva receta") }
-                        }
+                    LazyColumn(
+                        Modifier.fillMaxSize(),
+                        // Hueco final para que el FAB no tape la última tarjeta.
+                        contentPadding = PaddingValues(start = Spacing.l, end = Spacing.l, top = Spacing.s, bottom = 88.dp),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.m),
+                    ) {
                         items(s.recipes, key = { it.id }) { r ->
-                            ListItem(
-                                modifier = Modifier.clickable { navigator.push(Route.RecipeDetail(r.id)) },
-                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                                headlineContent = { Text(r.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                supportingContent = { Text(r.listDetail()) },
-                                trailingContent = {
-                                    Text(
-                                        r.kcalLabel(),
-                                        style = MaterialTheme.typography.labelLarge,
-                                    )
-                                },
-                            )
+                            RecipeCard(r, onClick = { navigator.push(Route.RecipeDetail(r.id)) })
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+/** Tarjeta de receta: nombre, kcal por ración (o total), ingredientes y raciones, barra de macros y aviso ámbar. */
+@Composable
+private fun RecipeCard(recipe: Recipe, onClick: () -> Unit) {
+    val totals = recipe.cardTotals()
+    val perServing = recipe.servings != null
+    val protein = totals.proteinG
+    val carbs = totals.carbsG
+    val fat = totals.fatG
+    val notice = recipe.missingDataNotice()
+    Surface(
+        onClick = onClick,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = MaterialTheme.shapes.large,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
+            Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(Spacing.m)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                    Text(recipe.name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        recipe.listDetail(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                val kcal = totals.kcal
+                if (kcal == null) {
+                    Text("Sin dato", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(formatKcal(kcal), style = MaterialTheme.typography.headlineSmall)
+                        Text(
+                            if (perServing) "kcal/ración" else "kcal",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+            if (protein != null && carbs != null && fat != null) {
+                StackedMacroBar(protein, carbs, fat)
+            }
+            if (notice != null) {
+                Surface(color = MaterialTheme.easyFoodColors.warningContainer, shape = MaterialTheme.shapes.medium) {
+                    Text(
+                        notice,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.easyFoodColors.onWarningContainer,
+                        modifier = Modifier.fillMaxWidth().padding(Spacing.m),
+                    )
                 }
             }
         }
