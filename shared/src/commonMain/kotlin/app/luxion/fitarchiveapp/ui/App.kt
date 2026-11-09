@@ -83,7 +83,7 @@ fun App(
                             is Route.Scanner -> ScannerScreen(navigator, route, repository)
                             is Route.CustomFood -> CustomFoodScreen(navigator, route, customFoodStore, route.foodId)
                             is Route.ProductDetail -> ProductDetailScreen(navigator, route, repository, diaryStore, customFoodStore, today)
-                            Route.Goals -> GoalsScreen(navigator, goalStore)
+                            Route.Goals -> GoalsScreen(navigator, goalStore, today)
                             Route.Weight -> WeightScreen(navigator, weightStore, today)
                             Route.Data -> DataScreen(navigator, dataPresenter, today)
                         }

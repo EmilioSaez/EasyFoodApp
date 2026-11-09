@@ -31,6 +31,17 @@ Implementación: `shared/src/iosMain/.../scanner/BarcodeScanner.ios.kt` (`AVCapt
 - [ ] Posible ajuste: `UIKitView` con `UIView` hijo de capa; si hubiera problemas de superposición con Compose, revisar `UIKitInteropProperties`.
 - [ ] Recibir datos por QR en la pantalla «Datos» (depende de este escáner) de extremo a extremo con un emisor real.
 
+## Pasos diarios (HealthKit)
+
+Implementación: `shared/src/iosMain/.../steps/StepsProvider.ios.kt` (`HKStatisticsCollectionQuery` de `stepCount`, solo lectura). Solo se ha comprobado el tipado en Windows; el simulador no tiene datos de Salud reales.
+
+- [ ] Habilitar la capability **HealthKit** en el equipo de firma: el entitlement `com.apple.developer.healthkit` está en `iosApp/iosApp/iosApp.entitlements` y requiere una cuenta que lo permita.
+- [ ] `NSHealthShareUsageDescription` en `Info.plist` y `-framework HealthKit` en `project.yml`: comprobar que `xcodegen` + `xcodebuild` enlazan.
+- [ ] Primer uso en Objetivos: «Permitir acceso a pasos» abre el diálogo de Salud.
+- [ ] HealthKit no revela si se denegó la lectura: tras pedir el permiso la app muestra «Hoy: sin datos». Comprobar que ese caso se entiende (y, si no, añadir un aviso para revisar Ajustes > Salud).
+- [ ] Los pasos de «hoy» y la media de 14 días coinciden con la app Salud (fecha según el calendario del dispositivo).
+- [ ] Revisar `getRequestStatusForAuthorizationToShareTypes` (interpretación de `ShouldRequest`/`Unnecessary`) y que `HKUnit.unitFromString("count")` devuelve la unidad esperada.
+
 ## Pantalla «Datos»: funciones no implementadas en iOS
 
 - **Guardar y abrir archivos JSON** (`files/DataFiles.ios.kt`): es un stub (`canSave`/`canOpen` = `false`, devuelve «aún no está disponible en iOS»). Falta `UIActivityViewController`/`UIDocumentPickerViewController`. Mientras tanto iOS transfiere por QR y red local.
