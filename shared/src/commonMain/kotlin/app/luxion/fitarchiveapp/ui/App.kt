@@ -73,7 +73,7 @@ fun App(
                     if (genericSeeder != null) GenericSeedProgress(genericSeeder)
                     Box(Modifier.weight(1f).fillMaxWidth()) {
                         when (val route = navigator.current) {
-                            Route.Diary -> DiaryScreen(navigator, diaryStore, goalStore, today())
+                            Route.Diary -> DiaryScreen(navigator, diaryStore, goalStore, weightStore, today())
                             is Route.Add -> AddFoodScreen(
                                 navigator,
                                 route,
@@ -83,7 +83,7 @@ fun App(
                             is Route.Scanner -> ScannerScreen(navigator, route, repository)
                             is Route.CustomFood -> CustomFoodScreen(navigator, route, customFoodStore, route.foodId)
                             is Route.ProductDetail -> ProductDetailScreen(navigator, route, repository, diaryStore, customFoodStore, today)
-                            Route.Goals -> GoalsScreen(navigator, goalStore)
+                            Route.Goals -> GoalsScreen(navigator, goalStore, today)
                             Route.Weight -> WeightScreen(navigator, weightStore, today)
                             Route.Data -> DataScreen(navigator, dataPresenter, today)
                         }

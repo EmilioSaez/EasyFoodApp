@@ -23,6 +23,7 @@ targets:
       - path: iosApp
         excludes:
           - Info.plist
+          - iosApp.entitlements
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.luxion.fitarchiveapp
@@ -39,6 +40,9 @@ targets:
           - "-framework"
           - "Shared"
           - "-lsqlite3"
+          - "-framework"
+          - "HealthKit"
+        CODE_SIGN_ENTITLEMENTS: iosApp/iosApp.entitlements
         CODE_SIGN_STYLE: Automatic
     preBuildScripts:
       - name: Compilar framework Shared (Gradle)

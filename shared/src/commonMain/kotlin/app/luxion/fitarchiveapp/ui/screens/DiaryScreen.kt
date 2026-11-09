@@ -39,6 +39,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.data.DiaryStore
 import app.luxion.fitarchiveapp.data.GoalStore
+import app.luxion.fitarchiveapp.data.WeightStore
+import app.luxion.fitarchiveapp.domain.WeightReminder
+import app.luxion.fitarchiveapp.ui.components.WeightReminderCard
 import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.model.Quantity
 import app.luxion.fitarchiveapp.model.QuantityUnit
@@ -66,12 +69,35 @@ import kotlinx.coroutines.launch
 /** Diario del día (docs/design.md §2.1). [today] es la fecha ISO de hoy. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DiaryScreen(navigator: Navigator, diaryStore: DiaryStore, goalStore: GoalStore, today: String) {
+fun DiaryScreen(
+    navigator: Navigator,
+    diaryStore: DiaryStore,
+    goalStore: GoalStore,
+    weightStore: WeightStore,
+    today: String,
+) {
     val scope = rememberCoroutineScope()
     val presenter = remember(diaryStore, goalStore) { DiaryPresenter(diaryStore, goalStore, scope, today) }
     val state by presenter.state.collectAsState()
     val snackbar = remember { SnackbarHostState() }
     var editing by remember { mutableStateOf<EntryUi?>(null) }
+
+    // Aviso semanal de peso: se recalcula cada vez que se abre el Diario, así desaparece al registrar.
+    var weightDue by remember { mutableStateOf(false) }
+    var weightDays by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(weightStore, today) {
+        try {
+            val entries = weightStore.all()
+            weightDue = WeightReminder.isDue(entries, today)
+            weightDays = WeightReminder.daysSinceLast(entries, today)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            weightDue = false // el aviso es opcional: si falla la lectura, no se muestra
+        }
+    }
+    val showWeightReminder = weightDue && state.date == today
+    val registerWeight = { navigator.navigateTab(TopLevelTab.Weight) }
 
     LaunchedEffect(presenter) { presenter.load() }
     LaunchedEffect(state.message) {
@@ -138,6 +164,9 @@ fun DiaryScreen(navigator: Navigator, diaryStore: DiaryStore, goalStore: GoalSto
             }
         } else if (!state.loading && state.isEmpty) {
             Column(Modifier.fillMaxSize().padding(padding), horizontalAlignment = Alignment.CenterHorizontally) {
+                if (showWeightReminder) {
+                    WeightReminderCard(weightDays, registerWeight, Modifier.padding(Spacing.l))
+                }
                 EmptyState(
                     icon = "▤",
                     title = if (state.date == today) "Nada apuntado hoy" else "Nada apuntado este día",
@@ -153,6 +182,7 @@ fun DiaryScreen(navigator: Navigator, diaryStore: DiaryStore, goalStore: GoalSto
                 contentPadding = PaddingValues(start = Spacing.l, end = Spacing.l, top = Spacing.l, bottom = 104.dp),
                 verticalArrangement = Arrangement.spacedBy(Spacing.m),
             ) {
+                if (showWeightReminder) item("weight-reminder") { WeightReminderCard(weightDays, registerWeight) }
                 item { DaySummaryCard(state, onSetGoal = { navigator.navigateTab(TopLevelTab.Goals) }) }
                 items(state.meals, key = { it.meal }) { meal ->
                     MealSection(
