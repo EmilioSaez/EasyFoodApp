@@ -33,6 +33,21 @@ class RecipeFormatTest {
     }
 
     @Test
+    fun cardTotalsArePerServingOrWhole() {
+        assertEquals(198.0, recipe(4, rice, oil).cardTotals().kcal!!, 0.5)
+        assertEquals(790.0, recipe(null, rice, oil).cardTotals().kcal!!, 0.5)
+    }
+
+    @Test
+    fun missingDataNoticeNamesTheIngredientsOrCountsThem() {
+        val unknown = RecipeIngredient(null, "Salsa", 10.0, Nutrients(null, null, null, null))
+        val unknown2 = RecipeIngredient(null, "Queso", 10.0, Nutrients(null, 1.0, 1.0, 1.0))
+        assertNull(recipe(2, rice, oil).missingDataNotice())
+        assertEquals("A Salsa le faltan datos nutricionales", recipe(2, rice, unknown).missingDataNotice())
+        assertEquals("Faltan datos nutricionales en 2 ingredientes", recipe(2, unknown, unknown2).missingDataNotice())
+    }
+
+    @Test
     fun summaryOrNullNeedsEveryFigure() {
         assertEquals("386 kcal · P 17 · H 62 · G 8", MacroTotals(386.0, 17.0, 62.0, 8.0).summaryOrNull())
         assertNull(MacroTotals(386.0, null, 62.0, 8.0).summaryOrNull())
