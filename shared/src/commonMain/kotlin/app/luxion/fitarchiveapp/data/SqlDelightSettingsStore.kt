@@ -1,0 +1,25 @@
+package app.luxion.fitarchiveapp.data
+
+import app.luxion.fitarchiveapp.db.SettingsQueries
+import app.luxion.fitarchiveapp.domain.MealPlan
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+/** [SettingsStore] respaldado por la tabla `SettingsEntity` de SQLDelight. */
+class SqlDelightSettingsStore(
+    private val queries: SettingsQueries,
+    private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
+) : SettingsStore {
+    override suspend fun mealsPerDay(): Int? = withContext(dispatcher) {
+        queries.selectMealsPerDay().executeAsOneOrNull()?.meals_per_day?.toInt()
+    }
+
+    override suspend fun setMealsPerDay(count: Int) = withContext(dispatcher) {
+        require(MealPlan.isValid(count)) {
+            "Las comidas al día deben estar entre ${MealPlan.MIN_MEALS} y ${MealPlan.MAX_MEALS}"
+        }
+        queries.upsertMealsPerDay(count.toLong())
+        Unit
+    }
+}

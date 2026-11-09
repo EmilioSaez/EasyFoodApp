@@ -1,0 +1,14 @@
+.gradle/
+build/
+.kotlin/
+.idea/
+*.iml
+local.properties
+*.log
+.DS_Store
+xcuserdata/
+*.xcuserstate
+DerivedData/
+
+# Proyecto Xcode generado por XcodeGen (iosApp/project.yml)
+*.xcodeproj/

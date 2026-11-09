@@ -1,0 +1,8 @@
+-- Objetivos diarios (kcal y macros). Ver DailyGoal.sq.
+CREATE TABLE DailyGoalEntity (
+    id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+    kcal INTEGER CHECK (kcal IS NULL OR kcal > 0),
+    protein_g INTEGER CHECK (protein_g IS NULL OR protein_g >= 0),
+    carbs_g INTEGER CHECK (carbs_g IS NULL OR carbs_g >= 0),
+    fat_g INTEGER CHECK (fat_g IS NULL OR fat_g >= 0)
+);

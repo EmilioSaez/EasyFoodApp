@@ -1,0 +1,48 @@
+-- Alimentos propios del usuario (sin código de barras). Valores nutricionales por 100 g (o 100 ml).
+-- Tabla aparte de ProductEntity: esa es una caché purgable, esta son datos del usuario.
+CREATE TABLE CustomFoodEntity (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    brand TEXT,
+    kcal REAL NOT NULL CHECK (kcal >= 0),
+    protein_g REAL NOT NULL CHECK (protein_g >= 0),
+    carbs_g REAL NOT NULL CHECK (carbs_g >= 0),
+    fat_g REAL NOT NULL CHECK (fat_g >= 0),
+    -- Opcionales; NULL = no indicado.
+    sugars_g REAL,
+    saturated_fat_g REAL,
+    fiber_g REAL,
+    salt_g REAL,
+    serving_size_g REAL CHECK (serving_size_g IS NULL OR serving_size_g > 0),
+    serving_label TEXT,
+    -- Origen del dato; siempre CUSTOM (mismo vocabulario que ProductEntity.source).
+    source TEXT NOT NULL DEFAULT 'CUSTOM' CHECK (source = 'CUSTOM'),
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX custom_food_name_idx ON CustomFoodEntity(name);
+
+selectAll:
+SELECT * FROM CustomFoodEntity ORDER BY name COLLATE NOCASE, id;
+
+selectById:
+SELECT * FROM CustomFoodEntity WHERE id = ?;
+
+insert:
+INSERT INTO CustomFoodEntity(
+    name, brand, kcal, protein_g, carbs_g, fat_g, sugars_g, saturated_fat_g, fiber_g, salt_g,
+    serving_size_g, serving_label, created_at, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+lastInsertedId:
+SELECT last_insert_rowid();
+
+update:
+UPDATE CustomFoodEntity SET
+    name = ?, brand = ?, kcal = ?, protein_g = ?, carbs_g = ?, fat_g = ?, sugars_g = ?,
+    saturated_fat_g = ?, fiber_g = ?, salt_g = ?, serving_size_g = ?, serving_label = ?, updated_at = ?
+WHERE id = ?;
+
+deleteById:
+DELETE FROM CustomFoodEntity WHERE id = ?;

@@ -1,0 +1,63 @@
+-- Caché local de productos. Valores nutricionales por 100 g (o 100 ml); NULL = dato no disponible.
+CREATE TABLE ProductEntity (
+    barcode TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    brand TEXT,
+    image_url TEXT,
+    kcal REAL,
+    protein_g REAL,
+    carbs_g REAL,
+    sugars_g REAL,
+    fat_g REAL,
+    saturated_fat_g REAL,
+    fiber_g REAL,
+    salt_g REAL,
+    serving_size_g REAL,
+    serving_label TEXT,
+    -- Origen del dato: OPEN_FOOD_FACTS, GENERIC o CUSTOM.
+    source TEXT NOT NULL DEFAULT 'OPEN_FOOD_FACTS',
+    -- Instante de la última descarga/edición, en milisegundos epoch.
+    cached_at INTEGER NOT NULL
+);
+
+CREATE INDEX product_name_idx ON ProductEntity(name);
+CREATE INDEX product_source_idx ON ProductEntity(source);
+
+selectByBarcode:
+SELECT * FROM ProductEntity WHERE barcode = ?;
+
+selectAll:
+SELECT * FROM ProductEntity ORDER BY name;
+
+-- ON CONFLICT DO UPDATE (no INSERT OR REPLACE): conserva el rowid, del que depende el índice ProductFts.
+upsert:
+INSERT INTO ProductEntity(
+    barcode, name, brand, image_url, kcal, protein_g, carbs_g, sugars_g, fat_g,
+    saturated_fat_g, fiber_g, salt_g, serving_size_g, serving_label, source, cached_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(barcode) DO UPDATE SET
+    name = excluded.name, brand = excluded.brand, image_url = excluded.image_url, kcal = excluded.kcal,
+    protein_g = excluded.protein_g, carbs_g = excluded.carbs_g, sugars_g = excluded.sugars_g,
+    fat_g = excluded.fat_g, saturated_fat_g = excluded.saturated_fat_g, fiber_g = excluded.fiber_g,
+    salt_g = excluded.salt_g, serving_size_g = excluded.serving_size_g, serving_label = excluded.serving_label,
+    source = excluded.source, cached_at = excluded.cached_at;
+
+deleteByBarcode:
+DELETE FROM ProductEntity WHERE barcode = ?;
+
+countBySource:
+SELECT count(*) FROM ProductEntity WHERE source = ?;
+
+-- Versión de los datos de la base genérica ya importados (una única fila, id = 1). Permite reimportar cuando el
+-- recurso embebido cambia (p. ej. nombres en español) sin tocar las filas de otros orígenes. Sin fila = 0.
+CREATE TABLE GenericFoodsMetaEntity (
+    id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+    data_version INTEGER NOT NULL
+);
+
+selectGenericDataVersion:
+SELECT data_version FROM GenericFoodsMetaEntity WHERE id = 1;
+
+upsertGenericDataVersion:
+INSERT INTO GenericFoodsMetaEntity(id, data_version) VALUES (1, ?)
+ON CONFLICT(id) DO UPDATE SET data_version = excluded.data_version;

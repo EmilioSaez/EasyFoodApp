@@ -1,0 +1,6 @@
+-- Migración v8 -> v9: versión de los datos de la base genérica (ver Product.sq). Idempotente.
+-- Sin fila = versión 0: los alimentos GENERIC ya cargados (nombres en inglés) se reimportan al arrancar.
+CREATE TABLE IF NOT EXISTS GenericFoodsMetaEntity (
+    id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+    data_version INTEGER NOT NULL
+);

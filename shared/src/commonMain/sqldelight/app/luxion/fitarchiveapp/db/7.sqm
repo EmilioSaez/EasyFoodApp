@@ -1,0 +1,38 @@
+-- Migración v7 -> v8: comidas al día configurables. Idempotente.
+-- 1) Tabla de ajustes (ver Settings.sq).
+CREATE TABLE IF NOT EXISTS SettingsEntity (
+    id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+    meals_per_day INTEGER CHECK (meals_per_day IS NULL OR (meals_per_day >= 3 AND meals_per_day <= 6))
+);
+
+-- 2) DiaryEntryEntity admite los tipos de comida nuevos (MID_MORNING = Almuerzo, LATE_SNACK = Recena).
+-- SQLite no permite cambiar un CHECK: se reconstruye la tabla conservando todas las filas y sus ids.
+DROP TABLE IF EXISTS DiaryEntryEntity_new;
+CREATE TABLE DiaryEntryEntity_new (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL,
+    meal TEXT NOT NULL CHECK (meal IN ('BREAKFAST', 'MID_MORNING', 'LUNCH', 'SNACK', 'DINNER', 'LATE_SNACK')),
+    barcode TEXT,
+    name TEXT NOT NULL,
+    quantity REAL NOT NULL CHECK (quantity > 0),
+    unit TEXT NOT NULL CHECK (unit IN ('GRAMS', 'SERVINGS')),
+    serving_size_g REAL,
+    kcal_100g REAL,
+    protein_100g REAL,
+    carbs_100g REAL,
+    fat_100g REAL,
+    created_at INTEGER NOT NULL
+);
+
+INSERT INTO DiaryEntryEntity_new(
+    id, date, meal, barcode, name, quantity, unit, serving_size_g,
+    kcal_100g, protein_100g, carbs_100g, fat_100g, created_at
+)
+SELECT
+    id, date, meal, barcode, name, quantity, unit, serving_size_g,
+    kcal_100g, protein_100g, carbs_100g, fat_100g, created_at
+FROM DiaryEntryEntity;
+
+DROP TABLE DiaryEntryEntity;
+ALTER TABLE DiaryEntryEntity_new RENAME TO DiaryEntryEntity;
+CREATE INDEX IF NOT EXISTS diary_entry_date_idx ON DiaryEntryEntity(date, meal);
