@@ -14,16 +14,19 @@ class GenericFoodImporter(
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
     /**
-     * Importa el contenido de un `generic_foods.tsv`. Lanza [IllegalArgumentException] si el formato no es válido.
+     * Importa el contenido de un `generic_foods.tsv`; [translationsText] (un `generic_foods_es.tsv`) pone los nombres en
+     * español (sin él se conservan los originales). Al terminar guarda [GenericFoodFormat.DATA_VERSION]. Lanza [IllegalArgumentException] si el formato no es válido.
      * Todo (también el parseo) se hace en [dispatcher], nunca en el hilo de quien llama.
      * [onProgress] recibe `(hechos, total)` cada [PROGRESS_STEP] filas y al terminar; se llama desde el hilo de [dispatcher].
      */
     suspend fun import(
         text: String,
         nowMillis: Long,
+        translationsText: String? = null,
         onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
     ): GenericFoodImportResult = withContext(dispatcher) {
-        val parsed = GenericFoodFormat.parse(text)
+        val translations = translationsText?.let(GenericFoodFormat::parseTranslations).orEmpty()
+        val parsed = GenericFoodFormat.parse(text, translations)
         val total = parsed.foods.size
         onProgress(0, total)
         queries.transaction {
@@ -49,8 +52,14 @@ class GenericFoodImporter(
                 )
                 if ((index + 1) % PROGRESS_STEP == 0 || index + 1 == total) onProgress(index + 1, total)
             }
+            queries.upsertGenericDataVersion(GenericFoodFormat.DATA_VERSION.toLong())
         }
         GenericFoodImportResult(imported = total, skipped = parsed.skipped)
+    }
+
+    /** Versión de los datos genéricos ya importados (0 si nunca se importó con versión). */
+    suspend fun importedDataVersion(): Int = withContext(dispatcher) {
+        (queries.selectGenericDataVersion().executeAsOneOrNull() ?: 0L).toInt()
     }
 
     /** Cuántos alimentos genéricos hay ya cargados. */

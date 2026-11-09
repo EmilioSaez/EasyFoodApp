@@ -22,13 +22,15 @@ sealed interface GenericSeedState {
  * Carga la base genérica (docs/generic-foods.md) la primera vez que arranca la app, sin bloquear la UI:
  * lanzar [ensureSeeded] desde una corrutina de fondo y observar [state] para mostrar el progreso.
  *
- * Idempotente: si ya hay alimentos `GENERIC` no hace nada, y llamadas simultáneas se serializan. La
+ * Idempotente: si ya están cargados los datos de la versión actual ([GenericFoodFormat.DATA_VERSION]) no hace nada; si
+ * la base es de una versión anterior (p. ej. nombres en inglés) la reimporta actualizando las filas. Llamadas simultáneas se serializan. La
  * importación es una única transacción, así que una interrupción no deja una carga a medias.
  */
 class GenericFoodSeeder(
     private val importer: GenericFoodImporter,
     private val nowMillis: () -> Long,
     private val readResource: suspend () -> String = ::readEmbeddedGenericFoods,
+    private val readTranslations: suspend () -> String? = ::readEmbeddedGenericTranslations,
 ) {
     private val mutex = Mutex()
     private val _state = MutableStateFlow<GenericSeedState>(GenericSeedState.Idle)
@@ -38,12 +40,12 @@ class GenericFoodSeeder(
     suspend fun ensureSeeded() = mutex.withLock {
         if (_state.value == GenericSeedState.Done) return
         try {
-            if (importer.importedCount() > 0) {
+            if (importer.importedCount() > 0 && importer.importedDataVersion() >= GenericFoodFormat.DATA_VERSION) {
                 _state.value = GenericSeedState.Done
                 return
             }
             _state.value = GenericSeedState.Running()
-            importer.import(readResource(), nowMillis()) { done, total ->
+            importer.import(readResource(), nowMillis(), readTranslations()) { done, total ->
                 _state.value = GenericSeedState.Running(done, total)
             }
             _state.value = GenericSeedState.Done

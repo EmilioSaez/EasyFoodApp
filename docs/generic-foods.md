@@ -7,7 +7,7 @@ Alimentos sin código de barras (fruta, pan, carne…) embebidos en la app, con 
 - **Fuente**: [USDA FoodData Central](https://fdc.nal.usda.gov/), conjunto **SR Legacy** (publicación 04/2018, 7 793 alimentos con energía).
 - **Licencia**: dominio público, **CC0 1.0 Universal** (<https://creativecommons.org/publicdomain/zero/1.0/>; DOI 10.15482/USDA.ADC/1529216). Se puede redistribuir sin permiso; USDA agradece que se cite FoodData Central como fuente, y la app lo hace aquí.
 - **BEDCA descartada**: su web declara «Copyright © 2007 Consorcio BEDCA y AESAN, todos los derechos reservados» y no ofrece licencia de redistribución. Solo podría incluirse con permiso expreso de sus titulares.
-- **Limitación**: los nombres están en inglés (así los publica USDA). La búsqueda FTS funciona sobre ellos; una traducción al español queda como mejora futura.
+- **Idioma**: USDA publica los nombres en inglés; la app los muestra y busca en **español de España** (ver «Traducción al español»). El nombre original se conserva solo en `generic_foods.tsv`.
 
 ## Recurso embebido
 
@@ -17,7 +17,23 @@ Alimentos sin código de barras (fruta, pan, carne…) embebidos en la app, con 
 - Primera línea sin `#`: cabecera `id name kcal protein_g carbs_g fat_g saturated_fat_g sugars_g fiber_g salt_g`.
 - Una fila por alimento, valores **por 100 g**; celda vacía = dato no disponible. `salt_g` = sodio × 2,5.
 
-Se regenera con `python tools/generate_generic_foods.py <carpeta del CSV de SR Legacy> <salida.tsv>`.
+Se regenera con `python tools/generate_generic_foods.py <carpeta del CSV de SR Legacy> <salida.tsv>` (el script no toca la traducción).
+
+## Traducción al español
+
+`shared/src/commonMain/composeResources/files/generic_foods_es.tsv` (~550 KB) trae el nombre en español de cada alimento, emparejado por `id` con `generic_foods.tsv`:
+
+- Primera línea `#easyfood-generic-foods-es v1`, líneas `#...` de comentario y cabecera `id` + tabulador + `name_es`; después una fila `id<TAB>nombre` por alimento.
+- Hecha con IA (traducción directa de cada nombre, no con diccionario), en español de España y con formato natural: `Ternera, falda, magro y grasa, recortado a 0" de grasa, choice, cruda`. Las marcas y nombres comerciales (`McDONALD'S`, `KRAFT`, `Pillsbury`…) y los términos sin equivalente claro (`choice`/`select`/`prime`, `tri-tip`…) se dejan tal cual.
+- Cubre las 7 793 filas, ni una más ni una menos (lo comprueba `GenericFoodImporterTest`). Si un id faltase, ese alimento conservaría el nombre inglés.
+
+`GenericFoodImporter.import(text, nowMillis, translationsText)` guarda el nombre en español como `ProductEntity.name`; el original en inglés no se guarda en la base. La búsqueda es la FTS de siempre (`unicode61 remove_diacritics 2`), así que «platano» encuentra «Plátanos, crudos» y los términos se buscan en español.
+
+### Versión de los datos y reimportación
+
+`GenericFoodFormat.DATA_VERSION` (1 = inglés, 2 = español) se guarda en `GenericFoodsMetaEntity` (migración `8.sqm`, esquema v8 a v9) al terminar cada importación. `GenericFoodSeeder` ya no se limita a «hay alimentos GENERIC»: si la versión guardada es menor que la del recurso, reimporta y actualiza las filas existentes (`upsert` conserva el rowid y los triggers reindexan FTS). Las instalaciones previas, sin fila de versión (= 0), pasan al español en el siguiente arranque; una base nueva se carga ya traducida.
+
+**Al cambiar los recursos** (nombres o valores) hay que subir `DATA_VERSION`. Las entradas del Diario ya guardadas conservan el nombre con el que se apuntaron (se copia al registrar).
 
 ## Importación
 

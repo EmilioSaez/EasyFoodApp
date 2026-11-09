@@ -79,4 +79,51 @@ class GenericFoodImporterTest {
         assertTrue(search.search("apples raw").isNotEmpty())
         assertTrue(text.length < 2_000_000)
     }
+
+    private val translations = listOf(
+        GenericFoodFormat.TRANSLATION_MAGIC,
+        GenericFoodFormat.TRANSLATION_COLUMNS.joinToString("\t"),
+        "1\tManzanas, crudas, con piel",
+        "2\tPan, de trigo",
+    ).joinToString("\n")
+
+    @Test
+    fun importsSpanishNamesAndSearchesWithoutAccents() = runTest {
+        importer.import(sample, 1, translations)
+        assertEquals("Manzanas, crudas, con piel", db.productQueries.selectByBarcode("generic:1").executeAsOne().name)
+        assertEquals(listOf("Manzanas, crudas, con piel"), search.search("manzana").map { it.name })
+        assertEquals(listOf("Pan, de trigo"), search.search("TRIGO pán").map { it.name })
+        assertEquals(emptyList(), search.search("apples").map { it.name })
+    }
+
+    @Test
+    fun reimportWithTranslationsUpdatesExistingEnglishRowsAndIndex() = runTest {
+        importer.import(sample, 1)
+        assertEquals(GenericFoodFormat.DATA_VERSION, importer.importedDataVersion())
+        assertEquals(listOf("Bread, wheat"), search.search("bread").map { it.name })
+        importer.import(sample, 2, translations)
+        assertEquals(2, importer.importedCount())
+        assertEquals(emptyList(), search.search("bread").map { it.name })
+        assertEquals(listOf("Pan, de trigo"), search.search("pan").map { it.name })
+    }
+
+    @Test
+    fun dataVersionIsZeroUntilFirstImport() = runTest {
+        assertEquals(0, importer.importedDataVersion())
+        importer.import(sample, 1)
+        assertEquals(GenericFoodFormat.DATA_VERSION, importer.importedDataVersion())
+    }
+
+    @Test
+    fun embeddedTranslationCoversEveryFoodAndFindsSpanishNames() = runTest {
+        val foods = GenericFoodFormat.parse(readEmbeddedGenericFoods()).foods
+        val names = GenericFoodFormat.parseTranslations(readEmbeddedGenericTranslations())
+        assertEquals(foods.map { it.id }.toSet(), names.keys, "toda fila debe estar traducida y no sobrar ids")
+        val untranslated = foods.filter { names[it.id] == it.name && it.name.any(Char::isLowerCase) && it.name.contains(", ") }
+        assertTrue(untranslated.size < 100, "nombres sin traducir (marcas y préstamos aparte): ${untranslated.take(5)}")
+        importer.import(readEmbeddedGenericFoods(), 0, readEmbeddedGenericTranslations())
+        assertTrue(search.search("manzana cruda").isNotEmpty())
+        assertTrue(search.search("platano").isNotEmpty())
+        assertTrue(search.search("pechuga pollo").isNotEmpty())
+    }
 }

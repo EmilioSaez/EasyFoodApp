@@ -51,4 +51,32 @@ class GenericFoodFormatTest {
         assertFailsWith<IllegalArgumentException> { GenericFoodFormat.parse("hola") }
         assertFailsWith<IllegalArgumentException> { GenericFoodFormat.parse("${GenericFoodFormat.MAGIC}\nid\tname") }
     }
+
+    private fun translations(vararg rows: String) =
+        (listOf(GenericFoodFormat.TRANSLATION_MAGIC, "#nota", GenericFoodFormat.TRANSLATION_COLUMNS.joinToString("\t")) + rows)
+            .joinToString("\n")
+
+    @Test
+    fun parsesTranslationsIgnoringMalformedRows() {
+        val names = GenericFoodFormat.parseTranslations(
+            translations("1\tManzanas, crudas, con piel", "2\tsolo dos columnas\totra\tmás", "3", "\tsin id", "4\t"),
+        )
+        assertEquals(mapOf("1" to "Manzanas, crudas, con piel"), names)
+    }
+
+    @Test
+    fun rejectsInvalidTranslationFile() {
+        assertFailsWith<IllegalArgumentException> { GenericFoodFormat.parseTranslations("id\tname_es") }
+        assertFailsWith<IllegalArgumentException> {
+            GenericFoodFormat.parseTranslations(GenericFoodFormat.TRANSLATION_MAGIC + "\nid\tnombre")
+        }
+    }
+
+    @Test
+    fun translationReplacesOnlyTheName() {
+        val rows = doc("1\tApples, raw\t52\t0.26\t13.8\t0.17\t\t10.4\t2.4\t0", "2\tBread\t266\t10\t49\t3\t\t5\t2\t1")
+        val foods = GenericFoodFormat.parse(rows, mapOf("1" to "Manzanas, crudas")).foods
+        assertEquals(listOf("Manzanas, crudas", "Bread"), foods.map { it.name })
+        assertEquals(52.0, foods[0].nutrients.kcal)
+    }
 }

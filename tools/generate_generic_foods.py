@@ -2,6 +2,10 @@
 """Genera shared/src/commonMain/composeResources/files/generic_foods.tsv a partir del CSV de
 USDA FoodData Central "SR Legacy" (dominio público, CC0 1.0). Ver docs/generic-foods.md.
 
+Genera solo la base original (nombres en inglés). La traducción al español vive aparte, en
+shared/src/commonMain/composeResources/files/generic_foods_es.tsv (id<TAB>name_es), y no se regenera aquí: si
+cambia el conjunto de ids hay que traducir los nuevos y subir GenericFoodFormat.DATA_VERSION.
+
 Uso: python tools/generate_generic_foods.py <carpeta_con_food.csv_y_food_nutrient.csv> <salida.tsv>
 """
 import csv
