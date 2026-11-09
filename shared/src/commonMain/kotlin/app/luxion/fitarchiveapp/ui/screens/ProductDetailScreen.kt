@@ -39,14 +39,12 @@ import app.luxion.fitarchiveapp.data.CustomFoodStore
 import app.luxion.fitarchiveapp.data.ProductRepository
 import app.luxion.fitarchiveapp.data.generic.GenericFoodFormat
 import app.luxion.fitarchiveapp.data.ProductResult
-import app.luxion.fitarchiveapp.domain.mealForHour
 import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.model.NewDiaryEntry
 import app.luxion.fitarchiveapp.model.Nutrients
 import app.luxion.fitarchiveapp.model.Product
 import app.luxion.fitarchiveapp.model.QuantityUnit
 import app.luxion.fitarchiveapp.model.dataWarnings
-import app.luxion.fitarchiveapp.time.currentHour
 import app.luxion.fitarchiveapp.ui.components.DataSource
 import app.luxion.fitarchiveapp.ui.components.DoubtfulDataBanner
 import app.luxion.fitarchiveapp.ui.components.MacroDot
@@ -107,6 +105,7 @@ fun ProductDetailScreen(
     diaryStore: DiaryStore,
     customFoods: CustomFoodStore,
     today: () -> String,
+    mealChoices: MealChoices,
 ) {
     var state by remember(route) { mutableStateOf<LoadState>(LoadState.Loading) }
     var reloadKey by remember(route) { mutableStateOf(0) }
@@ -114,7 +113,7 @@ fun ProductDetailScreen(
     LaunchedEffect(route, reloadKey) {
         state = LoadState.Loading
         state = try {
-            load(route, repository, diaryStore, customFoods)
+            load(route, repository, diaryStore, customFoods, mealChoices.defaultMeal())
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             LoadState.Failed("No se pudo cargar el producto.")
@@ -174,7 +173,7 @@ fun ProductDetailScreen(
                     secondaryAction = EmptyStateAction("Volver") { navigator.pop() },
                     modifier = Modifier.fillMaxSize(),
                 )
-                is LoadState.Ready -> DetailContent(navigator, route, s, diaryStore, today)
+                is LoadState.Ready -> DetailContent(navigator, route, s, diaryStore, today, mealChoices)
             }
         }
     }
@@ -185,6 +184,7 @@ private suspend fun load(
     repository: ProductRepository,
     diaryStore: DiaryStore,
     customFoods: CustomFoodStore,
+    defaultMeal: MealType,
 ): LoadState {
     if (route.entryId != null) {
         val entry = diaryStore.find(route.entryId) ?: return LoadState.NotFound
@@ -202,8 +202,7 @@ private suspend fun load(
         return LoadState.Ready(detail, entry.meal, entry.quantity.unit, entry.quantity.amount)
     }
     val barcode = route.barcode ?: return LoadState.NotFound
-    // Sin comida en la ruta (llegada desde la pestaña Alimentos): la que toca por la hora; se cambia en la ficha.
-    val meal = route.meal ?: mealForHour(currentHour())
+    val meal = route.meal ?: defaultMeal
     if (barcode.startsWith(CUSTOM_FOOD_KEY_PREFIX)) return loadCustomFood(barcode, meal, customFoods)
     return when (val result = repository.getByBarcode(barcode)) {
         ProductResult.NotFound -> LoadState.NotFound
@@ -267,6 +266,7 @@ private fun DetailContent(
     ready: LoadState.Ready,
     diaryStore: DiaryStore,
     today: () -> String,
+    mealChoices: MealChoices,
 ) {
     val detail = ready.detail
     val editing = route.entryId != null
@@ -326,7 +326,7 @@ private fun DetailContent(
                 ) {
                     Column(Modifier.padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                            MealType.entries.forEach { m ->
+                            mealChoices.options(ready.initialMeal).forEach { m ->
                                 FilterChip(selected = meal == m, onClick = { meal = m }, label = { Text(m.label) })
                             }
                         }

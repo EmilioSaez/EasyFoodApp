@@ -26,6 +26,7 @@ import app.luxion.fitarchiveapp.data.SqlDelightGoalStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductSearchStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductStore
 import app.luxion.fitarchiveapp.data.SqlDelightRecipeStore
+import app.luxion.fitarchiveapp.data.SqlDelightSettingsStore
 import app.luxion.fitarchiveapp.data.SqlDelightWeightStore
 import app.luxion.fitarchiveapp.db.EasyFoodDatabase
 import app.luxion.fitarchiveapp.model.NewWeightEntry
@@ -54,11 +55,23 @@ class AppFlowsTest {
             if (barcode == nutella.barcode) ProductLookup.Found(nutella) else ProductLookup.NotFound
     }
 
-    /** [recentWeight]: guarda un peso de hoy para que el aviso semanal no ocupe sitio en el Diario. */
-    private fun runApp(recentWeight: Boolean = false, block: ComposeUiTest.(EasyFoodDatabase) -> Unit) = runComposeUiTest {
+    /**
+     * [recentWeight]: guarda un peso de hoy para que el aviso semanal no ocupe sitio en el Diario.
+     * [mealsPerDay]: comidas al día ya elegidas (`null` = primera vez, se enseña la pantalla de configuración).
+     * [nowMinutes]: hora local simulada (por defecto 17:30, la merienda). [seed] prepara la base antes de abrir la app.
+     */
+    private fun runApp(
+        recentWeight: Boolean = false,
+        mealsPerDay: Int? = 4,
+        nowMinutes: Int = 17 * 60 + 30,
+        seed: (EasyFoodDatabase) -> Unit = {},
+        block: ComposeUiTest.(EasyFoodDatabase) -> Unit,
+    ) = runComposeUiTest {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         EasyFoodDatabase.Schema.create(driver)
         val db = EasyFoodDatabase(driver)
+        mealsPerDay?.let { kotlinx.coroutines.runBlocking { SqlDelightSettingsStore(db.settingsQueries).setMealsPerDay(it) } }
+        seed(db)
         if (recentWeight) {
             kotlinx.coroutines.runBlocking {
                 SqlDelightWeightStore(db.weightEntryQueries).save(NewWeightEntry("2026-11-04", 80.0), 1L)
@@ -73,8 +86,10 @@ class AppFlowsTest {
                 customFoodStore = SqlDelightCustomFoodStore(db.customFoodQueries),
                 weightStore = SqlDelightWeightStore(db.weightEntryQueries),
                 recipeStore = SqlDelightRecipeStore(db.recipeQueries),
-                importTarget = SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries, db.recipeQueries),
+                settingsStore = SqlDelightSettingsStore(db.settingsQueries),
+                importTarget = SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries, db.recipeQueries, db.settingsQueries),
                 today = { "2026-11-04" },
+                nowMinutes = { nowMinutes },
             )
         }
         try { block(db) } finally { driver.close() }
@@ -91,9 +106,9 @@ class AppFlowsTest {
         onNodeWithText("Escáner").performClick()
         onNodeWithText("Código EAN").performTextInput(nutella.barcode)
         onNodeWithText("Buscar producto").performClick()
-        waitForText("Añadir a Snacks")
-        onNodeWithText("Añadir a Snacks").performClick()
-        waitGone("Añadir a Snacks")
+        waitForText("Añadir a Merienda")
+        onNodeWithText("Añadir a Merienda").performClick()
+        waitGone("Añadir a Merienda")
     }
 
     @Test
@@ -175,12 +190,12 @@ class AppFlowsTest {
         // Detalle: una ración son 250 kcal; se añade una (la mitad) al diario, una entrada por ingrediente.
         onNodeWithText("Tostada").performClick()
         waitForText("Por ración · 1 de 2")
-        onNodeWithText("Añadir a Comida").performClick()
+        onNodeWithText("Añadir a Merienda").performClick()
         waitForText("Pan casero")
         val entries = kotlinx.coroutines.runBlocking { SqlDelightDiaryStore(db.diaryEntryQueries).entriesForDate("2026-11-04") }
         kotlin.test.assertEquals(listOf("Pan casero"), entries.map { it.name })
         kotlin.test.assertEquals(100.0, entries.single().grams)
-        kotlin.test.assertEquals(MealType.LUNCH, entries.single().meal)
+        kotlin.test.assertEquals(MealType.SNACK, entries.single().meal)
         kotlin.test.assertNull(entries.single().barcode)
     }
 
@@ -387,6 +402,57 @@ class AppFlowsTest {
         assertGoalOnThreeDays("2.759")
     }
 
+    private fun fillDiary(db: EasyFoodDatabase, goalKcal: Int?) = kotlinx.coroutines.runBlocking {
+        val diary = SqlDelightDiaryStore(db.diaryEntryQueries)
+        for (i in 0 until 14) {
+            diary.add(
+                NewDiaryEntry(
+                    "2026-11-04", MealType.entries[i % 4], null, "Alimento $i", Quantity(100.0, QuantityUnit.GRAMS), null,
+                    Nutrients(100.0, 1.0, 10.0, 1.0),
+                ),
+                createdAtMillis = i.toLong(),
+            )
+        }
+        if (goalKcal != null) SqlDelightGoalStore(db.dailyGoalQueries).save(DailyGoals(kcal = goalKcal))
+    }
+
+    /** Los datos se insertan tras el primer render: se vuelve al Diario para que se recarguen. */
+    private fun ComposeUiTest.reloadDiary() {
+        onAllNodesWithText("Objetivos").onLast().performClick()
+        waitForText("Tus datos")
+        onNodeWithText("Diario").performClick()
+    }
+
+    @Test
+    fun diaryHeaderStaysVisibleWhileScrollingTheList() = runApp(recentWeight = true) { db ->
+        fillDiary(db, goalKcal = 1000)
+        reloadDiary()
+        waitForText("Alimento 0")
+        onNodeWithText("1.400 / 1.000 kcal").assertIsDisplayed()
+        onNodeWithText("400 kcal de más").assertIsDisplayed()
+        onNode(hasScrollAction()).performScrollToNode(hasText("Alimento 13"))
+        onNodeWithText("1.400 / 1.000 kcal").assertIsDisplayed()
+        onNodeWithText("400 kcal de más").assertIsDisplayed()
+    }
+
+    @Test
+    fun diaryHeaderWithoutGoalOffersToSetIt() = runApp(recentWeight = true) { db ->
+        fillDiary(db, goalKcal = null)
+        reloadDiary()
+        waitForText("Alimento 0")
+        onNode(hasScrollAction()).performScrollToNode(hasText("Alimento 13"))
+        onNodeWithText("Sin objetivo diario").assertIsDisplayed()
+        onNodeWithText("Fijar objetivo").performClick()
+        waitForText("Tus datos")
+    }
+
+    @Test
+    fun emptyDiaryWithoutGoalShowsASingleSetGoalAction() = runApp(recentWeight = true) { _ ->
+        waitForText("Nada apuntado hoy")
+        onNodeWithText("Sin objetivo diario").assertIsDisplayed()
+        onNodeWithText("Fijar objetivo").assertIsDisplayed() // un solo nodo: sin duplicar en el estado vacío
+    }
+
     private fun ComposeUiTest.createPanCasero() {
         onNodeWithText("+ Añadir alimento").performClick()
         onNodeWithText("Alimento propio").performClick()
@@ -407,9 +473,9 @@ class AppFlowsTest {
         waitForText("Nada apuntado hoy")
         createPanCasero()
         onNodeWithText("Pan casero").performClick()
-        waitForText("Añadir a Snacks")
-        onNodeWithText("Añadir a Snacks").performClick()
-        waitGone("Añadir a Snacks")
+        waitForText("Añadir a Merienda")
+        onNodeWithText("Añadir a Merienda").performClick()
+        waitGone("Añadir a Merienda")
         waitForText("Pan casero")
         waitGone("Nada apuntado hoy")
     }
@@ -419,7 +485,7 @@ class AppFlowsTest {
         waitForText("Nada apuntado hoy")
         createPanCasero()
         onNodeWithText("Pan casero").performClick()
-        waitForText("Añadir a Snacks")
+        waitForText("Añadir a Merienda")
 
         onNodeWithContentDescription("Editar alimento propio").performClick()
         waitForText("Editar alimento")
@@ -449,7 +515,7 @@ class AppFlowsTest {
         onNodeWithText("Escáner").performClick()
         onNodeWithText("Código EAN").performTextInput(nutella.barcode)
         onNodeWithText("Buscar producto").performClick()
-        waitForText("Añadir a Snacks")
+        waitForText("Añadir a Merienda")
 
         onNodeWithContentDescription("Copiar como alimento propio").performClick()
         waitForText("Valores por 100 g")
@@ -458,7 +524,7 @@ class AppFlowsTest {
         onNodeWithText("15 g").assertIsDisplayed()
 
         onNodeWithText("Guardar").performClick()
-        waitForText("Añadir a Snacks")
+        waitForText("Añadir a Merienda")
         val saved = db.customFoodQueries.selectAll().executeAsList()
         kotlin.test.assertEquals(1, saved.size)
         kotlin.test.assertEquals("Nutella", saved.single().name)
@@ -482,6 +548,133 @@ class AppFlowsTest {
         // La clave interna no se enseña como si fuera un código de barras.
         kotlin.test.assertTrue(onAllNodes(hasText("generic:1")).fetchSemanticsNodes().isEmpty())
         kotlin.test.assertTrue(onAllNodes(hasContentDescription("Copiar como alimento propio")).fetchSemanticsNodes().isEmpty())
+    }
+
+    // --- Comidas al día (docs/design.md §2.9) ---
+
+    private fun meals(db: EasyFoodDatabase) =
+        kotlinx.coroutines.runBlocking { SqlDelightSettingsStore(db.settingsQueries).mealsPerDay() }
+
+    private fun galletas(meal: MealType) = NewDiaryEntry(
+        "2026-11-04", meal, null, "Galletas", Quantity(30.0, QuantityUnit.GRAMS), null, Nutrients(480.0, 6.0, 70.0, 18.0),
+    )
+
+    private fun seedGalletas(meal: MealType): (EasyFoodDatabase) -> Unit = { db ->
+        kotlinx.coroutines.runBlocking { SqlDelightDiaryStore(db.diaryEntryQueries).add(galletas(meal), 1L) }
+    }
+
+    private fun ComposeUiTest.addNutellaFromEan() {
+        onNodeWithText("Escáner").performClick()
+        onNodeWithText("Código EAN").performTextInput(nutella.barcode)
+        onNodeWithText("Buscar producto").performClick()
+    }
+
+    @Test
+    fun firstTimeAsksForMealsWithFourSelectedAndSavesTheDefault() = runApp(mealsPerDay = null) { db ->
+        waitForText("¿Cuántas comidas haces al día?")
+        // La opción por defecto (4) viene marcada y cada opción enseña su lista de comidas.
+        onNodeWithText("Desayuno · Comida · Merienda · Cena").assertIsDisplayed()
+        onNodeWithText("Desayuno · Almuerzo · Comida · Merienda · Cena · Recena").assertIsDisplayed()
+        // Hasta que no se elige, no hay Diario.
+        kotlin.test.assertTrue(onAllNodes(hasText("Hoy")).fetchSemanticsNodes().isEmpty())
+        kotlin.test.assertNull(meals(db))
+        onNodeWithText("Continuar").performClick()
+        waitForText("Nada apuntado hoy")
+        waitGone("¿Cuántas comidas haces al día?")
+        kotlin.test.assertEquals(4, meals(db))
+    }
+
+    @Test
+    fun firstTimeChoiceIsSavedAndDrivesTheDiarySections() = runApp(mealsPerDay = null, recentWeight = true) { db ->
+        waitForText("¿Cuántas comidas haces al día?")
+        onNodeWithText("6 comidas").performClick()
+        onNodeWithText("Continuar").performClick()
+        waitForText("Nada apuntado hoy")
+        kotlin.test.assertEquals(6, meals(db))
+
+        addNutellaByManualEan() // a las 17:30 con 6 comidas toca la merienda
+        waitForText("Nutella")
+        // La lista es perezosa: cada sección existe solo cuando se desplaza hasta ella.
+        listOf("Desayuno", "Almuerzo", "Comida", "Merienda", "Cena", "Recena").forEach {
+            onNode(hasScrollAction()).performScrollToNode(hasText(it))
+            onNodeWithText(it).assertIsDisplayed()
+        }
+    }
+
+    @Test
+    fun mealsSetupIsNotShownAgainOnceChosen() = runApp(mealsPerDay = 3) { _ ->
+        waitForText("Nada apuntado hoy")
+        kotlin.test.assertTrue(onAllNodes(hasText("¿Cuántas comidas haces al día?")).fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun diaryShowsOnlyThePresetSectionsAndKeepsOnesWithEntries() = runApp(
+        mealsPerDay = 3,
+        recentWeight = true,
+        seed = seedGalletas(MealType.SNACK),
+    ) { _ ->
+        waitForText("Galletas")
+        listOf("Desayuno", "Comida", "Cena").forEach { onNodeWithText(it).assertIsDisplayed() }
+        // La merienda ya no está en el preset pero tiene datos: se sigue mostrando. Las demás, no.
+        onNodeWithText("Merienda").assertIsDisplayed()
+        kotlin.test.assertTrue(onAllNodes(hasText("Almuerzo")).fetchSemanticsNodes().isEmpty())
+        kotlin.test.assertTrue(onAllNodes(hasText("Recena")).fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun foodDetailOffersOnlyActiveMealsWithTheNearestOneSelected() = runApp(mealsPerDay = 3, nowMinutes = 12 * 60 + 30) { db ->
+        waitForText("Nada apuntado hoy")
+        onNodeWithText("+ Añadir alimento").performClick()
+        addNutellaFromEan()
+        waitForText("Añadir a Comida")
+        listOf("Desayuno", "Comida", "Cena").forEach { onNodeWithText(it).assertIsDisplayed() }
+        kotlin.test.assertTrue(onAllNodes(hasText("Merienda")).fetchSemanticsNodes().isEmpty())
+        kotlin.test.assertTrue(onAllNodes(hasText("Recena")).fetchSemanticsNodes().isEmpty())
+
+        onNodeWithText("Cena").performClick()
+        waitForText("Añadir a Cena")
+        onNodeWithText("Añadir a Cena").performClick()
+        waitForText("Nutella")
+        val entries = kotlinx.coroutines.runBlocking { SqlDelightDiaryStore(db.diaryEntryQueries).entriesForDate("2026-11-04") }
+        kotlin.test.assertEquals(listOf(MealType.DINNER), entries.map { it.meal })
+    }
+
+    @Test
+    fun plusOfASectionPreselectsThatMeal() = runApp(
+        mealsPerDay = 5,
+        recentWeight = true,
+        seed = seedGalletas(MealType.LUNCH),
+    ) { db ->
+        waitForText("Galletas")
+        onNodeWithContentDescription("Añadir a Almuerzo").performClick()
+        addNutellaFromEan()
+        waitForText("Añadir a Almuerzo") // la hora (17:30) sugeriría la merienda, pero viene preseleccionada
+        onNodeWithText("Añadir a Almuerzo").performClick()
+        waitForText("Nutella")
+        val nutella = kotlinx.coroutines.runBlocking { SqlDelightDiaryStore(db.diaryEntryQueries).entriesForDate("2026-11-04") }
+            .first { it.name == "Nutella" }
+        kotlin.test.assertEquals(MealType.MID_MORNING, nutella.meal)
+    }
+
+    @Test
+    fun mealsPerDayCanBeChangedFromGoalsAndTheDiaryFollows() = runApp(
+        mealsPerDay = 4,
+        recentWeight = true,
+        seed = seedGalletas(MealType.LUNCH),
+    ) { db ->
+        waitForText("Galletas")
+        kotlin.test.assertTrue(onAllNodes(hasText("Recena")).fetchSemanticsNodes().isEmpty())
+        onNodeWithText("Objetivos").performClick()
+        waitForText("Comidas al día")
+        onNode(hasScrollAction()).performScrollToNode(hasText("6 comidas"))
+        onNodeWithText("6 comidas").performClick()
+        waitUntil(timeoutMillis = 20_000) { meals(db) == 6 }
+        onNodeWithText("Diario").performClick()
+        waitForText("Galletas")
+        onNode(hasScrollAction()).performScrollToNode(hasText("Recena"))
+        onNodeWithText("Recena").assertIsDisplayed()
+        onNode(hasScrollAction()).performScrollToNode(hasText("Almuerzo"))
+        onNodeWithText("Almuerzo").assertIsDisplayed()
     }
 
     @Test

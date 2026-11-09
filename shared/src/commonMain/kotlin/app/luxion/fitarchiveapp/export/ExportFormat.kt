@@ -28,6 +28,8 @@ data class ExportFile(
     val recipes: List<ExportedRecipe> = emptyList(),
     /** Peso objetivo. Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como `null`. */
     val weightGoal: ExportedWeightGoal? = null,
+    /** Comidas al día (3 a 6). Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como `null`. */
+    val mealsPerDay: Int? = null,
 )
 
 @Serializable
