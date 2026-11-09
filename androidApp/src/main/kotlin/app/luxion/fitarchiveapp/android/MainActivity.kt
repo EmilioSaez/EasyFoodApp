@@ -39,11 +39,12 @@ class MainActivity : ComponentActivity() {
     private val weightStore by lazy { SqlDelightWeightStore(database.weightEntryQueries) }
     private val recipeStore by lazy { SqlDelightRecipeStore(database.recipeQueries) }
     private val settingsStore by lazy { SqlDelightSettingsStore(database.settingsQueries) }
+    private val favoriteStore by lazy { SqlDelightFavoriteStore(database.favoriteFoodQueries) }
     private val waterStore by lazy { SqlDelightWaterStore(database.waterQueries) }
     private val searchStore by lazy { SqlDelightProductSearchStore(database.productSearchQueries) }
     private val customFoodStore by lazy { SqlDelightCustomFoodStore(database.customFoodQueries) }
     private val importTarget by lazy {
-        SqlDelightImportTarget(database.productQueries, database.diaryEntryQueries, database.customFoodQueries, database.weightEntryQueries, database.recipeQueries, database.settingsQueries, waterQueries = database.waterQueries)
+        SqlDelightImportTarget(database.productQueries, database.diaryEntryQueries, database.customFoodQueries, database.weightEntryQueries, database.recipeQueries, database.settingsQueries, database.favoriteFoodQueries, waterQueries = database.waterQueries)
     }
     private val genericSeeder by lazy {
         GenericFoodSeeder(GenericFoodImporter(database.productQueries), nowMillis = System::currentTimeMillis)
@@ -63,6 +64,7 @@ class MainActivity : ComponentActivity() {
                     recipeStore = recipeStore,
                     settingsStore = settingsStore,
                     waterStore = waterStore,
+                    favoriteStore = favoriteStore,
                     importTarget = importTarget,
                     today = { LocalDate.now().toString() },
                     nowMinutes = { LocalTime.now().let { it.hour * 60 + it.minute } },

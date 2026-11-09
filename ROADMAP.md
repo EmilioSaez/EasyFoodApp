@@ -113,9 +113,8 @@ Especificación en `docs/design.md` §1.7, §2.6 y §2.12. Cada punto es un PR; 
 
 ## Fase 12: Atajos y base en español
 
-- [x] Base genérica en español: los 7 793 nombres de USDA traducidos con IA (español de España, marcas tal cual) en `generic_foods_es.tsv`, embebidos y offline; el importador los guarda como nombre, la búsqueda FTS funciona en español (sin tildes) y las instalaciones existentes se reimportan al arrancar (migración v8 a v9, versión de datos). Ver docs/generic-foods.md
-- [x] Registro de agua diario: tarjeta en el Diario con «+ Vaso», «+ 500 ml», «+ 1 L» y «Deshacer», progreso frente a un objetivo diario (2 L por defecto, editable en Objetivos); migración v8 a v9, incluido en exportar e importar (§2.13)
 Cada punto es un PR.
 
-- [x] Favoritos de alimentos: estrella en la ficha y en los resultados de búsqueda, acceso rápido «Favoritos» junto a «Recientes» en la pestaña Alimentos (`docs/design.md` §2.2); migración v8 → v9, incluido en exportar e importar (colección opcional `favorites`, sin subir la versión del formato)
 - [x] Copiar una comida o un día entero a otra fecha o comida desde el Diario («Copiar» en cada tarjeta y «Copiar día»), sin tabla nueva (`docs/design.md` §2.13)
+- [x] Favoritos de alimentos: estrella en la ficha y en los resultados de búsqueda, acceso rápido «Favoritos» junto a «Recientes» en la pestaña Alimentos (`docs/design.md` §2.2); migración v9 → v10, incluido en exportar e importar (colección opcional `favorites`, sin subir la versión del formato)
+- [x] Registro de agua diario: tarjeta en el Diario con «+ Vaso», «+ 500 ml», «+ 1 L» y «Deshacer», progreso frente a un objetivo diario (2 L por defecto, editable en Objetivos); migración v8 a v9, incluido en exportar e importar (§2.13)

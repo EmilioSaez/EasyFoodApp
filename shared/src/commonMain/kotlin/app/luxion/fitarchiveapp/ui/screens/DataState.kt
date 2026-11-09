@@ -80,9 +80,9 @@ fun ImportCounts.describe(): String = listOfNotNull(
 
 /** Resumen de una sola frase del resultado de una importación ya aplicada. */
 fun ImportReport.summary(): String {
-    val added = products.added + customFoods.added + diaryEntries.added + weights.added + water.added + recipes.added
-    val updated = products.updated + customFoods.updated + diaryEntries.updated + weights.updated + water.updated + recipes.updated
-    val skipped = products.unchanged + customFoods.unchanged + diaryEntries.unchanged + weights.unchanged + water.unchanged + recipes.unchanged
+    val added = products.added + customFoods.added + diaryEntries.added + weights.added + water.added + recipes.added + favorites.added
+    val updated = products.updated + customFoods.updated + diaryEntries.updated + weights.updated + water.updated + recipes.updated + favorites.updated
+    val skipped = products.unchanged + customFoods.unchanged + diaryEntries.unchanged + weights.unchanged + water.unchanged + recipes.unchanged + favorites.unchanged
     return when {
         added + updated == 0 -> "No había nada nuevo que importar."
         else -> buildString {

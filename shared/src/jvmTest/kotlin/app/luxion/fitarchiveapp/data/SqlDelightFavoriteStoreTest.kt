@@ -86,15 +86,15 @@ class SqlDelightFavoriteStoreTest {
     }
 
     @Test
-    fun migrationFromV8CreatesTheTableIdempotentlyAndKeepsData() = runTest {
-        // Estado v8: sin tabla de favoritos.
+    fun migrationFromV9CreatesTheTableIdempotentlyAndKeepsData() = runTest {
+        // Estado v9: sin tabla de favoritos.
         driver.execute(null, "DROP TABLE FavoriteFoodEntity", 0)
         SqlDelightProductStore(db.productQueries).save(product("2", "Leche"), 1L)
 
-        EasyFoodDatabase.Schema.migrate(driver, 8, EasyFoodDatabase.Schema.version)
-        EasyFoodDatabase.Schema.migrate(driver, 8, EasyFoodDatabase.Schema.version)
+        EasyFoodDatabase.Schema.migrate(driver, 9, EasyFoodDatabase.Schema.version)
+        EasyFoodDatabase.Schema.migrate(driver, 9, EasyFoodDatabase.Schema.version)
 
-        assertTrue(EasyFoodDatabase.Schema.version >= 9)
+        assertTrue(EasyFoodDatabase.Schema.version >= 10)
         val migrated = SqlDelightFavoriteStore(EasyFoodDatabase(driver).favoriteFoodQueries)
         assertEquals(emptyList(), migrated.keys())
         migrated.setFavorite("2", true, 3L)
