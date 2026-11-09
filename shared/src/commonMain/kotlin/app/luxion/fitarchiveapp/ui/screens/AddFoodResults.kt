@@ -2,6 +2,7 @@ package app.luxion.fitarchiveapp.ui.screens
 
 import app.luxion.fitarchiveapp.data.generic.GenericFoodFormat
 import app.luxion.fitarchiveapp.model.CustomFood
+import app.luxion.fitarchiveapp.model.Nutrients
 import app.luxion.fitarchiveapp.model.Product
 import app.luxion.fitarchiveapp.ui.components.DataSource
 import app.luxion.fitarchiveapp.ui.components.formatGrams
@@ -84,3 +85,19 @@ private fun String.normalizedTerms(): List<String> =
 /** Propios primero (son los más relevantes para el usuario), luego el resto en el orden del FTS. */
 fun mergeResults(custom: List<CustomFood>, products: List<Product>): List<FoodResult> =
     custom.map { it.toFoodResult() } + products.map { it.toFoodResult() }
+
+/**
+ * Resultado de búsqueda con lo necesario para usarlo sin volver a consultarlo (p. ej. como ingrediente):
+ * [barcode] es la clave del producto (EAN o `generic:<id>`) y `null` en un alimento propio.
+ */
+data class FoodPick(
+    val result: FoodResult,
+    val barcode: String?,
+    val nutrients: Nutrients,
+    val servingSizeG: Double?,
+)
+
+/** Igual que [mergeResults], conservando los datos nutricionales de cada resultado. */
+fun mergePicks(custom: List<CustomFood>, products: List<Product>): List<FoodPick> =
+    custom.map { FoodPick(it.toFoodResult(), null, it.nutrients, it.servingSizeG) } +
+        products.map { FoodPick(it.toFoodResult(), it.barcode, it.nutrients, it.servingSizeG) }

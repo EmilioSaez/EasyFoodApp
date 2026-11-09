@@ -24,12 +24,14 @@ import app.luxion.fitarchiveapp.data.SqlDelightDiaryStore
 import app.luxion.fitarchiveapp.data.SqlDelightGoalStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductSearchStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductStore
+import app.luxion.fitarchiveapp.data.SqlDelightRecipeStore
 import app.luxion.fitarchiveapp.data.SqlDelightWeightStore
 import app.luxion.fitarchiveapp.db.EasyFoodDatabase
 import app.luxion.fitarchiveapp.model.NewWeightEntry
 import app.luxion.fitarchiveapp.export.SqlDelightImportTarget
 import app.luxion.fitarchiveapp.model.DailyGoals
 import app.luxion.fitarchiveapp.model.MealType
+import app.luxion.fitarchiveapp.model.NewCustomFood
 import app.luxion.fitarchiveapp.model.NewDiaryEntry
 import app.luxion.fitarchiveapp.model.Nutrients
 import app.luxion.fitarchiveapp.model.Product
@@ -63,6 +65,7 @@ class AppFlowsTest {
                 searchStore = SqlDelightProductSearchStore(db.productSearchQueries),
                 customFoodStore = SqlDelightCustomFoodStore(db.customFoodQueries),
                 weightStore = SqlDelightWeightStore(db.weightEntryQueries),
+                recipeStore = SqlDelightRecipeStore(db.recipeQueries),
                 importTarget = SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries, db.recipeQueries),
                 today = { "2026-11-04" },
             )
@@ -126,6 +129,52 @@ class AppFlowsTest {
         val goals = kotlinx.coroutines.runBlocking { SqlDelightGoalStore(db.dailyGoalQueries).get() }
         // Mifflin-St Jeor, hombre 30 a / 80 kg / 180 cm: BMR 1780 × 1,55 (actividad moderada).
         kotlin.test.assertEquals(2759, goals.kcal!!)
+    }
+
+    @Test
+    fun recipeIsCreatedFromSearchedIngredientsAndAddedToDiaryAsFoods() = runApp { db ->
+        kotlinx.coroutines.runBlocking {
+            SqlDelightCustomFoodStore(db.customFoodQueries)
+                .create(NewCustomFood("Pan casero", null, Nutrients(250.0, 8.0, 50.0, 2.0)), 1L)
+        }
+        waitForText("Nada apuntado hoy")
+        onNodeWithText("Recetas").performClick()
+        waitForText("Aún no tienes recetas")
+        onNodeWithText("Crear receta").performClick()
+        waitForText("Nueva receta")
+
+        // Guardar sin ingredientes no crea nada y avisa.
+        onNodeWithText("Guardar receta").performClick()
+        waitForText("Escribe un nombre")
+        waitForText("Añade al menos un ingrediente")
+
+        onNodeWithText("Nombre").performTextInput("Tostada")
+        onNodeWithText("Raciones (opcional)").performTextInput("2")
+        onNodeWithText("+ Añadir ingrediente").performClick()
+        onNodeWithText("Buscar alimento").performTextInput("pan")
+        waitForText("Pan casero")
+        onNodeWithText("Pan casero").performClick()
+        waitForText("Cantidad")
+        onNodeWithText("Cantidad").performTextReplacement("200")
+        onNodeWithText("Añadir").performClick()
+        waitForText("200 g · 500 kcal")
+        onNodeWithText("Guardar receta").performClick()
+
+        waitForText("1 ingrediente · 2 raciones")
+        val recipes = kotlinx.coroutines.runBlocking { SqlDelightRecipeStore(db.recipeQueries).all() }
+        kotlin.test.assertEquals(listOf("Tostada"), recipes.map { it.name })
+        kotlin.test.assertEquals(200.0, recipes.single().ingredients.single().grams)
+
+        // Detalle: una ración son 250 kcal; se añade una (la mitad) al diario, una entrada por ingrediente.
+        onNodeWithText("Tostada").performClick()
+        waitForText("Por ración · 1 de 2")
+        onNodeWithText("Añadir a Comida").performClick()
+        waitForText("Pan casero")
+        val entries = kotlinx.coroutines.runBlocking { SqlDelightDiaryStore(db.diaryEntryQueries).entriesForDate("2026-11-04") }
+        kotlin.test.assertEquals(listOf("Pan casero"), entries.map { it.name })
+        kotlin.test.assertEquals(100.0, entries.single().grams)
+        kotlin.test.assertEquals(MealType.LUNCH, entries.single().meal)
+        kotlin.test.assertNull(entries.single().barcode)
     }
 
     private fun weights(db: EasyFoodDatabase) =

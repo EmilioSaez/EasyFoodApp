@@ -31,6 +31,11 @@ object RecipeCalculator {
         return MacroTotals(d(t.kcal), d(t.proteinG), d(t.carbsG), d(t.fatG))
     }
 
+    /** Nombres de los ingredientes a los que les falta alguna de las cuatro cifras (kcal, proteína, hidratos, grasa). */
+    fun incompleteIngredients(ingredients: List<RecipeIngredient>): List<String> =
+        ingredients.filter { i -> with(i.nutrients) { kcal == null || proteinG == null || carbsG == null || fatG == null } }
+            .map { it.name }
+
     /** Peso total de los ingredientes en gramos. */
     fun totalGrams(ingredients: List<RecipeIngredient>): Double = ingredients.sumOf { it.grams }
 

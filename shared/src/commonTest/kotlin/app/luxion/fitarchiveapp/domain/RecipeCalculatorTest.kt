@@ -51,6 +51,13 @@ class RecipeCalculatorTest {
     }
 
     @Test
+    fun incompleteIngredientsListsThoseWithMissingValues() {
+        val unknown = RecipeIngredient("1", "Salsa", 50.0, Nutrients(kcal = 100.0, proteinG = null, carbsG = 5.0, fatG = 1.0))
+        assertEquals(listOf("Salsa"), RecipeCalculator.incompleteIngredients(listOf(rice, unknown, oil)))
+        assertEquals(emptyList(), RecipeCalculator.incompleteIngredients(listOf(rice, oil)))
+    }
+
+    @Test
     fun totalGramsAddsIngredients() {
         assertEquals(210.0, RecipeCalculator.totalGrams(listOf(rice, oil)), 1e-9)
     }
