@@ -2,6 +2,7 @@ package app.luxion.fitarchiveapp.ui.screens
 
 import app.luxion.fitarchiveapp.data.DiaryStore
 import app.luxion.fitarchiveapp.data.GoalStore
+import app.luxion.fitarchiveapp.domain.MealPlan
 import app.luxion.fitarchiveapp.model.DailyGoals
 import app.luxion.fitarchiveapp.model.DiaryEntry
 import app.luxion.fitarchiveapp.model.MealType
@@ -71,12 +72,41 @@ private class FakeGoals(var goals: DailyGoals = DailyGoals()) : GoalStore {
 
 class DiaryStateTest {
     @Test
-    fun emptyDayHasFourEmptyMealsAndZeroTotals() {
+    fun emptyDayHasTheDefaultEmptyMealsAndZeroTotals() {
         val state = buildDiaryUiState(DAY, emptyList(), DailyGoals())
         assertTrue(state.isEmpty)
-        assertEquals(MealType.entries, state.meals.map { it.meal })
+        assertEquals(MealPlan.preset(null), state.meals.map { it.meal })
         assertEquals(0.0, state.consumedKcal)
         assertNull(state.goalKcal)
+    }
+
+    @Test
+    fun sectionsFollowTheMealsPerDayPreset() {
+        for (n in MealPlan.options) {
+            assertEquals(MealPlan.preset(n), buildDiaryUiState(DAY, emptyList(), DailyGoals(), n).meals.map { it.meal })
+        }
+    }
+
+    @Test
+    fun aMealOutsideThePresetWithEntriesKeepsItsSectionAndTotals() {
+        val state = buildDiaryUiState(
+            DAY,
+            listOf(entry(1, MealType.SNACK, quantity = Quantity(100.0, QuantityUnit.GRAMS))),
+            DailyGoals(),
+            mealsPerDay = 3,
+        )
+        assertEquals(
+            listOf(MealType.BREAKFAST, MealType.LUNCH, MealType.SNACK, MealType.DINNER),
+            state.meals.map { it.meal },
+        )
+        assertEquals(1, state.meals.first { it.meal == MealType.SNACK }.entries.size)
+        assertEquals(state.meals.sumOf { it.kcal }, state.consumedKcal, 1e-9)
+    }
+
+    @Test
+    fun emptyMealsOutsideThePresetAreHidden() {
+        val state = buildDiaryUiState(DAY, emptyList(), DailyGoals(), mealsPerDay = 3)
+        assertFalse(state.meals.any { it.meal == MealType.SNACK || it.meal == MealType.LATE_SNACK })
     }
 
     @Test

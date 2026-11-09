@@ -46,12 +46,14 @@ import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.data.GoalStore
 import app.luxion.fitarchiveapp.domain.ActivityLevel
 import app.luxion.fitarchiveapp.domain.Goal
+import app.luxion.fitarchiveapp.domain.MealPlan
 import app.luxion.fitarchiveapp.domain.Sex
 import app.luxion.fitarchiveapp.domain.UserProfile
 import app.luxion.fitarchiveapp.domain.StepsActivity
 import app.luxion.fitarchiveapp.model.DailyGoals
 import app.luxion.fitarchiveapp.steps.rememberStepsProvider
 import app.luxion.fitarchiveapp.ui.components.MacroDot
+import app.luxion.fitarchiveapp.ui.components.MealsPerDayPicker
 import app.luxion.fitarchiveapp.ui.components.NumberField
 import app.luxion.fitarchiveapp.ui.components.formatKcal
 import app.luxion.fitarchiveapp.ui.components.parseNumber
@@ -67,7 +69,13 @@ import kotlinx.coroutines.launch
 /** Objetivos y TDEE (docs/design.md §2.6). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GoalsScreen(navigator: Navigator, goalStore: GoalStore, today: () -> String = { "" }) {
+fun GoalsScreen(
+    navigator: Navigator,
+    goalStore: GoalStore,
+    today: () -> String = { "" },
+    mealsPerDay: Int? = null,
+    onMealsPerDayChange: (Int) -> Unit = {},
+) {
     var saved by remember { mutableStateOf(DailyGoals()) }
     var sex by remember { mutableStateOf(Sex.MALE) }
     var ageText by remember { mutableStateOf("") }
@@ -262,6 +270,11 @@ fun GoalsScreen(navigator: Navigator, goalStore: GoalStore, today: () -> String 
                     steps = GoalsPlanner.PACES.size - 2,
                     enabled = paceEnabled,
                 )
+            }
+
+            Section("Comidas al día") {
+                // Se guarda al elegir, aparte de «Guardar objetivos». Sin elección previa, el Diario usa el preset por defecto.
+                MealsPerDayPicker(mealsPerDay ?: MealPlan.DEFAULT_MEALS, onMealsPerDayChange)
             }
 
             MacroSplitCard(

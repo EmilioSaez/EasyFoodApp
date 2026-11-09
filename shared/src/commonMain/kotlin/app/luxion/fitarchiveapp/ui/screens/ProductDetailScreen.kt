@@ -105,6 +105,7 @@ fun ProductDetailScreen(
     diaryStore: DiaryStore,
     customFoods: CustomFoodStore,
     today: () -> String,
+    mealChoices: MealChoices,
 ) {
     var state by remember(route) { mutableStateOf<LoadState>(LoadState.Loading) }
     var reloadKey by remember(route) { mutableStateOf(0) }
@@ -112,7 +113,7 @@ fun ProductDetailScreen(
     LaunchedEffect(route, reloadKey) {
         state = LoadState.Loading
         state = try {
-            load(route, repository, diaryStore, customFoods)
+            load(route, repository, diaryStore, customFoods, mealChoices.defaultMeal())
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             LoadState.Failed("No se pudo cargar el producto.")
@@ -172,7 +173,7 @@ fun ProductDetailScreen(
                     secondaryAction = EmptyStateAction("Volver") { navigator.pop() },
                     modifier = Modifier.fillMaxSize(),
                 )
-                is LoadState.Ready -> DetailContent(navigator, route, s, diaryStore, today)
+                is LoadState.Ready -> DetailContent(navigator, route, s, diaryStore, today, mealChoices)
             }
         }
     }
@@ -183,6 +184,7 @@ private suspend fun load(
     repository: ProductRepository,
     diaryStore: DiaryStore,
     customFoods: CustomFoodStore,
+    defaultMeal: MealType,
 ): LoadState {
     if (route.entryId != null) {
         val entry = diaryStore.find(route.entryId) ?: return LoadState.NotFound
@@ -200,7 +202,7 @@ private suspend fun load(
         return LoadState.Ready(detail, entry.meal, entry.quantity.unit, entry.quantity.amount)
     }
     val barcode = route.barcode ?: return LoadState.NotFound
-    if (barcode.startsWith(CUSTOM_FOOD_KEY_PREFIX)) return loadCustomFood(barcode, route.meal, customFoods)
+    if (barcode.startsWith(CUSTOM_FOOD_KEY_PREFIX)) return loadCustomFood(barcode, route.meal ?: defaultMeal, customFoods)
     return when (val result = repository.getByBarcode(barcode)) {
         ProductResult.NotFound -> LoadState.NotFound
         is ProductResult.Failure -> LoadState.Failed("Open Food Facts no responde y no hay una copia guardada. Comprueba la conexión.")
@@ -219,7 +221,7 @@ private suspend fun load(
             )
             val servings = p.servingSizeG != null
             LoadState.Ready(
-                detail, route.meal,
+                detail, route.meal ?: defaultMeal,
                 if (servings) QuantityUnit.SERVINGS else QuantityUnit.GRAMS,
                 if (servings) 1.0 else 100.0,
             )
@@ -263,6 +265,7 @@ private fun DetailContent(
     ready: LoadState.Ready,
     diaryStore: DiaryStore,
     today: () -> String,
+    mealChoices: MealChoices,
 ) {
     val detail = ready.detail
     val editing = route.entryId != null
@@ -322,7 +325,7 @@ private fun DetailContent(
                 ) {
                     Column(Modifier.padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                            MealType.entries.forEach { m ->
+                            mealChoices.options(ready.initialMeal).forEach { m ->
                                 FilterChip(selected = meal == m, onClick = { meal = m }, label = { Text(m.label) })
                             }
                         }

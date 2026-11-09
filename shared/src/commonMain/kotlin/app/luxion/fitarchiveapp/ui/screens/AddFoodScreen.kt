@@ -1,7 +1,6 @@
 package app.luxion.fitarchiveapp.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -9,12 +8,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,7 +24,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.data.CustomFoodStore
 import app.luxion.fitarchiveapp.data.ProductSearchStore
-import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.scanner.isBarcodeScannerSupported
 import app.luxion.fitarchiveapp.ui.components.EmptyStateAction
 import app.luxion.fitarchiveapp.ui.components.label
@@ -48,20 +43,19 @@ fun AddFoodScreen(
     searchStore: ProductSearchStore? = null,
     customFoods: CustomFoodStore? = null,
 ) {
-    var meal by remember { mutableStateOf(route.meal) }
+    val meal = route.meal
     var query by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Añadir a") },
+                title = { Text(route.meal?.let { "Añadir a ${it.label}" } ?: "Añadir alimento") },
                 navigationIcon = {
                     IconButton(
                         onClick = { navigator.pop() },
                         modifier = Modifier.semantics { contentDescription = "Atrás" },
                     ) { Text("←", style = MaterialTheme.typography.titleLarge) }
                 },
-                actions = { MealPicker(meal) { meal = it } },
             )
         },
     ) { padding ->
@@ -82,21 +76,6 @@ fun AddFoodScreen(
                 )
             },
         )
-    }
-}
-
-@Composable
-private fun MealPicker(meal: MealType, onSelect: (MealType) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    Box {
-        OutlinedButton(onClick = { open = true }, modifier = Modifier.padding(end = Spacing.s)) {
-            Text("${meal.label} ▾")
-        }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            MealType.entries.forEach { m ->
-                DropdownMenuItem(text = { Text(m.label) }, onClick = { onSelect(m); open = false })
-            }
-        }
     }
 }
 

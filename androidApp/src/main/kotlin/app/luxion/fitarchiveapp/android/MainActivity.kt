@@ -14,12 +14,14 @@ import app.luxion.fitarchiveapp.data.SqlDelightGoalStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductSearchStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductStore
 import app.luxion.fitarchiveapp.data.SqlDelightRecipeStore
+import app.luxion.fitarchiveapp.data.SqlDelightSettingsStore
 import app.luxion.fitarchiveapp.data.SqlDelightWeightStore
 import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
 import app.luxion.fitarchiveapp.data.generic.GenericFoodSeeder
 import app.luxion.fitarchiveapp.export.SqlDelightImportTarget
 import app.luxion.fitarchiveapp.ui.App
 import java.time.LocalDate
+import java.time.LocalTime
 
 class MainActivity : ComponentActivity() {
     private val database by lazy { createDatabase(applicationContext) }
@@ -34,6 +36,7 @@ class MainActivity : ComponentActivity() {
     private val goalStore by lazy { SqlDelightGoalStore(database.dailyGoalQueries) }
     private val weightStore by lazy { SqlDelightWeightStore(database.weightEntryQueries) }
     private val recipeStore by lazy { SqlDelightRecipeStore(database.recipeQueries) }
+    private val settingsStore by lazy { SqlDelightSettingsStore(database.settingsQueries) }
     private val searchStore by lazy { SqlDelightProductSearchStore(database.productSearchQueries) }
     private val customFoodStore by lazy { SqlDelightCustomFoodStore(database.customFoodQueries) }
     private val importTarget by lazy {
@@ -55,8 +58,10 @@ class MainActivity : ComponentActivity() {
                     customFoodStore = customFoodStore,
                     weightStore = weightStore,
                     recipeStore = recipeStore,
+                    settingsStore = settingsStore,
                     importTarget = importTarget,
                     today = { LocalDate.now().toString() },
+                    nowMinutes = { LocalTime.now().let { it.hour * 60 + it.minute } },
                     genericSeeder = genericSeeder,
                 )
             }

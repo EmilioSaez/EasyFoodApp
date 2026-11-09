@@ -42,7 +42,6 @@ import app.luxion.fitarchiveapp.data.GoalStore
 import app.luxion.fitarchiveapp.data.WeightStore
 import app.luxion.fitarchiveapp.domain.WeightReminder
 import app.luxion.fitarchiveapp.ui.components.WeightReminderCard
-import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.model.Quantity
 import app.luxion.fitarchiveapp.model.QuantityUnit
 import app.luxion.fitarchiveapp.ui.components.CalorieRing
@@ -75,9 +74,10 @@ fun DiaryScreen(
     goalStore: GoalStore,
     weightStore: WeightStore,
     today: String,
+    mealsPerDay: Int? = null,
 ) {
     val scope = rememberCoroutineScope()
-    val presenter = remember(diaryStore, goalStore) { DiaryPresenter(diaryStore, goalStore, scope, today) }
+    val presenter = remember(diaryStore, goalStore, mealsPerDay) { DiaryPresenter(diaryStore, goalStore, scope, today, mealsPerDay) }
     val state by presenter.state.collectAsState()
     val snackbar = remember { SnackbarHostState() }
     var editing by remember { mutableStateOf<EntryUi?>(null) }
@@ -144,7 +144,7 @@ fun DiaryScreen(
         snackbarHost = { SnackbarHost(snackbar) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = { navigator.push(Route.Add(MealType.SNACK)) },
+                onClick = { navigator.push(Route.Add()) },
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             ) { Text("+ Añadir alimento") }
@@ -171,7 +171,7 @@ fun DiaryScreen(
                     icon = "▤",
                     title = if (state.date == today) "Nada apuntado hoy" else "Nada apuntado este día",
                     message = "Añade lo que comas para ver tus calorías y macros del día.",
-                    primaryAction = EmptyStateAction("Añadir alimento") { navigator.push(Route.Add(MealType.SNACK)) },
+                    primaryAction = EmptyStateAction("Añadir alimento") { navigator.push(Route.Add()) },
                     secondaryAction = EmptyStateAction("Fijar objetivo") { navigator.navigateTab(TopLevelTab.Goals) },
                     modifier = Modifier.padding(top = Spacing.xxxl),
                 )

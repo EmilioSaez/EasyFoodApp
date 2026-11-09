@@ -14,12 +14,16 @@ import app.luxion.fitarchiveapp.data.SqlDelightGoalStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductSearchStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductStore
 import app.luxion.fitarchiveapp.data.SqlDelightRecipeStore
+import app.luxion.fitarchiveapp.data.SqlDelightSettingsStore
 import app.luxion.fitarchiveapp.data.SqlDelightWeightStore
 import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
 import app.luxion.fitarchiveapp.data.generic.GenericFoodSeeder
 import app.luxion.fitarchiveapp.db.EasyFoodDatabase
 import app.luxion.fitarchiveapp.export.SqlDelightImportTarget
 import app.luxion.fitarchiveapp.ui.App
+import platform.Foundation.NSCalendar
+import platform.Foundation.NSCalendarUnitHour
+import platform.Foundation.NSCalendarUnitMinute
 import platform.Foundation.NSDate
 import platform.Foundation.NSDateFormatter
 import platform.Foundation.timeIntervalSince1970
@@ -27,6 +31,12 @@ import platform.UIKit.UIViewController
 
 /** Fecha de hoy en formato ISO (`YYYY-MM-DD`). */
 private fun todayIso(): String = NSDateFormatter().apply { dateFormat = "yyyy-MM-dd" }.stringFromDate(NSDate())
+
+/** Hora local actual en minutos desde medianoche. */
+private fun nowMinutes(): Int {
+    val parts = NSCalendar.currentCalendar.components(NSCalendarUnitHour or NSCalendarUnitMinute, fromDate = NSDate())
+    return (parts.hour * 60 + parts.minute).toInt()
+}
 
 /** Punto de entrada para iOS: devuelve el `UIViewController` con la UI compartida (lo usa `iosApp`). */
 @Suppress("FunctionName")
@@ -48,10 +58,12 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
             customFoodStore = remember(db) { SqlDelightCustomFoodStore(db.customFoodQueries) },
             weightStore = remember(db) { SqlDelightWeightStore(db.weightEntryQueries) },
             recipeStore = remember(db) { SqlDelightRecipeStore(db.recipeQueries) },
+            settingsStore = remember(db) { SqlDelightSettingsStore(db.settingsQueries) },
             importTarget = remember(db) {
                 SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries, db.recipeQueries, db.settingsQueries)
             },
             today = ::todayIso,
+            nowMinutes = ::nowMinutes,
             genericSeeder = remember(db) {
                 GenericFoodSeeder(
                     GenericFoodImporter(db.productQueries),
