@@ -137,18 +137,22 @@ Estado: `DiaryUiState(date, goalKcal, consumedKcal, macros: List<MacroProgress>,
 
 ### 2.2 Añadir alimento / pestaña Alimentos (`AddFoodScreen`)
 > **Fase 10:** sin selector de comida ni filtros de origen; muestra todos los alimentos. Los accesos rápidos pasan a «Recientes · Escáner · Alimento propio».
+> **Fase 12:** se añade el acceso rápido «Favoritos» junto a «Recientes» y una estrella de favorito en cada fila (ver «Favoritos» más abajo).
 ```
 TopAppBar: ← · «Alimentos»   (sin selector de comida)
 SearchBar (inline, extraLarge, surfaceContainerHigh): icono lupa · texto · IconButton borrar
-Fila de 3 accesos rápidos (grid 3 col, gap 8, alto 72, medium):
-   Recientes (primaryContainer) · Escáner · Alimento propio (surfaceContainer)
-Sin texto en la búsqueda: cabecera «Últimos alimentos · 24» y la lista «Recientes» (los últimos alimentos distintos del diario, del más reciente al más antiguo, FoodResultRow)
+Fila de 4 accesos rápidos (gap 8, alto 72, medium; el activo en primaryContainer, el resto en surfaceContainer):
+   Recientes · Favoritos · Escáner · Alimento propio
+Sin texto en la búsqueda: cabecera «Últimos alimentos · 24» y la lista «Recientes» (los últimos alimentos distintos del diario, del más reciente al más antiguo, FoodResultRow); con «Favoritos» activo, cabecera «Favoritos · 5» y su lista
 Con texto: cabecera «Resultados · 24» (titleSmall primary) y LazyColumn de FoodResultRow (ListItem 72):
-   SourceAvatar 40 · nombre / «marca · tamaño · EAN» · «255» + «kcal/100 g»
+   SourceAvatar 40 · nombre / «marca · tamaño · EAN» · «255» + «kcal/100 g» · estrella ☆/★ (IconButton 48)
 ```
 - **Sin filtros:** se eliminan las fichas «Todos · Genérico · Open Food Facts · Propios» y el filtro por origen. Los resultados mezclan todos los orígenes (genérico, Open Food Facts y propios); el origen sigue visible en cada fila con `SourceAvatar`/`SourceChip`.
 - **Sin comida preseleccionada:** la pestaña Alimentos ya no pide la comida arriba. Al abrir la ficha de un alimento desde la pestaña, la comida se elige en la propia ficha (por defecto la comida que toca por la hora, §2.9). Si se llega desde el «+» de una sección del Diario, la comida viene preseleccionada y no se pregunta de nuevo.
 - **«Recientes»:** la lista de recientes se ve por defecto cuando no hay texto; el botón sirve para volver a ella tras buscar (borra el texto). No necesita tabla nueva ni migración: la consulta `selectRecent` toma la última entrada de cada alimento distinto de `DiaryEntry` (clave: EAN o, sin él, el nombre; hasta 30). Un alimento propio no guarda su id en el diario, así que se enlaza por nombre con los alimentos propios; si ya no existe se omite. Sin recientes: estado vacío «Aún no hay recientes».
+- **Favoritos (Fase 12):** un alimento se marca con la estrella ☆ (pasa a ★) en las filas de resultados y recientes de esta pestaña y en la barra superior de su ficha (§2.4); tocarla de nuevo lo desmarca. No hay estrella en el selector de ingredientes de las recetas ni en la ficha de una entrada del diario de un alimento propio (no guarda su id). El acceso rápido «Favoritos» muestra la lista por nombre (mezcla genéricos, Open Food Facts y propios) cuando no hay texto; «Recientes» vuelve a los recientes y ambos borran el texto de búsqueda. Sin favoritos: estado vacío «Aún no tienes favoritos». Un favorito cuyo producto ya no está en la caché local, o cuyo alimento propio se borró, no se muestra (no hay ficha a la que ir) pero sigue guardado hasta que se desmarque.
+  - **Datos:** tabla `FavoriteFoodEntity(key PK, created_at)` con la clave de navegación de la ficha (EAN, `generic:<id>` o `custom:<id>`), sin clave foránea a `ProductEntity` (es una caché purgable). Migración v8 → v9 (`8.sqm`), idempotente.
+  - **Exportar e importar:** colección opcional `favorites` del JSON, **sin subir `schemaVersion`** (añadir una colección no lo cambia, ver `ExportFormat`): los archivos antiguos no la traen y se leen como vacía. Un producto viaja por su `barcode`; un alimento propio, como su id es local de cada dispositivo, por `customName` + `customBrand`. Fusión: identidad = código, o nombre + marca sin distinguir mayúsculas; los que ya existen cuentan como duplicados y nunca se desmarca nada local. Un favorito propio solo se admite si el alimento existe en local o llega en el mismo archivo; los inválidos se omiten y se listan en el informe («Favoritos» en la vista previa).
 - **«Escáner»:** sustituye a «Código EAN». Abre `ScannerScreen`, que ya incluye la entrada manual de EAN (§2.3). En escritorio no hay cámara y el botón abre directamente la entrada manual.
 - Búsqueda: debounce de 300 ms y FTS local; Open Food Facts solo si hay red, mezclado detrás de los resultados locales.
 
@@ -169,7 +173,7 @@ Al leer un código: vibración corta y navegación directa a la Ficha. Si no est
 
 ### 2.4 Ficha de producto (`ProductDetailScreen`)
 ```
-TopAppBar: ← · «Producto» · IconButton editar (copiar como propio)
+TopAppBar: ← · «Producto» · IconButton estrella de favorito ☆/★ · IconButton editar (copiar como propio)
 LazyColumn (16, spacedBy 16)
 ├─ cabecera: nombre (headlineSmall) · «marca · tamaño · EAN» (bodyMedium, EAN en mono) · SourceChip (AssistChip con icono)
 ├─ DoubtfulDataBanner (si aplica): warningContainer, medium, icono ⚠, título «Revisa estos datos» + motivos + TextButton «Corregir y guardar como propio»
@@ -287,7 +291,7 @@ Scaffold
 │       arco/barra de progreso con DOS marcas: límite inferior y superior del margen de cumplimiento (objetivo ±10 %),
 │          con sus kcal debajo (p. ej. 2.327 y 2.844 en la captura)
 │       3 columnas de macros: «Proteínas · 0 / 141 g» + barra fina del color del macro (P/H/G)
-├─ Lista que se desplaza: aviso «Toca pesarse» (si toca) · tarjeta por comida (§2.9)
+├─ Lista que se desplaza: aviso «Toca pesarse» (si toca) · tarjeta de agua (§2.13) · tarjeta por comida (§2.9)
 │     tarjeta de comida: título (titleLarge) · «🔥 386 kcal · 17 P | 62 H | 8 G» (bodySmall) · entradas (DiaryEntryRow) ·
 │     botón ancho «+» (secondaryContainer) → Añadir alimento con la comida preseleccionada
 └─ NavigationBar estándar (§1.7): Diario · Alimentos · Recetas · Mi peso · Objetivos
@@ -305,6 +309,22 @@ Scaffold
 - **Día sin entradas (hoy, pasado o futuro).** No hay estado vacío que sustituya a la lista: se ven la cabecera con el objetivo y TODAS las tarjetas de comida del preset (§2.9), cada una con «🔥 0 kcal · 0 P | 0 H | 0 G», «Nada apuntado todavía» y su «+». Como ayuda de primer uso hay una línea discreta («Nada apuntado hoy» / «este día») al principio de la lista, sin acciones duplicadas. Sin objetivo, la tarjeta de objetivo trae «Sin objetivo diario» y «Fijar objetivo».
 - **Implementación.** La fila anclada (‹ «Hoy ▾» › · racha · ⇅ Datos) va fuera de la lista; la franja y la tarjeta son el primer elemento de la lista y, en cuanto se desplaza, aparece encima de la lista el `DiaryHeader` compacto (no se superpone a las tarjetas). La barra del objetivo es una barra con dos marcas (arco descartado); la escala llega a max(objetivo × 1,3; consumidas). «Hoy ▾» abre el selector de fecha de Material (`DatePicker`). Las kcal por día salen de `DiaryStore.daySummaries` (consulta `selectDailyKcal`, sin migración); estado de día y racha, de `DayStatus`.
 - **No se incluye** de la captura: banner Premium, foto de perfil, botón «Terminar día», pestañas Social y Coach, menús «⋯». «Coach» queda para más adelante, si se añade una IA con clave propia (Fase 11, pendiente).
+
+### 2.13 Agua diaria (Fase 12)
+Registro del agua bebida cada día, con progreso frente a un objetivo diario.
+```
+Diario: tarjeta «Agua» (entre el aviso de peso y las tarjetas de comida; `surfaceVariant`)
+├─ Fila: «Agua» · «1,25 de 2 L» (titleMedium)
+├─ Barra de progreso (se llena hasta el objetivo; pasarse no la desborda)
+├─ Botones rápidos: «+ Vaso» (250 ml) · «+ 500 ml» · «+ 1 L»
+└─ «Deshacer (−N ml)» tras sumar: quita la última suma; solo en esta pantalla y este día
+Objetivos: sección «Agua» → «− 2 L al día +» en pasos de un vaso (250 ml); se guarda al pulsar
+```
+- **Datos.** Un total en ml por día (la fecha ISO es la clave; un día a 0 ml no tiene fila) y un objetivo único. Sin objetivo guardado vale 2 L (`WaterRules.DEFAULT_GOAL_ML`). Límites: objetivo de 500 a 10 000 ml (en la UI, en pasos de 250); total de un día de 0 a 20 000 ml (se recorta). `WaterStore.add(date, deltaMl, now)` suma (o resta, para deshacer) dentro de una transacción.
+- **Día mostrado.** La tarjeta sigue al día elegido en el Diario (franja, ‹ ›, selector): se puede apuntar agua de otro día. «Deshacer» recuerda solo la última suma del día en pantalla.
+- **Persistencia.** Migración `8.sqm` (v8 a v9, idempotente): tablas `WaterEntity(date, ml, updated_at)` y `WaterGoalEntity(id = 1, goal_ml, updated_at)` (`Water.sq`). Se guardan en tablas aparte (no en `SettingsEntity`) para no depender de otras migraciones.
+- **Exportar e importar.** `ExportFile.water` (`date`, `ml`, `updatedAtMillis`) y `ExportFile.waterGoal` (`goalMl`, `updatedAtMillis`). Son campos opcionales nuevos, así que **`schemaVersion` sigue en 1**: los archivos anteriores se leen sin agua y los de ahora los ignora una app antigua. Fusión sin duplicados, igual que los pesos: la identidad es la fecha; igual total, se ignora; distinto, gana el de `updatedAtMillis` más reciente (empate: el local); la misma fecha dos veces en el archivo, la más reciente; el objetivo sigue la misma regla. Totales fuera de 1 a 20 000 ml, fechas mal formadas y objetivos fuera de rango se omiten y se listan. El informe de importación muestra una fila «Agua».
+- **Implementación.** `WaterCard` y `WaterGoalRow` (`ui/components/WaterCard.kt`), `WaterStore` / `SqlDelightWaterStore` y `WaterRules` / `WaterDay` (`model/Water.kt`). `DiaryScreen`, `GoalsScreen` y `App` reciben `waterStore` (opcional: sin él no se muestra la tarjeta ni el ajuste). `SqlDelightImportTarget` y `SqlDelightExportSource` reciben `waterQueries` como último parámetro opcional.
 
 ## 3. Componentes compartidos (en `shared/ui`)
 `EasyFoodTheme` · `CalorieRing` · `MacroProgressRow` · `MacroDot` · `SourceAvatar` / `SourceChip` (enum `DataSource { OpenFoodFacts, Generic, Custom }`) · `DoubtfulChip` · `DoubtfulDataBanner` · `MealSection` · `DiaryEntryRow` · `FoodResultRow` · `QuantitySelector` · `NutritionTable` · `EmptyState` · `NumberField` (OutlinedTextField con sufijo de unidad) · `FoodSearch` (buscador de alimentos de «Añadir» y del editor de recetas).

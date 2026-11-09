@@ -21,6 +21,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
@@ -28,6 +29,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.data.CustomFoodStore
 import app.luxion.fitarchiveapp.data.DiaryStore
+import app.luxion.fitarchiveapp.data.FavoriteStore
 import app.luxion.fitarchiveapp.data.ProductSearchStore
 import app.luxion.fitarchiveapp.ui.components.EmptyState
 import app.luxion.fitarchiveapp.ui.components.EmptyStateAction
@@ -36,10 +38,12 @@ import app.luxion.fitarchiveapp.ui.navigation.Navigator
 import app.luxion.fitarchiveapp.ui.navigation.Route
 import app.luxion.fitarchiveapp.ui.theme.Spacing
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 
 /**
  * Pestaña Alimentos / añadir alimento (docs/design.md §2.2): el buscador compartido ([FoodSearch]) sin filtros más
- * accesos rápidos «Recientes · Escáner · Alimento propio». Sin texto se ven los recientes del diario. La comida solo
+ * accesos rápidos «Recientes · Favoritos · Escáner · Alimento propio». Sin texto se ven los recientes del diario o los
+ * favoritos, según el acceso elegido; cada fila lleva su estrella de favorito. La comida solo
  * viene preseleccionada ([Route.Add.meal]) si se llega desde el «+» de una sección del Diario; si no, se elige en la ficha.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -50,10 +54,43 @@ fun AddFoodScreen(
     searchStore: ProductSearchStore? = null,
     customFoods: CustomFoodStore? = null,
     diaryStore: DiaryStore? = null,
+    favoriteStore: FavoriteStore? = null,
 ) {
     var query by remember { mutableStateOf("") }
     // null = aún cargando; lista vacía = sin recientes.
     var recents by remember { mutableStateOf<List<FoodResult>?>(null) }
+    var showFavorites by remember { mutableStateOf(false) }
+    // null = aún cargando; lista vacía = sin favoritos. [favoriteVersion] fuerza la recarga tras marcar o desmarcar.
+    var favorites by remember { mutableStateOf<List<FoodResult>?>(null) }
+    var favoriteKeys by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var favoriteVersion by remember { mutableStateOf(0) }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(favoriteStore, customFoods, favoriteVersion) {
+        try {
+            val keys = favoriteStore?.keys().orEmpty()
+            favoriteKeys = keys.toSet()
+            favorites = favoriteFoodResults(keys, favoriteStore?.products().orEmpty(), customFoods?.all().orEmpty())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            favorites = emptyList()
+        }
+    }
+    val toggleFavorite: ((FoodResult) -> Unit)? = favoriteStore?.let { store ->
+        { r: FoodResult ->
+            scope.launch {
+                try {
+                    store.setFavorite(r.key, r.key !in favoriteKeys, kotlin.time.Clock.System.now().toEpochMilliseconds())
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // Sin poder guardar, la estrella se queda como estaba al recargar.
+                }
+                favoriteVersion++
+            }
+        }
+    }
 
     LaunchedEffect(diaryStore, customFoods) {
         recents = try {
@@ -90,45 +127,84 @@ fun AddFoodScreen(
             emptySecondary = EmptyStateAction("Escanear código") { navigator.push(Route.Scanner(route.meal)) },
             quickActions = {
                 QuickActions(
-                    onRecent = { query = "" },
+                    favoritesSelected = showFavorites,
+                    onRecent = { query = ""; showFavorites = false },
+                    onFavorites = { query = ""; showFavorites = true },
                     onScan = { navigator.push(Route.Scanner(route.meal)) },
                     onCustom = { navigator.push(Route.CustomFood(meal = route.meal)) },
                     modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s),
                 )
             },
             idleContent = {
-                RecentFoodsList(recents) { navigator.push(Route.ProductDetail(barcode = it.key, meal = route.meal)) }
+                val onPick = { r: FoodResult -> navigator.push(Route.ProductDetail(barcode = r.key, meal = route.meal)) }
+                if (showFavorites) {
+                    FoodListSection(
+                        foods = favorites,
+                        header = "Favoritos",
+                        emptyIcon = "☆",
+                        emptyTitle = "Aún no tienes favoritos",
+                        emptyMessage = "Toca la estrella ☆ de un alimento, en los resultados o en su ficha, para tenerlo aquí.",
+                        favoriteKeys = favoriteKeys,
+                        onToggleFavorite = toggleFavorite,
+                        onPick = onPick,
+                    )
+                } else {
+                    FoodListSection(
+                        foods = recents,
+                        header = "Últimos alimentos",
+                        emptyIcon = "◷",
+                        emptyTitle = "Aún no hay recientes",
+                        emptyMessage = "Los alimentos que apuntes en el diario aparecerán aquí. Busca uno o usa el escáner.",
+                        favoriteKeys = favoriteKeys,
+                        onToggleFavorite = toggleFavorite,
+                        onPick = onPick,
+                    )
+                }
             },
+            favoriteKeys = favoriteKeys,
+            onToggleFavorite = toggleFavorite,
         )
     }
 }
 
+/** Lista de alimentos bajo el buscador (recientes o favoritos); [foods] `null` = aún cargando. */
 @Composable
-private fun RecentFoodsList(recents: List<FoodResult>?, onPick: (FoodResult) -> Unit) {
+private fun FoodListSection(
+    foods: List<FoodResult>?,
+    header: String,
+    emptyIcon: String,
+    emptyTitle: String,
+    emptyMessage: String,
+    favoriteKeys: Set<String>,
+    onToggleFavorite: ((FoodResult) -> Unit)?,
+    onPick: (FoodResult) -> Unit,
+) {
     when {
-        recents == null -> Unit
-        recents.isEmpty() -> EmptyState(
-            icon = "◷",
-            title = "Aún no hay recientes",
-            message = "Los alimentos que apuntes en el diario aparecerán aquí. Busca uno o usa el escáner.",
+        foods == null -> Unit
+        foods.isEmpty() -> EmptyState(
+            icon = emptyIcon,
+            title = emptyTitle,
+            message = emptyMessage,
             modifier = Modifier.fillMaxWidth(),
         )
         else -> LazyColumn(Modifier.fillMaxSize()) {
             item {
                 Text(
-                    "Últimos alimentos · ${recents.size}",
+                    "$header · ${foods.size}",
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s),
                 )
             }
-            items(recents, key = { it.key }) { r ->
+            items(foods, key = { it.key }) { r ->
                 FoodResultRow(
                     name = r.name,
                     detail = r.detail,
                     source = r.source,
                     kcalPer100g = r.kcalPer100g,
                     onClick = { onPick(r) },
+                    favorite = onToggleFavorite?.let { r.key in favoriteKeys },
+                    onToggleFavorite = { onToggleFavorite?.invoke(r) },
                 )
             }
         }
@@ -136,11 +212,18 @@ private fun RecentFoodsList(recents: List<FoodResult>?, onPick: (FoodResult) -> 
 }
 
 /**
- * Recientes · Escáner · Alimento propio. «Escáner» abre [ScannerScreen], que con cámara escanea y siempre ofrece la
+ * Recientes · Favoritos · Escáner · Alimento propio. «Escáner» abre [ScannerScreen], que con cámara escanea y siempre ofrece la
  * entrada manual de EAN; en escritorio, sin cámara, solo queda esa entrada manual.
  */
 @Composable
-private fun QuickActions(onRecent: () -> Unit, onScan: () -> Unit, onCustom: () -> Unit, modifier: Modifier = Modifier) {
+private fun QuickActions(
+    favoritesSelected: Boolean,
+    onRecent: () -> Unit,
+    onFavorites: () -> Unit,
+    onScan: () -> Unit,
+    onCustom: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val tall = Modifier.height(72.dp)
     val primary = ButtonDefaults.buttonColors(
         containerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -151,8 +234,11 @@ private fun QuickActions(onRecent: () -> Unit, onScan: () -> Unit, onCustom: () 
         contentColor = MaterialTheme.colorScheme.onSurface,
     )
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-        Button(onClick = onRecent, modifier = tall.weight(1f), shape = MaterialTheme.shapes.medium, colors = primary) {
+        Button(onClick = onRecent, modifier = tall.weight(1f), shape = MaterialTheme.shapes.medium, colors = if (favoritesSelected) neutral else primary) {
             Text("Recientes")
+        }
+        Button(onClick = onFavorites, modifier = tall.weight(1f), shape = MaterialTheme.shapes.medium, colors = if (favoritesSelected) primary else neutral) {
+            Text("Favoritos")
         }
         Button(onClick = onScan, modifier = tall.weight(1f), shape = MaterialTheme.shapes.medium, colors = neutral) {
             Text("Escáner")

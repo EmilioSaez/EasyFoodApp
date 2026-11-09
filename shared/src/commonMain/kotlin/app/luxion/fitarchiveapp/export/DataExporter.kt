@@ -1,15 +1,18 @@
 package app.luxion.fitarchiveapp.export
 
 import app.luxion.fitarchiveapp.data.CachedProduct
+import app.luxion.fitarchiveapp.data.FavoriteKeys
 import app.luxion.fitarchiveapp.data.readAll
 import app.luxion.fitarchiveapp.data.toCached
 import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
 import app.luxion.fitarchiveapp.data.toDomain
 import app.luxion.fitarchiveapp.db.CustomFoodQueries
 import app.luxion.fitarchiveapp.db.DiaryEntryQueries
+import app.luxion.fitarchiveapp.db.FavoriteFoodQueries
 import app.luxion.fitarchiveapp.db.ProductQueries
 import app.luxion.fitarchiveapp.db.SettingsQueries
 import app.luxion.fitarchiveapp.db.RecipeQueries
+import app.luxion.fitarchiveapp.db.WaterQueries
 import app.luxion.fitarchiveapp.db.WeightEntryQueries
 import app.luxion.fitarchiveapp.model.CustomFood
 import app.luxion.fitarchiveapp.model.DiaryEntry
@@ -28,6 +31,8 @@ interface ExportSource {
     suspend fun recipes(): List<ExportedRecipe> = emptyList()
     suspend fun weightGoal(): ExportedWeightGoal? = null
     suspend fun mealsPerDay(): Int? = null
+    suspend fun water(): List<ExportedWater> = emptyList()
+    suspend fun waterGoal(): ExportedWaterGoal? = null
 }
 
 /** Genera el JSON de exportación a partir de [source]. */
@@ -47,6 +52,8 @@ class DataExporter(
         recipes = source.recipes(),
         weightGoal = source.weightGoal(),
         mealsPerDay = source.mealsPerDay(),
+        water = source.water(),
+        waterGoal = source.waterGoal(),
     )
 
     suspend fun exportToJson(): String = ExportCodec.encode(buildFile())
@@ -93,8 +100,18 @@ class SqlDelightExportSource(
     private val weightQueries: WeightEntryQueries? = null,
     private val recipeQueries: RecipeQueries? = null,
     private val settingsQueries: SettingsQueries? = null,
+    private val favoriteQueries: FavoriteFoodQueries? = null,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
+    private val waterQueries: WaterQueries? = null,
 ) : ExportSource {
+    override suspend fun water(): List<ExportedWater> = withContext(dispatcher) {
+        waterQueries?.selectAll()?.executeAsList().orEmpty().map { ExportedWater(it.date, it.ml.toInt(), it.updated_at) }
+    }
+
+    override suspend fun waterGoal(): ExportedWaterGoal? = withContext(dispatcher) {
+        waterQueries?.selectGoal()?.executeAsOneOrNull()?.let { ExportedWaterGoal(it.goal_ml.toInt(), it.updated_at) }
+    }
+
     override suspend fun mealsPerDay(): Int? = withContext(dispatcher) {
         settingsQueries?.selectMealsPerDay()?.executeAsOneOrNull()?.meals_per_day?.toInt()
     }
