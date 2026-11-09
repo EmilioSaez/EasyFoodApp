@@ -18,7 +18,7 @@ fun EasyFoodNavigationBar(selected: TopLevelTab, navigator: Navigator) {
                 selected = tab == selected,
                 onClick = { if (tab != selected) navigator.navigateTab(tab) },
                 icon = { Text(tab.icon) },
-                label = { Text(tab.label) },
+                label = { Text(tab.label, style = MaterialTheme.typography.labelSmall, maxLines = 1) }, // sin el tracking de labelMedium: «Objetivos» no cabía
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = scheme.primary,
                     selectedTextColor = scheme.primary,
