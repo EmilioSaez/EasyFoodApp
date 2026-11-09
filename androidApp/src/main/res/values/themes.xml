@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Ventana clara (fondo y barras del sistema = paleta clara de §1.7); values-night la sustituye en oscuro. -->
+    <style name="Theme.EasyFood" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#F7F5F5</item>
+        <item name="android:statusBarColor">#F7F5F5</item>
+        <item name="android:navigationBarColor">#F7F5F5</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+</resources>
