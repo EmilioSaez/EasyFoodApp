@@ -24,6 +24,30 @@ data class ExportFile(
     val customFoods: List<ExportedCustomFood> = emptyList(),
     /** Registros de peso. Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como vacío. */
     val weights: List<ExportedWeight> = emptyList(),
+    /** Recetas con sus ingredientes. Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como vacío. */
+    val recipes: List<ExportedRecipe> = emptyList(),
+)
+
+@Serializable
+data class ExportedRecipe(
+    /** Id local del dispositivo de origen; solo sirve para reconocer la misma receta al reimportar. */
+    val id: Long,
+    val name: String,
+    val servings: Int? = null,
+    val ingredients: List<ExportedRecipeIngredient> = emptyList(),
+    val createdAtMillis: Long = 0,
+    val updatedAtMillis: Long = 0,
+)
+
+@Serializable
+data class ExportedRecipeIngredient(
+    /** EAN o `generic:<id>`; `null` en un alimento propio. */
+    val barcode: String? = null,
+    val name: String,
+    /** Cantidad en gramos (o ml). */
+    val grams: Double,
+    val nutrients: ExportedNutrients = ExportedNutrients(),
+    val servingSizeG: Double? = null,
 )
 
 @Serializable

@@ -54,7 +54,7 @@ fun main() = application {
             customFoodStore = remember(db) { SqlDelightCustomFoodStore(db.customFoodQueries) },
             weightStore = remember(db) { SqlDelightWeightStore(db.weightEntryQueries) },
             importTarget = remember(db) {
-                SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries)
+                SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries, db.recipeQueries)
             },
             today = { LocalDate.now().toString() },
             genericSeeder = remember(db) {

@@ -63,7 +63,7 @@ class AppFlowsTest {
                 searchStore = SqlDelightProductSearchStore(db.productSearchQueries),
                 customFoodStore = SqlDelightCustomFoodStore(db.customFoodQueries),
                 weightStore = SqlDelightWeightStore(db.weightEntryQueries),
-                importTarget = SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries),
+                importTarget = SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries, db.recipeQueries),
                 today = { "2026-11-04" },
             )
         }

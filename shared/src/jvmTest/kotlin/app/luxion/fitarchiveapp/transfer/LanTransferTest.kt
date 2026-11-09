@@ -146,12 +146,12 @@ class LanTransferTest {
         val (srcDriver, src) = db()
         val (dstDriver, dst) = db()
         try {
-            val importerSrc = DataImporter(SqlDelightImportTarget(src.productQueries, src.diaryEntryQueries, src.customFoodQueries, src.weightEntryQueries))
+            val importerSrc = DataImporter(SqlDelightImportTarget(src.productQueries, src.diaryEntryQueries, src.customFoodQueries, src.weightEntryQueries, src.recipeQueries))
             importerSrc.import(json)
-            val exporter = DataExporter(SqlDelightExportSource(src.productQueries, src.diaryEntryQueries, src.customFoodQueries, src.weightEntryQueries)) { now }
+            val exporter = DataExporter(SqlDelightExportSource(src.productQueries, src.diaryEntryQueries, src.customFoodQueries, src.weightEntryQueries, src.recipeQueries)) { now }
             val h = LanTransferHost(exportJson = exporter::exportToJson, nowMillis = { now }).also { hosts += it }
             val offer = h.start()
-            val importer = DataImporter(SqlDelightImportTarget(dst.productQueries, dst.diaryEntryQueries, dst.customFoodQueries, dst.weightEntryQueries))
+            val importer = DataImporter(SqlDelightImportTarget(dst.productQueries, dst.diaryEntryQueries, dst.customFoodQueries, dst.weightEntryQueries, dst.recipeQueries))
             LanTransferClient.fetchAndImport(importer, "127.0.0.1", offer.port, offer.code)
             assertEquals(1, dst.productQueries.selectAll().executeAsList().size)
         } finally {

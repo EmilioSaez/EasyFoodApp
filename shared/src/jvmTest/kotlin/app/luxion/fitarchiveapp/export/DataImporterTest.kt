@@ -4,15 +4,18 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import app.luxion.fitarchiveapp.data.SqlDelightCustomFoodStore
 import app.luxion.fitarchiveapp.data.SqlDelightDiaryStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductStore
+import app.luxion.fitarchiveapp.data.SqlDelightRecipeStore
 import app.luxion.fitarchiveapp.data.SqlDelightWeightStore
 import app.luxion.fitarchiveapp.db.EasyFoodDatabase
 import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.model.NewCustomFood
 import app.luxion.fitarchiveapp.model.NewDiaryEntry
+import app.luxion.fitarchiveapp.model.NewRecipe
 import app.luxion.fitarchiveapp.model.NewWeightEntry
 import app.luxion.fitarchiveapp.model.Nutrients
 import app.luxion.fitarchiveapp.model.Product
 import app.luxion.fitarchiveapp.model.Quantity
+import app.luxion.fitarchiveapp.model.RecipeIngredient
 import app.luxion.fitarchiveapp.model.QuantityUnit
 import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
@@ -39,8 +42,8 @@ class DataImporterTest {
         products = SqlDelightProductStore(db.productQueries)
         diary = SqlDelightDiaryStore(db.diaryEntryQueries)
         foods = SqlDelightCustomFoodStore(db.customFoodQueries)
-        exporter = DataExporter(SqlDelightExportSource(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries)) { 5_000L }
-        importer = DataImporter(SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries))
+        exporter = DataExporter(SqlDelightExportSource(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries, db.recipeQueries)) { 5_000L }
+        importer = DataImporter(SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries, db.recipeQueries))
     }
 
     @AfterTest
@@ -83,13 +86,13 @@ class DataImporterTest {
         val json = exporter.exportToJson()
 
         val other = EasyFoodDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { EasyFoodDatabase.Schema.create(it) })
-        val report = DataImporter(SqlDelightImportTarget(other.productQueries, other.diaryEntryQueries, other.customFoodQueries, other.weightEntryQueries))
+        val report = DataImporter(SqlDelightImportTarget(other.productQueries, other.diaryEntryQueries, other.customFoodQueries, other.weightEntryQueries, other.recipeQueries))
             .import(json)
 
         assertEquals(ImportCounts(added = 1), report.products)
         assertEquals(ImportCounts(added = 1), report.customFoods)
         assertEquals(ImportCounts(added = 1), report.diaryEntries)
-        val again = DataExporter(SqlDelightExportSource(other.productQueries, other.diaryEntryQueries, other.customFoodQueries, other.weightEntryQueries)) { 5_000L }
+        val again = DataExporter(SqlDelightExportSource(other.productQueries, other.diaryEntryQueries, other.customFoodQueries, other.weightEntryQueries, other.recipeQueries)) { 5_000L }
         assertEquals(ExportCodec.decode(json), ExportCodec.decode(again.exportToJson()))
     }
 
@@ -294,7 +297,7 @@ class DataImporterTest {
 
         val other = EasyFoodDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { EasyFoodDatabase.Schema.create(it) })
         val report = DataImporter(
-            SqlDelightImportTarget(other.productQueries, other.diaryEntryQueries, other.customFoodQueries, other.weightEntryQueries),
+            SqlDelightImportTarget(other.productQueries, other.diaryEntryQueries, other.customFoodQueries, other.weightEntryQueries, other.recipeQueries),
         ).import(json)
 
         assertEquals(ImportCounts(added = 2), report.weights)
@@ -366,6 +369,104 @@ class DataImporterTest {
         val plan = importer.preview(weightFile(ExportedWeight("2026-11-01", 80.0, 1, 1)))
         assertTrue(!plan.changes.isEmpty)
         assertEquals(emptyList(), SqlDelightWeightStore(db.weightEntryQueries).all())
+    }
+
+    // --- Recetas ---
+
+    private fun ing(name: String, grams: Double, barcode: String? = null) =
+        ExportedRecipeIngredient(barcode, name, grams, ExportedNutrients(100.0, 5.0, 10.0, 2.0), 30.0)
+
+    private fun recipe(id: Long, name: String, created: Long, updated: Long, servings: Int? = 2, vararg i: ExportedRecipeIngredient) =
+        ExportedRecipe(id, name, servings, i.toList().ifEmpty { listOf(ing("Arroz", 100.0, "generic:1")) }, created, updated)
+
+    private fun recipeFile(vararg r: ExportedRecipe) =
+        ExportCodec.encode(ExportFile(ExportCodec.CURRENT_VERSION, 1L, recipes = r.toList()))
+
+    private fun localRecipes() = SqlDelightRecipeStore(db.recipeQueries)
+
+    @Test
+    fun recipesRoundTripIntoEmptyDatabase() = runTest {
+        localRecipes().create(
+            NewRecipe("Paella", 4, listOf(RecipeIngredient("generic:1", "Arroz", 200.0, Nutrients(350.0, 7.0, 78.0, 1.0), 50.0), RecipeIngredient(null, "Aceite", 10.0, Nutrients(900.0, 0.0, 0.0, 100.0)))),
+            10L,
+        )
+        val json = exporter.exportToJson()
+
+        val other = EasyFoodDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { EasyFoodDatabase.Schema.create(it) })
+        val report = DataImporter(
+            SqlDelightImportTarget(other.productQueries, other.diaryEntryQueries, other.customFoodQueries, other.weightEntryQueries, other.recipeQueries),
+        ).import(json)
+
+        assertEquals(ImportCounts(added = 1), report.recipes)
+        assertEquals(
+            localRecipes().all().map { it.copy(id = 0) },
+            SqlDelightRecipeStore(other.recipeQueries).all().map { it.copy(id = 0) },
+        )
+    }
+
+    @Test
+    fun importingRecipesTwiceDoesNotDuplicate() = runTest {
+        val json = recipeFile(recipe(1, "Paella", 5, 5), recipe(2, "Tortilla", 6, 6))
+        importer.import(json)
+        val report = importer.import(json)
+        assertEquals(ImportCounts(unchanged = 2), report.recipes)
+        assertEquals(2, localRecipes().all().size)
+    }
+
+    @Test
+    fun recipeIsRecognisedByNameAfterBeingRenumbered() = runTest {
+        localRecipes().create(NewRecipe("Paella", 2, listOf(RecipeIngredient("generic:1", "Arroz", 100.0, Nutrients(100.0, 5.0, 10.0, 2.0), 30.0))), 1L)
+        val report = importer.import(recipeFile(recipe(77, " PAELLA ", 99, 99)))
+        assertEquals(ImportCounts(unchanged = 1), report.recipes)
+        assertEquals(1, localRecipes().all().size)
+    }
+
+    @Test
+    fun recipeConflictNewerWinsAndReplacesIngredientsTieKeepsLocal() = runTest {
+        val store = localRecipes()
+        val a = store.create(NewRecipe("A", 2, listOf(RecipeIngredient(null, "Viejo", 10.0, Nutrients(1.0, 1.0, 1.0, 1.0)))), 100L)
+        store.create(NewRecipe("B", 2, listOf(RecipeIngredient(null, "Local", 10.0, Nutrients(1.0, 1.0, 1.0, 1.0)))), 100L)
+        val local = store.all()
+
+        val report = importer.import(recipeFile(
+            recipe(local[0].id, "A", 100, 200, 3, ing("Nuevo", 50.0)), // más reciente: gana el importado
+            recipe(local[1].id, "B", 100, 100, 3, ing("Otro", 50.0)),  // empate: gana el local
+        ))
+
+        assertEquals(ImportCounts(updated = 1, keptLocal = 1), report.recipes)
+        val after = store.all()
+        assertEquals(listOf("Nuevo"), after[0].ingredients.map { it.name })
+        assertEquals(3, after[0].servings)
+        assertEquals(100L, store.find(a)!!.createdAtMillis)
+        assertEquals(listOf("Local"), after[1].ingredients.map { it.name })
+    }
+
+    @Test
+    fun invalidRecipesAreSkippedAndReported() = runTest {
+        val report = importer.import(recipeFile(
+            recipe(1, "Buena", 1, 1),
+            ExportedRecipe(2, "Sin ingredientes", 2, emptyList(), 1, 1),
+            recipe(3, "  ", 1, 1),
+            recipe(4, "Raciones locas", 1, 1, servings = 0),
+            recipe(5, "Gramos cero", 1, 1, 2, ing("X", 0.0)),
+        ))
+        assertEquals(ImportCounts(added = 1, invalid = 4), report.recipes)
+        assertEquals(4, report.invalidItems.size)
+        assertEquals(listOf("Buena"), localRecipes().all().map { it.name })
+    }
+
+    @Test
+    fun oldFilesWithoutRecipesStillImport() = runTest {
+        val old = """{"schemaVersion":1,"exportedAtMillis":1,"products":[],"diaryEntries":[],"customFoods":[],"weights":[]}"""
+        assertEquals(ImportCounts(), importer.import(old).recipes)
+        assertEquals(emptyList(), localRecipes().all())
+    }
+
+    @Test
+    fun recipesOnlyChangeIsNotEmptyAndPreviewDoesNotWrite() = runTest {
+        val plan = importer.preview(recipeFile(recipe(1, "Paella", 1, 1)))
+        assertTrue(!plan.changes.isEmpty)
+        assertEquals(emptyList(), localRecipes().all())
     }
 
     private fun NewDiaryEntry.toExportedWithId(id: Long, created: Long) = ExportedDiaryEntry(

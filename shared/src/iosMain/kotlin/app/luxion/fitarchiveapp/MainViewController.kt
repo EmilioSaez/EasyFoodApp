@@ -47,7 +47,7 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
             customFoodStore = remember(db) { SqlDelightCustomFoodStore(db.customFoodQueries) },
             weightStore = remember(db) { SqlDelightWeightStore(db.weightEntryQueries) },
             importTarget = remember(db) {
-                SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries)
+                SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries, db.recipeQueries)
             },
             today = ::todayIso,
             genericSeeder = remember(db) {

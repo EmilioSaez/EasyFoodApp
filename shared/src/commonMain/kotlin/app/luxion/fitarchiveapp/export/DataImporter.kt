@@ -4,11 +4,15 @@ import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
 import app.luxion.fitarchiveapp.db.CustomFoodQueries
 import app.luxion.fitarchiveapp.db.DiaryEntryQueries
 import app.luxion.fitarchiveapp.db.ProductQueries
+import app.luxion.fitarchiveapp.db.RecipeQueries
 import app.luxion.fitarchiveapp.db.WeightEntryQueries
 import app.luxion.fitarchiveapp.model.NewWeightEntry
+import app.luxion.fitarchiveapp.model.RecipeIngredient
+import app.luxion.fitarchiveapp.data.writeIngredients
 
 import app.luxion.fitarchiveapp.model.DiaryEntry
 import app.luxion.fitarchiveapp.model.NewCustomFood
+import app.luxion.fitarchiveapp.model.NewRecipe
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -49,6 +53,16 @@ import kotlinx.coroutines.withContext
  * - Existe con peso distinto: gana el de `updatedAtMillis` más reciente; con empate, el local.
  * - Si el archivo trae la misma fecha dos veces, vale el de `updatedAtMillis` más reciente.
  *
+ * **Recetas**
+ * - Identidad: igual que los alimentos propios: `(id, createdAtMillis)` y, si no hay coincidencia, el nombre sin
+ *   distinguir mayúsculas ni espacios sobrantes. Los ingredientes viajan dentro de la receta (copia de nombre y
+ *   valores por 100 g), así que no dependen de que el alimento exista en el dispositivo de destino.
+ * - No existe en local: se añade con un id nuevo, conservando sus fechas.
+ * - Existe con el mismo contenido (nombre, raciones e ingredientes en el mismo orden): duplicado, se ignora.
+ * - Existe con contenido distinto: gana el de `updatedAtMillis` más reciente (se reemplazan también los ingredientes);
+ *   con empate, el local.
+ * - Una receta sin ingredientes, sin nombre, con raciones fuera de rango o con un ingrediente inválido se omite entera.
+ *
  * **Elementos inválidos** (cantidad ≤ 0, fecha mal formada, nutrientes negativos, nombre vacío…): se
  * omiten y se listan en el informe; el resto se importa.
  *
@@ -77,6 +91,7 @@ class DataImporter(private val target: ImportTarget) {
         val foods = planCustomFoods(file.customFoods, target.customFoods(), invalid)
         val diary = planDiary(file.diaryEntries, target.diaryEntries(), invalid)
         val weights = planWeights(file.weights, target.weights(), invalid)
+        val recipes = planRecipes(file.recipes, target.recipes(), invalid)
         return ImportPlan(
             changes = ImportChanges(
                 products = products.writes,
@@ -84,8 +99,12 @@ class DataImporter(private val target: ImportTarget) {
                 customFoodsToUpdate = foods.updates,
                 diaryEntriesToAdd = diary.adds,
                 weights = weights.writes,
+                recipesToAdd = recipes.adds,
+                recipesToUpdate = recipes.updates,
             ),
-            report = ImportReport(products.counts, foods.counts, diary.counts, invalid, weights.counts),
+            report = ImportReport(
+                products.counts, foods.counts, diary.counts, invalid, weights.counts, recipes.counts,
+            ),
         )
     }
 
@@ -179,6 +198,57 @@ class DataImporter(private val target: ImportTarget) {
         key() == o.key() && nutrients == o.nutrients && servingSizeG == o.servingSizeG &&
             servingLabel == o.servingLabel
 
+    // --- Recetas ---
+
+    private class RecipePlan(
+        val adds: List<ExportedRecipe>,
+        val updates: List<RecipeUpdate>,
+        val counts: ImportCounts,
+    )
+
+    /** Receta local o ya añadida en esta importación (`localId == null`). */
+    private class KnownRecipe(val localId: Long?, var recipe: ExportedRecipe)
+
+    private fun planRecipes(
+        incoming: List<ExportedRecipe>,
+        local: List<ExportedRecipe>,
+        invalid: MutableList<String>,
+    ): RecipePlan {
+        val known = local.mapTo(mutableListOf()) { KnownRecipe(it.id, it) }
+        val adds = mutableListOf<ExportedRecipe>()
+        val updates = linkedMapOf<Long, RecipeUpdate>()
+        var c = ImportCounts()
+        for (raw in incoming) {
+            val r = raw.normalized()
+            val problem = r.validationError()
+            if (problem != null) {
+                invalid += "Receta \"${raw.name}\": $problem"; c = c.copy(invalid = c.invalid + 1); continue
+            }
+            val match = known.firstOrNull { it.recipe.id == r.id && it.recipe.createdAtMillis == r.createdAtMillis }
+                ?: known.firstOrNull { it.recipe.name.lowercase() == r.name.lowercase() }
+            when {
+                match == null -> { c = c.copy(added = c.added + 1); adds += r; known += KnownRecipe(null, r) }
+                match.recipe.sameContent(r) -> c = c.copy(unchanged = c.unchanged + 1)
+                // Las añadidas en esta misma importación no se reescriben: se queda la primera.
+                match.localId != null && r.updatedAtMillis > match.recipe.updatedAtMillis -> {
+                    c = c.copy(updated = c.updated + 1)
+                    updates[match.localId] = RecipeUpdate(match.localId, r)
+                    match.recipe = r.copy(id = match.recipe.id, createdAtMillis = match.recipe.createdAtMillis)
+                }
+                else -> c = c.copy(keptLocal = c.keptLocal + 1)
+            }
+        }
+        return RecipePlan(adds, updates.values.toList(), c)
+    }
+
+    private fun ExportedRecipe.normalized() = copy(name = name.trim())
+
+    private fun ExportedRecipe.validationError(): String? =
+        try { toNewRecipe(); null } catch (e: IllegalArgumentException) { e.message ?: "datos no válidos" }
+
+    private fun ExportedRecipe.sameContent(o: ExportedRecipe) =
+        name.lowercase() == o.name.lowercase() && servings == o.servings && ingredients == o.ingredients
+
     // --- Pesos ---
 
     private class WeightPlan(val writes: List<ExportedWeight>, val counts: ImportCounts)
@@ -261,11 +331,32 @@ data class ImportChanges(
     val diaryEntriesToAdd: List<ExportedDiaryEntry> = emptyList(),
     /** Pesos a insertar o reemplazar por fecha. */
     val weights: List<ExportedWeight> = emptyList(),
+    /** Recetas nuevas; el id lo asigna el almacén. */
+    val recipesToAdd: List<ExportedRecipe> = emptyList(),
+    val recipesToUpdate: List<RecipeUpdate> = emptyList(),
 ) {
     val isEmpty: Boolean
         get() = products.isEmpty() && customFoodsToAdd.isEmpty() && customFoodsToUpdate.isEmpty() &&
-            diaryEntriesToAdd.isEmpty() && weights.isEmpty()
+            diaryEntriesToAdd.isEmpty() && weights.isEmpty() && recipesToAdd.isEmpty() && recipesToUpdate.isEmpty()
 }
+
+/** Sustituye los datos de la receta local [localId] por los de [recipe] (se conservan su id y `createdAtMillis`). */
+data class RecipeUpdate(val localId: Long, val recipe: ExportedRecipe)
+
+/** Receta de un archivo de exportación como datos de dominio; lanza [IllegalArgumentException] si no es válida. */
+fun ExportedRecipe.toNewRecipe() = NewRecipe(
+    name = name,
+    servings = servings,
+    ingredients = ingredients.map {
+        require(it.nutrients.presentValues().all { v -> v.isFinite() && v >= 0 }) {
+            "los nutrientes de «${it.name}» no pueden ser negativos"
+        }
+        RecipeIngredient(it.barcode, it.name, it.grams, it.nutrients.toDomain(), it.servingSizeG)
+    },
+)
+
+private fun ExportedNutrients.presentValues() =
+    listOfNotNull(kcal, proteinG, carbsG, fatG, saturatedFatG, sugarsG, fiberG, saltG)
 
 /** Sustituye los datos del alimento local [localId] por los de [food] (se conservan su id y `createdAtMillis`). */
 data class CustomFoodUpdate(val localId: Long, val food: ExportedCustomFood)
@@ -293,6 +384,7 @@ data class ImportReport(
     /** Descripción de cada elemento inválido omitido. */
     val invalidItems: List<String> = emptyList(),
     val weights: ImportCounts = ImportCounts(),
+    val recipes: ImportCounts = ImportCounts(),
 )
 
 /** Almacenes locales sobre los que se importa: lectura (como la exportación) y escritura atómica. */
@@ -307,13 +399,14 @@ class SqlDelightImportTarget(
     private val diaryQueries: DiaryEntryQueries,
     private val customFoodQueries: CustomFoodQueries,
     private val weightQueries: WeightEntryQueries,
+    private val recipeQueries: RecipeQueries,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : ImportTarget, ExportSource by SqlDelightExportSource(
-    productQueries, diaryQueries, customFoodQueries, weightQueries, dispatcher,
+    productQueries, diaryQueries, customFoodQueries, weightQueries, recipeQueries, dispatcher,
 ) {
 
     override suspend fun apply(changes: ImportChanges): Unit = withContext(dispatcher) {
-        // Las consultas comparten el driver, así que una transacción abarca las tres tablas.
+        // Las consultas comparten el driver, así que una transacción abarca todas las tablas.
         diaryQueries.transaction {
             changes.products.forEach { p ->
                 productQueries.upsert(
@@ -346,6 +439,15 @@ class SqlDelightImportTarget(
             changes.weights.forEach { w ->
                 val created = weightQueries.selectByDate(w.date).executeAsOneOrNull()?.created_at ?: w.createdAtMillis
                 weightQueries.upsert(w.date, w.weightKg, created, w.updatedAtMillis)
+            }
+            changes.recipesToAdd.forEach { r ->
+                recipeQueries.insert(r.name, r.servings?.toLong(), r.createdAtMillis, r.updatedAtMillis)
+                recipeQueries.writeIngredients(recipeQueries.lastInsertedId().executeAsOne(), r.toNewRecipe().ingredients)
+            }
+            changes.recipesToUpdate.forEach { (id, r) ->
+                recipeQueries.update(r.name, r.servings?.toLong(), r.updatedAtMillis, id)
+                recipeQueries.deleteIngredients(id)
+                recipeQueries.writeIngredients(id, r.toNewRecipe().ingredients)
             }
             changes.diaryEntriesToAdd.forEach { e ->
                 diaryQueries.insert(
