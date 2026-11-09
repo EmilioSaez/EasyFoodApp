@@ -9,7 +9,9 @@ App multiplataforma (Kotlin Multiplatform + Compose Multiplatform) para **contar
 - **Escáner de códigos de barras** (solo Android) y entrada manual de EAN. La consulta por EAN va a [Open Food Facts](https://world.openfoodfacts.org).
 - **Ficha de producto**: cantidad, tabla nutricional por 100 g y aviso cuando los datos faltan o parecen erróneos.
 - **Alimento propio**: crear, editar y borrar alimentos introducidos a mano.
-- **Objetivos y TDEE**: cálculo del gasto energético, ritmo y ajuste manual de kcal/macros.
+- **Recetas**: combinan ingredientes de la base y se añaden al diario.
+- **Objetivos y TDEE**: cálculo del gasto energético, ritmo, objetivo fijo y ajuste manual de kcal/macros; actividad sugerida por los pasos diarios (Health Connect / HealthKit).
+- **Peso**: registro con gráfica, peso objetivo, estimación de cuándo se alcanza y aviso semanal.
 - **Sin cuentas ni servidor**: los datos viven en el dispositivo (offline-first, SQLDelight).
 
 ## Plataformas
@@ -18,7 +20,7 @@ App multiplataforma (Kotlin Multiplatform + Compose Multiplatform) para **contar
 |---|---|
 | Android | Funciona, con escáner de cámara (CameraX + ML Kit). |
 | Escritorio (JVM) | Funciona. Sin escáner: se introduce el EAN a mano. |
-| iOS | El proyecto Xcode existe pero **no se ha compilado nunca**: falta un Mac o CI con macOS. Sin escáner todavía. Ver [docs/ios.md](docs/ios.md). |
+| iOS | Compila y pasa los tests en el CI de macOS (simulador, sin firma). Escáner con AVFoundation. **Sin probar en iPhone real** ni TestFlight todavía. Ver [docs/ios.md](docs/ios.md). |
 
 ## Datos: exportar e importar
 

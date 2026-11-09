@@ -2,7 +2,7 @@
 
 La app de iOS es un proyecto Xcode mínimo (`iosApp/`) que embebe el framework `Shared` generado por el módulo `shared` y muestra la UI de Compose Multiplatform. Toda la lógica y las pantallas están en `shared`; `iosApp` solo contiene el arranque en SwiftUI.
 
-**Estado:** el proyecto se escribió sin Mac y **no se ha compilado nunca en Xcode**. El `.xcodeproj` ya no se versiona: se genera con [XcodeGen](https://github.com/yonaskolb/XcodeGen) desde `iosApp/project.yml`. Lo no verificable sin Mac está en [`ios-pendiente.md`](ios-pendiente.md).
+**Estado:** el proyecto se escribió sin Mac. El CI de macOS (`.github/workflows/ios.yml`) compila el framework, ejecuta los tests de iOS y hace `xcodebuild` al simulador sin firma. **No se ha probado en un iPhone real** ni se distribuye por TestFlight. El `.xcodeproj` no se versiona: se genera con [XcodeGen](https://github.com/yonaskolb/XcodeGen) desde `iosApp/project.yml`. Lo no verificable sin Mac está en [`ios-pendiente.md`](ios-pendiente.md).
 
 ## Estructura
 
