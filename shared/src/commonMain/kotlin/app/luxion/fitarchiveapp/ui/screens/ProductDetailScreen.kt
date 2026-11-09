@@ -448,7 +448,7 @@ private fun DetailContent(
 }
 
 @Composable
-private fun MacroCell(label: String, grams: Double?, color: androidx.compose.ui.graphics.Color, modifier: Modifier = Modifier) {
+internal fun MacroCell(label: String, grams: Double?, color: androidx.compose.ui.graphics.Color, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(Spacing.xxs)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             MacroDot(color)

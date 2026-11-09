@@ -1,16 +1,19 @@
 package app.luxion.fitarchiveapp.export
 
 import app.luxion.fitarchiveapp.data.CachedProduct
+import app.luxion.fitarchiveapp.data.readAll
 import app.luxion.fitarchiveapp.data.toCached
 import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
 import app.luxion.fitarchiveapp.data.toDomain
 import app.luxion.fitarchiveapp.db.CustomFoodQueries
 import app.luxion.fitarchiveapp.db.DiaryEntryQueries
 import app.luxion.fitarchiveapp.db.ProductQueries
+import app.luxion.fitarchiveapp.db.RecipeQueries
 import app.luxion.fitarchiveapp.db.WeightEntryQueries
 import app.luxion.fitarchiveapp.model.CustomFood
 import app.luxion.fitarchiveapp.model.DiaryEntry
 import app.luxion.fitarchiveapp.model.Product
+import app.luxion.fitarchiveapp.model.Recipe
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -21,6 +24,7 @@ interface ExportSource {
     suspend fun diaryEntries(): List<DiaryEntry>
     suspend fun customFoods(): List<ExportedCustomFood> = emptyList()
     suspend fun weights(): List<ExportedWeight> = emptyList()
+    suspend fun recipes(): List<ExportedRecipe> = emptyList()
     suspend fun weightGoal(): ExportedWeightGoal? = null
 }
 
@@ -38,6 +42,7 @@ class DataExporter(
         diaryEntries = source.diaryEntries().map { it.toExported() },
         customFoods = source.customFoods(),
         weights = source.weights(),
+        recipes = source.recipes(),
         weightGoal = source.weightGoal(),
     )
 
@@ -53,6 +58,14 @@ fun DiaryEntry.toExported() = ExportedDiaryEntry(
 fun CustomFood.toExported() = ExportedCustomFood(
     id = id, name = name, brand = brand, nutrients = nutrients.toExported(), servingSizeG = servingSizeG,
     servingLabel = servingLabel, createdAtMillis = createdAtMillis, updatedAtMillis = updatedAtMillis,
+)
+
+fun Recipe.toExported() = ExportedRecipe(
+    id = id, name = name, servings = servings,
+    ingredients = ingredients.map {
+        ExportedRecipeIngredient(it.barcode, it.name, it.grams, it.nutrients.toExported(), it.servingSizeG)
+    },
+    createdAtMillis = createdAtMillis, updatedAtMillis = updatedAtMillis,
 )
 
 fun ExportedDiaryEntry.toDomain() = DiaryEntry(
@@ -75,8 +88,13 @@ class SqlDelightExportSource(
     private val diaryQueries: DiaryEntryQueries,
     private val customFoodQueries: CustomFoodQueries? = null,
     private val weightQueries: WeightEntryQueries? = null,
+    private val recipeQueries: RecipeQueries? = null,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : ExportSource {
+    override suspend fun recipes(): List<ExportedRecipe> = withContext(dispatcher) {
+        recipeQueries?.transactionWithResult { recipeQueries.readAll() }.orEmpty().map { it.toExported() }
+    }
+
     override suspend fun weights(): List<ExportedWeight> = withContext(dispatcher) {
         weightQueries?.selectAll()?.executeAsList().orEmpty().map {
             ExportedWeight(it.date, it.weight_kg, it.created_at, it.updated_at)

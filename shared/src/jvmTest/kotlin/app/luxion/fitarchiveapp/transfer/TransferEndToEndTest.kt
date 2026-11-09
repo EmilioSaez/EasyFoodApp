@@ -61,9 +61,9 @@ class TransferEndToEndTest {
         val products = SqlDelightProductStore(db.productQueries)
         val diary = SqlDelightDiaryStore(db.diaryEntryQueries)
         val foods = SqlDelightCustomFoodStore(db.customFoodQueries)
-        private val source = SqlDelightExportSource(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries)
+        private val source = SqlDelightExportSource(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries, db.recipeQueries)
         val exporter = DataExporter(source) { 9_000L }
-        val importer = DataImporter(SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries))
+        val importer = DataImporter(SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries, db.recipeQueries))
         val presenter = DataPresenter(exporter, importer)
 
         fun snapshot() = ExportCodec.decode(runBlocking { exporter.exportToJson() })

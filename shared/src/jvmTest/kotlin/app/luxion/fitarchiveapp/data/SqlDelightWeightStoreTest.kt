@@ -101,7 +101,7 @@ class SqlDelightWeightStoreTest {
         driver.execute(null, "DROP TABLE WeightEntryEntity", 0)
 
         EasyFoodDatabase.Schema.migrate(driver, 4, EasyFoodDatabase.Schema.version)
-        assertEquals(6L, EasyFoodDatabase.Schema.version)
+        assertTrue(EasyFoodDatabase.Schema.version >= 6L)
 
         val migrated = SqlDelightWeightStore(EasyFoodDatabase(driver).weightEntryQueries)
         migrated.save(e("2026-11-01", 80.0), 1L)

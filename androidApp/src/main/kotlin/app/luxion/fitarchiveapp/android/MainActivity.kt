@@ -13,6 +13,7 @@ import app.luxion.fitarchiveapp.data.SqlDelightDiaryStore
 import app.luxion.fitarchiveapp.data.SqlDelightGoalStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductSearchStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductStore
+import app.luxion.fitarchiveapp.data.SqlDelightRecipeStore
 import app.luxion.fitarchiveapp.data.SqlDelightWeightStore
 import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
 import app.luxion.fitarchiveapp.data.generic.GenericFoodSeeder
@@ -32,10 +33,11 @@ class MainActivity : ComponentActivity() {
     private val diaryStore by lazy { SqlDelightDiaryStore(database.diaryEntryQueries) }
     private val goalStore by lazy { SqlDelightGoalStore(database.dailyGoalQueries) }
     private val weightStore by lazy { SqlDelightWeightStore(database.weightEntryQueries) }
+    private val recipeStore by lazy { SqlDelightRecipeStore(database.recipeQueries) }
     private val searchStore by lazy { SqlDelightProductSearchStore(database.productSearchQueries) }
     private val customFoodStore by lazy { SqlDelightCustomFoodStore(database.customFoodQueries) }
     private val importTarget by lazy {
-        SqlDelightImportTarget(database.productQueries, database.diaryEntryQueries, database.customFoodQueries, database.weightEntryQueries)
+        SqlDelightImportTarget(database.productQueries, database.diaryEntryQueries, database.customFoodQueries, database.weightEntryQueries, database.recipeQueries)
     }
     private val genericSeeder by lazy {
         GenericFoodSeeder(GenericFoodImporter(database.productQueries), nowMillis = System::currentTimeMillis)
@@ -52,6 +54,7 @@ class MainActivity : ComponentActivity() {
                     searchStore = searchStore,
                     customFoodStore = customFoodStore,
                     weightStore = weightStore,
+                    recipeStore = recipeStore,
                     importTarget = importTarget,
                     today = { LocalDate.now().toString() },
                     genericSeeder = genericSeeder,

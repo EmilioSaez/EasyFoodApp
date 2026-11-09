@@ -40,6 +40,15 @@ sealed interface Route {
         val entryId: Long? = null,
     ) : Route
 
+    /** Lista de recetas. */
+    data object Recipes : Route
+
+    /** Detalle de una receta: macros, ingredientes y añadirla al diario. */
+    data class RecipeDetail(val recipeId: Long) : Route
+
+    /** Crear una receta, o editarla (y borrarla) si se indica [recipeId]. */
+    data class RecipeEdit(val recipeId: Long? = null) : Route
+
     /** Objetivos y TDEE. */
     data object Goals : Route
 
@@ -54,6 +63,7 @@ sealed interface Route {
 enum class TopLevelTab(val label: String, val icon: String, val route: Route) {
     Diary("Diario", "▤", Route.Diary),
     Foods("Alimentos", "⌕", Route.Add()),
+    Recipes("Recetas", "≣", Route.Recipes),
     Weight("Mi peso", "↗", Route.Weight),
     Goals("Objetivos", "◎", Route.Goals),
 }

@@ -49,6 +49,20 @@ class NavigatorTest {
     }
 
     @Test
+    fun recipesTabOpensTheListAndDetailAndEditStackOnTopOfIt() {
+        val nav = Navigator()
+        nav.navigateTab(TopLevelTab.Recipes)
+        assertEquals(Route.Recipes, nav.current)
+        nav.push(Route.RecipeDetail(3))
+        nav.push(Route.RecipeEdit(3))
+        nav.pop()
+        nav.pop()
+        assertEquals(Route.Recipes, nav.current)
+        nav.pop()
+        assertEquals(Route.Diary, nav.current)
+    }
+
+    @Test
     fun popToDiaryClearsStack() {
         val nav = Navigator()
         nav.push(Route.Add())

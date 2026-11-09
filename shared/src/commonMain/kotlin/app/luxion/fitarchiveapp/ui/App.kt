@@ -19,6 +19,7 @@ import app.luxion.fitarchiveapp.data.DiaryStore
 import app.luxion.fitarchiveapp.data.GoalStore
 import app.luxion.fitarchiveapp.data.ProductRepository
 import app.luxion.fitarchiveapp.data.ProductSearchStore
+import app.luxion.fitarchiveapp.data.RecipeStore
 import app.luxion.fitarchiveapp.data.WeightStore
 import app.luxion.fitarchiveapp.data.generic.GenericFoodSeeder
 import app.luxion.fitarchiveapp.export.DataExporter
@@ -35,6 +36,9 @@ import app.luxion.fitarchiveapp.ui.screens.DataScreen
 import app.luxion.fitarchiveapp.ui.screens.DiaryScreen
 import app.luxion.fitarchiveapp.ui.screens.GoalsScreen
 import app.luxion.fitarchiveapp.ui.screens.ProductDetailScreen
+import app.luxion.fitarchiveapp.ui.screens.RecipeDetailScreen
+import app.luxion.fitarchiveapp.ui.screens.RecipeEditScreen
+import app.luxion.fitarchiveapp.ui.screens.RecipesScreen
 import app.luxion.fitarchiveapp.ui.screens.ScannerScreen
 import app.luxion.fitarchiveapp.ui.screens.WeightScreen
 import app.luxion.fitarchiveapp.ui.theme.EasyFoodTheme
@@ -52,6 +56,7 @@ fun App(
     searchStore: ProductSearchStore,
     customFoodStore: CustomFoodStore,
     weightStore: WeightStore,
+    recipeStore: RecipeStore,
     importTarget: ImportTarget,
     today: () -> String,
     genericSeeder: GenericFoodSeeder? = null,
@@ -85,6 +90,9 @@ fun App(
                             is Route.ProductDetail -> ProductDetailScreen(navigator, route, repository, diaryStore, customFoodStore, today)
                             Route.Goals -> GoalsScreen(navigator, goalStore, today)
                             Route.Weight -> WeightScreen(navigator, weightStore, today)
+                            Route.Recipes -> RecipesScreen(navigator, recipeStore)
+                            is Route.RecipeDetail -> RecipeDetailScreen(navigator, route, recipeStore, diaryStore, today)
+                            is Route.RecipeEdit -> RecipeEditScreen(navigator, route, recipeStore, searchStore, customFoodStore)
                             Route.Data -> DataScreen(navigator, dataPresenter, today)
                         }
                     }

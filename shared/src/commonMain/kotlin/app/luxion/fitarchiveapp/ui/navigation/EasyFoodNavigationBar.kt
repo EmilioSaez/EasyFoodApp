@@ -7,7 +7,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 
-/** Barra inferior: Diario · Alimentos · Mi peso · Objetivos (indicador `secondaryContainer`). */
+/** Barra inferior: Diario · Alimentos · Recetas · Mi peso · Objetivos (indicador `secondaryContainer`). */
 @Composable
 fun EasyFoodNavigationBar(selected: TopLevelTab, navigator: Navigator) {
     NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
