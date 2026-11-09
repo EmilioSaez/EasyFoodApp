@@ -92,13 +92,13 @@ class SqlDelightWeightStoreTest {
     }
 
     @Test
-    fun migrationFromV3CreatesTableAndKeepsData() = runTest {
-        // Simula una base v3: sin la tabla de peso, con un objetivo ya guardado.
+    fun migrationFromV4CreatesTableAndKeepsData() = runTest {
+        // Simula una base v4: sin la tabla de peso, con un objetivo ya guardado.
         SqlDelightGoalStore(db.dailyGoalQueries).save(app.luxion.fitarchiveapp.model.DailyGoals(kcal = 2000))
         driver.execute(null, "DROP TABLE WeightEntryEntity", 0)
 
-        EasyFoodDatabase.Schema.migrate(driver, 3, EasyFoodDatabase.Schema.version)
-        assertEquals(4L, EasyFoodDatabase.Schema.version)
+        EasyFoodDatabase.Schema.migrate(driver, 4, EasyFoodDatabase.Schema.version)
+        assertEquals(5L, EasyFoodDatabase.Schema.version)
 
         val migrated = SqlDelightWeightStore(EasyFoodDatabase(driver).weightEntryQueries)
         migrated.save(e("2026-11-01", 80.0), 1L)
@@ -106,7 +106,7 @@ class SqlDelightWeightStoreTest {
         assertEquals(2000, SqlDelightGoalStore(db.dailyGoalQueries).get().kcal)
 
         // Idempotente: repetirla sobre una base que ya tiene la tabla no falla ni borra datos.
-        EasyFoodDatabase.Schema.migrate(driver, 3, EasyFoodDatabase.Schema.version)
+        EasyFoodDatabase.Schema.migrate(driver, 4, EasyFoodDatabase.Schema.version)
         assertEquals(1, migrated.all().size)
     }
 }

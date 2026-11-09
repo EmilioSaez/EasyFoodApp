@@ -27,6 +27,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -74,6 +75,7 @@ fun GoalsScreen(navigator: Navigator, goalStore: GoalStore) {
     var goal by remember { mutableStateOf(Goal.MAINTAIN) }
     var paceIndex by remember { mutableStateOf(GoalsPlanner.DEFAULT_PACE_INDEX) }
     var editing by remember { mutableStateOf(false) }
+    var fixed by remember { mutableStateOf(false) }
     // null = automático; texto (posiblemente vacío) = ajuste manual.
     var kcalText by remember { mutableStateOf<String?>(null) }
     var proteinText by remember { mutableStateOf<String?>(null) }
@@ -85,6 +87,7 @@ fun GoalsScreen(navigator: Navigator, goalStore: GoalStore) {
     LaunchedEffect(goalStore) {
         try {
             saved = goalStore.get()
+            fixed = saved.fixed
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -106,9 +109,11 @@ fun GoalsScreen(navigator: Navigator, goalStore: GoalStore) {
     fun override(text: String?): Int? = text?.let { parseNumber(it)?.toInt() }?.takeIf { it >= 0 }
     val kcalOverride = override(kcalText)?.takeIf { it > 0 }
     val resolved = GoalsPlanner.resolve(
-        plan, profile, saved, kcalOverride, override(proteinText), override(carbsText), override(fatText),
+        plan, profile, saved, kcalOverride, override(proteinText), override(carbsText), override(fatText), fixed,
     )
     val custom = kcalOverride != null
+    // Con el objetivo fijo la calculadora solo sugiere: se muestra aparte de lo que se guardará.
+    val suggestion = if (fixed) plan else null
     val hasManual = kcalText != null || proteinText != null || carbsText != null || fatText != null
 
     Scaffold(
@@ -151,7 +156,7 @@ fun GoalsScreen(navigator: Navigator, goalStore: GoalStore) {
             Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = Spacing.l),
             verticalArrangement = Arrangement.spacedBy(Spacing.xl),
         ) {
-            ResultCard(resolved.kcal, plan, custom, Modifier.padding(top = Spacing.s))
+            ResultCard(resolved.kcal, plan, custom, fixed, Modifier.padding(top = Spacing.s))
 
             if (plan?.limited == true) {
                 Text(
@@ -170,6 +175,12 @@ fun GoalsScreen(navigator: Navigator, goalStore: GoalStore) {
                     )
                 }
             }
+
+            FixedGoalRow(
+                fixed = fixed,
+                onChange = { fixed = it },
+                suggestionKcal = suggestion?.targetKcal?.takeIf { it != resolved.kcal },
+            )
 
             Section("Tus datos") {
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
@@ -268,6 +279,35 @@ fun GoalsScreen(navigator: Navigator, goalStore: GoalStore) {
     }
 }
 
+/** Interruptor «Objetivo fijo»: la calculadora deja de recalcular lo que se guarda. */
+@Composable
+private fun FixedGoalRow(fixed: Boolean, onChange: (Boolean) -> Unit, suggestionKcal: Int?) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                .selectable(selected = fixed, onClick = { onChange(!fixed) }, role = Role.Switch),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Objetivo fijo", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    "Mantiene tus objetivos tal cual; la calculadora solo sugiere.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Switch(checked = fixed, onCheckedChange = null)
+        }
+        if (suggestionKcal != null) {
+            Text(
+                "La calculadora sugiere ${formatKcal(suggestionKcal.toDouble())} kcal.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
@@ -277,7 +317,7 @@ private fun Section(title: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun ResultCard(targetKcal: Int?, plan: GoalsPlan?, custom: Boolean, modifier: Modifier = Modifier) {
+private fun ResultCard(targetKcal: Int?, plan: GoalsPlan?, custom: Boolean, fixed: Boolean, modifier: Modifier = Modifier) {
     Card(
         modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
@@ -287,7 +327,12 @@ private fun ResultCard(targetKcal: Int?, plan: GoalsPlan?, custom: Boolean, modi
         ),
     ) {
         Column(Modifier.padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
-            Text(if (custom) "Objetivo diario · Personalizado" else "Objetivo diario", style = MaterialTheme.typography.labelLarge)
+            val label = when {
+                fixed -> "Objetivo diario · Fijo"
+                custom -> "Objetivo diario · Personalizado"
+                else -> "Objetivo diario"
+            }
+            Text(label, style = MaterialTheme.typography.labelLarge)
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
                     targetKcal?.let { formatKcal(it.toDouble()) } ?: "—",

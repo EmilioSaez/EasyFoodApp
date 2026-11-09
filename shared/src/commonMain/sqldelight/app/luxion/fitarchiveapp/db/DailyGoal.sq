@@ -5,15 +5,17 @@ CREATE TABLE DailyGoalEntity (
     kcal INTEGER CHECK (kcal IS NULL OR kcal > 0),
     protein_g INTEGER CHECK (protein_g IS NULL OR protein_g >= 0),
     carbs_g INTEGER CHECK (carbs_g IS NULL OR carbs_g >= 0),
-    fat_g INTEGER CHECK (fat_g IS NULL OR fat_g >= 0)
+    fat_g INTEGER CHECK (fat_g IS NULL OR fat_g >= 0),
+    -- 1 = objetivo fijo: la calculadora no lo recalcula (migración 3.sqm).
+    fixed INTEGER NOT NULL DEFAULT 0 CHECK (fixed IN (0, 1))
 );
 
 select:
 SELECT * FROM DailyGoalEntity WHERE id = 1;
 
 upsert:
-INSERT OR REPLACE INTO DailyGoalEntity(id, kcal, protein_g, carbs_g, fat_g)
-VALUES (1, ?, ?, ?, ?);
+INSERT OR REPLACE INTO DailyGoalEntity(id, kcal, protein_g, carbs_g, fat_g, fixed)
+VALUES (1, ?, ?, ?, ?, ?);
 
 clear:
 DELETE FROM DailyGoalEntity;

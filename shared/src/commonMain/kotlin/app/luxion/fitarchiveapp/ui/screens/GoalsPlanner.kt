@@ -71,6 +71,8 @@ object GoalsPlanner {
     /**
      * Objetivos finales: los ajustes manuales mandan sobre la calculadora y esta sobre lo guardado.
      * Con kcal a mano y datos de perfil, los macros se recalculan para esas kcal.
+     * Con [fixed], la calculadora no interviene: manda lo guardado salvo los ajustes manuales
+     * (y solo unas kcal a mano reparten los macros según el perfil).
      */
     fun resolve(
         plan: GoalsPlan?,
@@ -80,7 +82,10 @@ object GoalsPlanner {
         proteinOverride: Int?,
         carbsOverride: Int?,
         fatOverride: Int?,
+        fixed: Boolean = false,
     ): DailyGoals {
+        val plan = plan.takeUnless { fixed }
+        val profile = profile.takeUnless { fixed && kcalOverride == null }
         val kcal = kcalOverride ?: plan?.targetKcal ?: saved.kcal
         val base: MacroTargets? = when {
             plan != null && kcalOverride == null -> plan.macros
@@ -94,6 +99,7 @@ object GoalsPlanner {
             proteinG = proteinOverride ?: base?.proteinG,
             carbsG = carbsOverride ?: base?.carbsG,
             fatG = fatOverride ?: base?.fatG,
+            fixed = fixed,
         )
     }
 }
