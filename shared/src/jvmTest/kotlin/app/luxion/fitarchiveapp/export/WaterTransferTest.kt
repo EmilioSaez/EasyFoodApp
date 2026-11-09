@@ -17,7 +17,7 @@ class WaterTransferTest {
         val water = SqlDelightWaterStore(db.waterQueries)
         val target = SqlDelightImportTarget(
             db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries,
-            db.recipeQueries, db.settingsQueries, waterQueries = db.waterQueries,
+            db.recipeQueries, db.settingsQueries, db.favoriteFoodQueries, waterQueries = db.waterQueries,
         )
         val exporter = DataExporter(target) { 5_000L }
         val importer = DataImporter(target)

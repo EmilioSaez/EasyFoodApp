@@ -33,6 +33,7 @@ interface ExportSource {
     suspend fun mealsPerDay(): Int? = null
     suspend fun water(): List<ExportedWater> = emptyList()
     suspend fun waterGoal(): ExportedWaterGoal? = null
+    suspend fun favorites(): List<ExportedFavorite> = emptyList()
 }
 
 /** Genera el JSON de exportación a partir de [source]. */
@@ -54,6 +55,7 @@ class DataExporter(
         mealsPerDay = source.mealsPerDay(),
         water = source.water(),
         waterGoal = source.waterGoal(),
+        favorites = source.favorites(),
     )
 
     suspend fun exportToJson(): String = ExportCodec.encode(buildFile())
@@ -110,6 +112,22 @@ class SqlDelightExportSource(
 
     override suspend fun waterGoal(): ExportedWaterGoal? = withContext(dispatcher) {
         waterQueries?.selectGoal()?.executeAsOneOrNull()?.let { ExportedWaterGoal(it.goal_ml.toInt(), it.updated_at) }
+    }
+
+    override suspend fun favorites(): List<ExportedFavorite> = withContext(dispatcher) {
+        val favorites = favoriteQueries?.selectAll()?.executeAsList().orEmpty()
+        if (favorites.isEmpty()) return@withContext emptyList()
+        val customById = customFoodQueries?.selectAll()?.executeAsList().orEmpty().associateBy { it.id }
+        favorites.mapNotNull { f ->
+            val customId = FavoriteKeys.customIdOf(f.key)
+            when {
+                customId == null -> ExportedFavorite(barcode = f.key, createdAtMillis = f.created_at)
+                // Un alimento propio borrado deja un favorito huérfano: no se exporta.
+                else -> customById[customId]?.let {
+                    ExportedFavorite(customName = it.name, customBrand = it.brand, createdAtMillis = f.created_at)
+                }
+            }
+        }
     }
 
     override suspend fun mealsPerDay(): Int? = withContext(dispatcher) {

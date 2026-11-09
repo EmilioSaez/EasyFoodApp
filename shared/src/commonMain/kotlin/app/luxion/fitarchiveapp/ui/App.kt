@@ -71,6 +71,7 @@ fun App(
     weightStore: WeightStore,
     recipeStore: RecipeStore,
     settingsStore: SettingsStore,
+    favoriteStore: FavoriteStore,
     waterStore: WaterStore? = null,
     importTarget: ImportTarget,
     today: () -> String,
@@ -111,7 +112,7 @@ fun App(
                             )
                             is Route.Scanner -> ScannerScreen(navigator, route, repository)
                             is Route.CustomFood -> CustomFoodScreen(navigator, route, customFoodStore, route.foodId)
-                            is Route.ProductDetail -> ProductDetailScreen(navigator, route, repository, diaryStore, customFoodStore, today, mealChoices)
+                            is Route.ProductDetail -> ProductDetailScreen(navigator, route, repository, diaryStore, customFoodStore, favoriteStore, today, mealChoices)
                             Route.Goals -> GoalsScreen(navigator, goalStore, today, meals.count, meals::choose, waterStore)
                             Route.Weight -> WeightScreen(navigator, weightStore, today)
                             Route.Recipes -> RecipesScreen(navigator, recipeStore)

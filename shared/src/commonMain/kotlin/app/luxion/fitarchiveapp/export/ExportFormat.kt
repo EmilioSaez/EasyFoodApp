@@ -34,6 +34,21 @@ data class ExportFile(
     val water: List<ExportedWater> = emptyList(),
     /** Objetivo diario de agua. Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como `null`. */
     val waterGoal: ExportedWaterGoal? = null,
+    /** Alimentos favoritos. Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como vacío. */
+    val favorites: List<ExportedFavorite> = emptyList(),
+)
+
+/**
+ * Alimento favorito. Es portable entre dispositivos: un producto (EAN o `generic:<id>`) viaja por su [barcode]; un
+ * alimento propio, cuyo id es local de cada dispositivo, por su [customName] y [customBrand]. Solo uno de los dos
+ * grupos va informado.
+ */
+@Serializable
+data class ExportedFavorite(
+    val barcode: String? = null,
+    val customName: String? = null,
+    val customBrand: String? = null,
+    val createdAtMillis: Long = 0,
 )
 
 @Serializable
