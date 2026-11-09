@@ -202,7 +202,8 @@ private suspend fun load(
         return LoadState.Ready(detail, entry.meal, entry.quantity.unit, entry.quantity.amount)
     }
     val barcode = route.barcode ?: return LoadState.NotFound
-    if (barcode.startsWith(CUSTOM_FOOD_KEY_PREFIX)) return loadCustomFood(barcode, route.meal ?: defaultMeal, customFoods)
+    val meal = route.meal ?: defaultMeal
+    if (barcode.startsWith(CUSTOM_FOOD_KEY_PREFIX)) return loadCustomFood(barcode, meal, customFoods)
     return when (val result = repository.getByBarcode(barcode)) {
         ProductResult.NotFound -> LoadState.NotFound
         is ProductResult.Failure -> LoadState.Failed("Open Food Facts no responde y no hay una copia guardada. Comprueba la conexión.")
@@ -221,7 +222,7 @@ private suspend fun load(
             )
             val servings = p.servingSizeG != null
             LoadState.Ready(
-                detail, route.meal ?: defaultMeal,
+                detail, meal,
                 if (servings) QuantityUnit.SERVINGS else QuantityUnit.GRAMS,
                 if (servings) 1.0 else 100.0,
             )

@@ -121,13 +121,13 @@ TopAppBar: ← · «Alimentos»   (sin selector de comida)
 SearchBar (inline, extraLarge, surfaceContainerHigh): icono lupa · texto · IconButton borrar
 Fila de 3 accesos rápidos (grid 3 col, gap 8, alto 72, medium):
    Recientes (primaryContainer) · Escáner · Alimento propio (surfaceContainer)
-Sin texto en la búsqueda: lista «Recientes» (los últimos alimentos distintos del diario, del más reciente al más antiguo)
+Sin texto en la búsqueda: cabecera «Últimos alimentos · 24» y la lista «Recientes» (los últimos alimentos distintos del diario, del más reciente al más antiguo, FoodResultRow)
 Con texto: cabecera «Resultados · 24» (titleSmall primary) y LazyColumn de FoodResultRow (ListItem 72):
    SourceAvatar 40 · nombre / «marca · tamaño · EAN» · «255» + «kcal/100 g»
 ```
 - **Sin filtros:** se eliminan las fichas «Todos · Genérico · Open Food Facts · Propios» y el filtro por origen. Los resultados mezclan todos los orígenes (genérico, Open Food Facts y propios); el origen sigue visible en cada fila con `SourceAvatar`/`SourceChip`.
 - **Sin comida preseleccionada:** la pestaña Alimentos ya no pide la comida arriba. Al abrir la ficha de un alimento desde la pestaña, la comida se elige en la propia ficha (por defecto la comida que toca por la hora, §2.9). Si se llega desde el «+» de una sección del Diario, la comida viene preseleccionada y no se pregunta de nuevo.
-- **«Recientes»:** la lista de recientes se ve por defecto cuando no hay texto; el botón sirve para volver a ella tras buscar (borra el texto). No necesita tabla nueva: se deriva de `DiaryEntry`.
+- **«Recientes»:** la lista de recientes se ve por defecto cuando no hay texto; el botón sirve para volver a ella tras buscar (borra el texto). No necesita tabla nueva ni migración: la consulta `selectRecent` toma la última entrada de cada alimento distinto de `DiaryEntry` (clave: EAN o, sin él, el nombre; hasta 30). Un alimento propio no guarda su id en el diario, así que se enlaza por nombre con los alimentos propios; si ya no existe se omite. Sin recientes: estado vacío «Aún no hay recientes».
 - **«Escáner»:** sustituye a «Código EAN». Abre `ScannerScreen`, que ya incluye la entrada manual de EAN (§2.3). En escritorio no hay cámara y el botón abre directamente la entrada manual.
 - Búsqueda: debounce de 300 ms y FTS local; Open Food Facts solo si hay red, mezclado detrás de los resultados locales.
 
