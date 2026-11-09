@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.data.CustomFoodStore
 import app.luxion.fitarchiveapp.data.DiaryStore
 import app.luxion.fitarchiveapp.data.ProductSearchStore
-import app.luxion.fitarchiveapp.scanner.isBarcodeScannerSupported
+import app.luxion.fitarchiveapp.ui.components.EmptyState
 import app.luxion.fitarchiveapp.ui.components.EmptyStateAction
 import app.luxion.fitarchiveapp.ui.components.FoodResultRow
 import app.luxion.fitarchiveapp.ui.navigation.Navigator
@@ -51,7 +51,6 @@ fun AddFoodScreen(
     customFoods: CustomFoodStore? = null,
     diaryStore: DiaryStore? = null,
 ) {
-    val meal = route.meal
     var query by remember { mutableStateOf("") }
     // null = aún cargando; lista vacía = sin recientes.
     var recents by remember { mutableStateOf<List<FoodResult>?>(null) }
@@ -70,7 +69,7 @@ fun AddFoodScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(route.meal?.let { "Añadir a ${it.label}" } ?: "Añadir alimento") },
+                title = { Text("Alimentos") },
                 navigationIcon = {
                     IconButton(
                         onClick = { navigator.pop() },
@@ -104,7 +103,42 @@ fun AddFoodScreen(
     }
 }
 
-/** Escanear · Código EAN · Alimento propio. En escritorio no hay escáner: «Código EAN» pasa a destacado. */
+@Composable
+private fun RecentFoodsList(recents: List<FoodResult>?, onPick: (FoodResult) -> Unit) {
+    when {
+        recents == null -> Unit
+        recents.isEmpty() -> EmptyState(
+            icon = "◷",
+            title = "Aún no hay recientes",
+            message = "Los alimentos que apuntes en el diario aparecerán aquí. Busca uno o usa el escáner.",
+            modifier = Modifier.fillMaxWidth(),
+        )
+        else -> LazyColumn(Modifier.fillMaxSize()) {
+            item {
+                Text(
+                    "Últimos alimentos · ${recents.size}",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s),
+                )
+            }
+            items(recents, key = { it.key }) { r ->
+                FoodResultRow(
+                    name = r.name,
+                    detail = r.detail,
+                    source = r.source,
+                    kcalPer100g = r.kcalPer100g,
+                    onClick = { onPick(r) },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Recientes · Escáner · Alimento propio. «Escáner» abre [ScannerScreen], que con cámara escanea y siempre ofrece la
+ * entrada manual de EAN; en escritorio, sin cámara, solo queda esa entrada manual.
+ */
 @Composable
 private fun QuickActions(onRecent: () -> Unit, onScan: () -> Unit, onCustom: () -> Unit, modifier: Modifier = Modifier) {
     val tall = Modifier.height(72.dp)

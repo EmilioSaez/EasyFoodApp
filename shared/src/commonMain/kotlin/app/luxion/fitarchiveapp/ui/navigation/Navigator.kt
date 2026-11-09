@@ -11,7 +11,7 @@ sealed interface Route {
     /** Diario del día (pantalla de inicio). */
     data object Diary : Route
 
-    /** Añadir alimento; [meal] es la comida preseleccionada (`null` = se elige en la ficha, por defecto la de la hora). */
+    /** Añadir alimento; [meal] es la comida preseleccionada (`null` desde la pestaña: se elige en la ficha). */
     data class Add(val meal: MealType? = null) : Route
 
     /** Escáner de cámara + entrada manual de EAN. */
@@ -31,7 +31,7 @@ sealed interface Route {
     ) : Route
 
     /**
-     * Ficha de producto. Alta: [barcode] del producto y [meal] destino (`null` = la comida de la hora). Edición de una entrada
+     * Ficha de producto. Alta: [barcode] del producto y [meal] destino. Edición de una entrada
      * del diario: [entryId] informado.
      */
     data class ProductDetail(
