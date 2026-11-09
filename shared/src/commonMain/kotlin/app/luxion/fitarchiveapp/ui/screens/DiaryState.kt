@@ -3,11 +3,15 @@ package app.luxion.fitarchiveapp.ui.screens
 import app.luxion.fitarchiveapp.data.DiaryStore
 import app.luxion.fitarchiveapp.data.GoalStore
 import app.luxion.fitarchiveapp.data.generic.GenericFoodFormat
+import app.luxion.fitarchiveapp.domain.DayStatus
+import app.luxion.fitarchiveapp.domain.DaySummary
 import app.luxion.fitarchiveapp.domain.MealPlan
 import app.luxion.fitarchiveapp.model.DailyGoals
 import app.luxion.fitarchiveapp.model.DiaryEntry
 import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.model.NewDiaryEntry
+import app.luxion.fitarchiveapp.model.epochDayToIsoDate
+import app.luxion.fitarchiveapp.model.isoDateToEpochDay
 import app.luxion.fitarchiveapp.model.Quantity
 import app.luxion.fitarchiveapp.model.QuantityUnit
 import app.luxion.fitarchiveapp.ui.components.DataSource
@@ -44,9 +48,25 @@ data class MealUi(
     val entries: List<EntryUi>,
 )
 
-/** Estado del Diario (docs/design.md §2.1). */
+/** Un día de la franja semanal (docs/design.md §2.12). */
+data class WeekDayUi(
+    val date: String,
+    /** Inicial del día: L M X J V S D. */
+    val initial: String,
+    val dayNumber: Int,
+    val status: DayStatus,
+    val selected: Boolean,
+)
+
+/** Estado del Diario (docs/design.md §2.1 y §2.12). */
 data class DiaryUiState(
     val date: String,
+    /** Hoy, para saber si [date] es el día de hoy. */
+    val today: String = date,
+    /** Los siete días (lunes a domingo) de la semana de [date]. */
+    val week: List<WeekDayUi> = emptyList(),
+    /** Días completados consecutivos que terminan hoy (0 = sin racha). */
+    val streak: Int = 0,
     val goalKcal: Int? = null,
     val consumedKcal: Double = 0.0,
     val macros: List<MacroProgress> = emptyList(),
@@ -74,7 +94,14 @@ fun dataSourceOf(key: String?): DataSource = when {
  * Agrega las entradas del día en las secciones de [mealsPerDay] comidas al día (`null` = las de por defecto). Las entradas sin dato (porciones sin tamaño o kcal desconocidas) no
  * suman; su fila muestra «—».
  */
-fun buildDiaryUiState(date: String, entries: List<DiaryEntry>, goals: DailyGoals, mealsPerDay: Int? = null): DiaryUiState {
+fun buildDiaryUiState(
+    date: String,
+    entries: List<DiaryEntry>,
+    goals: DailyGoals,
+    mealsPerDay: Int? = null,
+    today: String = date,
+    summaries: List<DaySummary> = emptyList(),
+): DiaryUiState {
     // Solo las comidas del preset, más las que ya no lo son pero tienen entradas (no se oculta ningún dato).
     val meals = MealPlan.visible(mealsPerDay, entries.mapTo(mutableSetOf()) { it.meal }).map { meal ->
         val rows = entries.filter { it.meal == meal }
@@ -98,8 +125,12 @@ fun buildDiaryUiState(date: String, entries: List<DiaryEntry>, goals: DailyGoals
             },
         )
     }
+    val byDate = summaries.associateBy { it.date }
     return DiaryUiState(
         date = date,
+        today = today,
+        week = buildWeek(date, today, goals.kcal, byDate),
+        streak = DayStatus.streak(today, goals.kcal, byDate),
         goalKcal = goals.kcal,
         consumedKcal = meals.sumOf { it.kcal },
         macros = listOf(
@@ -110,6 +141,23 @@ fun buildDiaryUiState(date: String, entries: List<DiaryEntry>, goals: DailyGoals
         meals = meals,
         loading = false,
     )
+}
+
+private val weekInitials = listOf("L", "M", "X", "J", "V", "S", "D")
+
+/** Franja de lunes a domingo de la semana de [date], con el estado de cada día. */
+fun buildWeek(date: String, today: String, goalKcal: Int?, summaries: Map<String, DaySummary>): List<WeekDayUi> {
+    val start = IsoDate.weekStart(date)
+    return (0 until 7).map { i ->
+        val day = IsoDate.plusDays(start, i)
+        WeekDayUi(
+            date = day,
+            initial = weekInitials[i],
+            dayNumber = day.substring(8, 10).toInt(),
+            status = DayStatus.of(day, today, goalKcal, summaries[day]),
+            selected = day == date,
+        )
+    }
 }
 
 /** Cantidad de una entrada como texto: «30 g» o «2 porciones». */
@@ -127,7 +175,7 @@ class DiaryPresenter(
     private val diary: DiaryStore,
     private val goals: GoalStore,
     private val scope: CoroutineScope,
-    today: String,
+    private val today: String,
     private val mealsPerDay: Int? = null,
 ) {
     private val _state = MutableStateFlow(DiaryUiState(date = today))
@@ -138,7 +186,12 @@ class DiaryPresenter(
     fun load(date: String = _state.value.date) {
         scope.launch {
             _state.value = try {
-                buildDiaryUiState(date, diary.entriesForDate(date), goals.get(), mealsPerDay)
+                // Resumen de kcal de todo el historial hasta el fin de la semana (o hoy): franja y racha salen de él.
+                val upTo = maxOf(IsoDate.plusDays(IsoDate.weekStart(date), 6), today)
+                buildDiaryUiState(
+                    date, diary.entriesForDate(date), goals.get(), mealsPerDay,
+                    today = today, summaries = diary.daySummaries(IsoDate.EARLIEST, upTo),
+                )
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -156,6 +209,9 @@ class DiaryPresenter(
     }
 
     fun shiftDay(days: Int) = load(IsoDate.plusDays(_state.value.date, days))
+
+    /** Elige un día cualquiera (franja semanal o selector de fecha). */
+    fun select(date: String) = load(date)
 
     fun updateQuantity(id: Long, quantity: Quantity) {
         scope.launch {
@@ -233,6 +289,15 @@ object IsoDate {
     private fun parse(date: String): Triple<Int, Int, Int> {
         val (y, m, d) = date.split("-").map { it.toInt() }
         return Triple(y, m, d)
+    }
+
+    /** Fecha mínima admitida al consultar el historial. */
+    const val EARLIEST = "0000-01-01"
+
+    /** Lunes de la semana de [date]. */
+    fun weekStart(date: String): String {
+        val day = isoDateToEpochDay(date) ?: return date
+        return epochDayToIsoDate(day - (day + 3).mod(7L))
     }
 
     fun plusDays(date: String, days: Int): String {
