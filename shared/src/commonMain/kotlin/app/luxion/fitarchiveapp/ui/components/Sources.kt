@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.MaterialTheme
@@ -13,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.ui.theme.easyFoodColors
@@ -38,9 +40,15 @@ private fun DataSource.contentColor(): Color = when (this) {
 }
 
 @Composable
-fun SourceAvatar(source: DataSource, modifier: Modifier = Modifier, size: Dp = 40.dp) {
+fun SourceAvatar(
+    source: DataSource,
+    modifier: Modifier = Modifier,
+    size: Dp = 40.dp,
+    /** Cuadrado de esquinas redondeadas en las filas (§2.14); el chip lo pide circular. */
+    shape: Shape = RoundedCornerShape(10.dp),
+) {
     Box(
-        modifier.size(size).background(source.containerColor(), CircleShape),
+        modifier.size(size).background(source.containerColor(), shape),
         contentAlignment = Alignment.Center,
     ) {
         Text(source.initial, style = MaterialTheme.typography.labelMedium, color = source.contentColor())
@@ -52,7 +60,7 @@ fun SourceChip(source: DataSource, modifier: Modifier = Modifier) {
     AssistChip(
         onClick = {},
         label = { Text(source.label) },
-        leadingIcon = { SourceAvatar(source, size = 24.dp) },
+        leadingIcon = { SourceAvatar(source, size = 24.dp, shape = CircleShape) },
         colors = AssistChipDefaults.assistChipColors(
             containerColor = source.containerColor(),
             labelColor = source.contentColor(),

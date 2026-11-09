@@ -1,7 +1,10 @@
 package app.luxion.fitarchiveapp.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -9,8 +12,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.data.CustomFoodStore
 import app.luxion.fitarchiveapp.data.DiaryStore
@@ -34,6 +39,7 @@ import app.luxion.fitarchiveapp.data.ProductSearchStore
 import app.luxion.fitarchiveapp.ui.components.EmptyState
 import app.luxion.fitarchiveapp.ui.components.EmptyStateAction
 import app.luxion.fitarchiveapp.ui.components.FoodResultRow
+import app.luxion.fitarchiveapp.ui.components.label
 import app.luxion.fitarchiveapp.ui.navigation.Navigator
 import app.luxion.fitarchiveapp.ui.navigation.Route
 import app.luxion.fitarchiveapp.ui.theme.Spacing
@@ -105,8 +111,8 @@ fun AddFoodScreen(
 
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Alimentos") },
+            TopAppBar(
+                title = {},
                 navigationIcon = {
                     IconButton(
                         onClick = { navigator.pop() },
@@ -125,6 +131,18 @@ fun AddFoodScreen(
             modifier = Modifier.padding(padding),
             emptyPrimary = EmptyStateAction("Crear alimento propio") { navigator.push(Route.CustomFood(meal = route.meal)) },
             emptySecondary = EmptyStateAction("Escanear código") { navigator.push(Route.Scanner(route.meal)) },
+            header = {
+                Column(Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s)) {
+                    Text("Alimentos", style = MaterialTheme.typography.headlineLarge)
+                    route.meal?.let {
+                        Text(
+                            "Añadiendo a ${it.label}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            },
             quickActions = {
                 QuickActions(
                     favoritesSelected = showFavorites,
@@ -140,7 +158,7 @@ fun AddFoodScreen(
                 if (showFavorites) {
                     FoodListSection(
                         foods = favorites,
-                        header = "Favoritos",
+                        header = "FAVORITOS",
                         emptyIcon = "☆",
                         emptyTitle = "Aún no tienes favoritos",
                         emptyMessage = "Toca la estrella ☆ de un alimento, en los resultados o en su ficha, para tenerlo aquí.",
@@ -151,7 +169,7 @@ fun AddFoodScreen(
                 } else {
                     FoodListSection(
                         foods = recents,
-                        header = "Últimos alimentos",
+                        header = "ÚLTIMOS ALIMENTOS",
                         emptyIcon = "◷",
                         emptyTitle = "Aún no hay recientes",
                         emptyMessage = "Los alimentos que apuntes en el diario aparecerán aquí. Busca uno o usa el escáner.",
@@ -191,8 +209,8 @@ private fun FoodListSection(
             item {
                 Text(
                     "$header · ${foods.size}",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s),
                 )
             }
@@ -233,18 +251,23 @@ private fun QuickActions(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         contentColor = MaterialTheme.colorScheme.onSurface,
     )
+    val pad = PaddingValues(horizontal = 4.dp)
+    @Composable
+    fun RowScope.Tile(label: String, onClick: () -> Unit, colors: ButtonColors) {
+        Button(
+            onClick = onClick,
+            modifier = tall.weight(1f),
+            shape = MaterialTheme.shapes.medium,
+            colors = colors,
+            contentPadding = pad,
+        ) {
+            Text(label, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
+        }
+    }
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-        Button(onClick = onRecent, modifier = tall.weight(1f), shape = MaterialTheme.shapes.medium, colors = if (favoritesSelected) neutral else primary) {
-            Text("Recientes")
-        }
-        Button(onClick = onFavorites, modifier = tall.weight(1f), shape = MaterialTheme.shapes.medium, colors = if (favoritesSelected) primary else neutral) {
-            Text("Favoritos")
-        }
-        Button(onClick = onScan, modifier = tall.weight(1f), shape = MaterialTheme.shapes.medium, colors = neutral) {
-            Text("Escáner")
-        }
-        Button(onClick = onCustom, modifier = tall.weight(1f), shape = MaterialTheme.shapes.medium, colors = neutral) {
-            Text("Alimento propio")
-        }
+        Tile("Recientes", onRecent, if (favoritesSelected) neutral else primary)
+        Tile("Favoritos", onFavorites, if (favoritesSelected) primary else neutral)
+        Tile("Escáner", onScan, neutral)
+        Tile("Alimento propio", onCustom, neutral)
     }
 }
