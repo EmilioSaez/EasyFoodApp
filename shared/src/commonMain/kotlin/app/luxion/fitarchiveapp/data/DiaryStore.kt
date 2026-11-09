@@ -10,6 +10,8 @@ interface DiaryStore {
     /** Entradas de un día, ordenadas por comida y por instante de creación. */
     suspend fun entriesForDate(date: String): List<DiaryEntry>
     suspend fun find(id: Long): DiaryEntry?
+    /** Última entrada de cada alimento distinto (hasta [limit]), de la más reciente a la más antigua. */
+    suspend fun recentFoods(limit: Int): List<DiaryEntry> = emptyList()
     /** Guarda la entrada y devuelve su id. */
     suspend fun add(entry: NewDiaryEntry, createdAtMillis: Long): Long
     /** Cambia comida y cantidad; devuelve `false` si la entrada no existe. */

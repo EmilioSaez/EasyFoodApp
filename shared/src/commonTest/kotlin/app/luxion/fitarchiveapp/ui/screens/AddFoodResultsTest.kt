@@ -34,14 +34,13 @@ class AddFoodResultsTest {
     }
 
     @Test
-    fun filterKeepsOnlyChosenSource() {
+    fun mergeKeepsAllSourcesWithCustomFirst() {
         val all = mergeResults(
             listOf(CustomFood(1, "Mi pan", null, n, null, null, 0, 0)),
             listOf(Product("generic:1", "Pan", null, null, n), Product("841", "Pan molde", null, null, n)),
         )
-        assertEquals(3, all.filteredBy(SourceFilter.All).size)
-        assertEquals(listOf("custom:1"), all.filteredBy(SourceFilter.Custom).map { it.key })
-        assertEquals(listOf("841"), all.filteredBy(SourceFilter.OpenFoodFacts).map { it.key })
+        assertEquals(listOf("custom:1", "generic:1", "841"), all.map { it.key })
+        assertEquals(listOf(DataSource.Custom, DataSource.Generic, DataSource.OpenFoodFacts), all.map { it.source })
     }
 
     @Test
