@@ -1,0 +1,76 @@
+package app.luxion.fitarchiveapp.ui.screens
+
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import app.luxion.fitarchiveapp.domain.MealPlan
+import app.luxion.fitarchiveapp.model.MealType
+import app.luxion.fitarchiveapp.ui.components.label
+import app.luxion.fitarchiveapp.ui.theme.Spacing
+
+/** Qué se copia: una comida del día mostrado o el día entero (docs/design.md §2.13). */
+data class CopyRequest(val meal: MealType?)
+
+/**
+ * Elige el destino de «Copiar» / «Copiar día»: fecha (por defecto, el día anterior) y, solo al copiar una comida,
+ * la comida (por defecto, la equivalente).
+ */
+@Composable
+fun CopyDialog(
+    request: CopyRequest,
+    sourceDate: String,
+    mealsPerDay: Int?,
+    onDismiss: () -> Unit,
+    onConfirm: (targetDate: String, targetMeal: MealType?) -> Unit,
+) {
+    var date by remember { mutableStateOf(IsoDate.plusDays(sourceDate, -1)) }
+    var meal by remember { mutableStateOf<MealType?>(null) } // null = la equivalente
+    var pickingDate by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (request.meal == null) "Copiar día" else "Copiar ${request.meal.label}") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
+                Text("Copiar a", style = MaterialTheme.typography.labelLarge)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { date = IsoDate.plusDays(date, -1) }) { Text("‹") }
+                    TextButton(onClick = { pickingDate = true }) { Text(IsoDate.long(date)) }
+                    TextButton(onClick = { date = IsoDate.plusDays(date, 1) }) { Text("›") }
+                }
+                if (request.meal != null) {
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                        FilterChip(selected = meal == null, onClick = { meal = null }, label = { Text("La misma") })
+                        MealPlan.preset(mealsPerDay).forEach { m ->
+                            FilterChip(selected = meal == m, onClick = { meal = m }, label = { Text(m.label) })
+                        }
+                    }
+                } else {
+                    Text(
+                        "Cada comida va a la misma del día elegido; si no existe en tu preset, a la más cercana.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onConfirm(date, meal) }) { Text("Copiar") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
+    )
+    if (pickingDate) {
+        DiaryDatePicker(date = date, onPick = { date = it; pickingDate = false }, onDismiss = { pickingDate = false })
+    }
+}

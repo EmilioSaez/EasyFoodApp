@@ -40,6 +40,9 @@ object MealPlan {
         MealType.LATE_SNACK -> 23 * 60 + 30
     }
 
+    /** La comida de [active] más cercana a [meal] por su hora típica; con empate, la primera del día. */
+    fun closest(active: List<MealType>, meal: MealType): MealType = nearest(active, typicalMinute(meal))
+
     /** La comida de [active] más cercana a [minuteOfDay] (0 a 1439); con empate, la primera del día. */
     fun nearest(active: List<MealType>, minuteOfDay: Int): MealType {
         require(active.isNotEmpty()) { "Debe haber alguna comida activa" }
