@@ -44,8 +44,8 @@ class DataImporterTest {
         products = SqlDelightProductStore(db.productQueries)
         diary = SqlDelightDiaryStore(db.diaryEntryQueries)
         foods = SqlDelightCustomFoodStore(db.customFoodQueries)
-        exporter = DataExporter(SqlDelightExportSource(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries, db.recipeQueries)) { 5_000L }
-        importer = DataImporter(SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries, db.recipeQueries))
+        exporter = DataExporter(SqlDelightExportSource(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries, db.recipeQueries, db.settingsQueries)) { 5_000L }
+        importer = DataImporter(SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries, db.recipeQueries, db.settingsQueries))
     }
 
     @AfterTest
@@ -88,13 +88,13 @@ class DataImporterTest {
         val json = exporter.exportToJson()
 
         val other = EasyFoodDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { EasyFoodDatabase.Schema.create(it) })
-        val report = DataImporter(SqlDelightImportTarget(other.productQueries, other.diaryEntryQueries, other.customFoodQueries, other.weightEntryQueries, other.recipeQueries))
+        val report = DataImporter(SqlDelightImportTarget(other.productQueries, other.diaryEntryQueries, other.customFoodQueries, other.weightEntryQueries, other.recipeQueries, other.settingsQueries))
             .import(json)
 
         assertEquals(ImportCounts(added = 1), report.products)
         assertEquals(ImportCounts(added = 1), report.customFoods)
         assertEquals(ImportCounts(added = 1), report.diaryEntries)
-        val again = DataExporter(SqlDelightExportSource(other.productQueries, other.diaryEntryQueries, other.customFoodQueries, other.weightEntryQueries, other.recipeQueries)) { 5_000L }
+        val again = DataExporter(SqlDelightExportSource(other.productQueries, other.diaryEntryQueries, other.customFoodQueries, other.weightEntryQueries, other.recipeQueries, other.settingsQueries)) { 5_000L }
         assertEquals(ExportCodec.decode(json), ExportCodec.decode(again.exportToJson()))
     }
 
@@ -299,7 +299,7 @@ class DataImporterTest {
 
         val other = EasyFoodDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { EasyFoodDatabase.Schema.create(it) })
         val report = DataImporter(
-            SqlDelightImportTarget(other.productQueries, other.diaryEntryQueries, other.customFoodQueries, other.weightEntryQueries, other.recipeQueries),
+            SqlDelightImportTarget(other.productQueries, other.diaryEntryQueries, other.customFoodQueries, other.weightEntryQueries, other.recipeQueries, other.settingsQueries),
         ).import(json)
 
         assertEquals(ImportCounts(added = 2), report.weights)
@@ -396,7 +396,7 @@ class DataImporterTest {
 
         val other = EasyFoodDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { EasyFoodDatabase.Schema.create(it) })
         val report = DataImporter(
-            SqlDelightImportTarget(other.productQueries, other.diaryEntryQueries, other.customFoodQueries, other.weightEntryQueries, other.recipeQueries),
+            SqlDelightImportTarget(other.productQueries, other.diaryEntryQueries, other.customFoodQueries, other.weightEntryQueries, other.recipeQueries, other.settingsQueries),
         ).import(json)
 
         assertEquals(ImportCounts(added = 1), report.recipes)
@@ -488,7 +488,7 @@ class DataImporterTest {
 
         val other = EasyFoodDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { EasyFoodDatabase.Schema.create(it) })
         val report = DataImporter(
-            SqlDelightImportTarget(other.productQueries, other.diaryEntryQueries, other.customFoodQueries, other.weightEntryQueries, other.recipeQueries),
+            SqlDelightImportTarget(other.productQueries, other.diaryEntryQueries, other.customFoodQueries, other.weightEntryQueries, other.recipeQueries, other.settingsQueries),
         ).import(json)
 
         assertEquals(ImportCounts(added = 1), report.weights)

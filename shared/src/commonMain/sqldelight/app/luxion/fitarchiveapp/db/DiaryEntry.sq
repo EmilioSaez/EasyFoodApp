@@ -5,8 +5,8 @@ CREATE TABLE DiaryEntryEntity (
     id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     -- Día en formato ISO-8601 (YYYY-MM-DD).
     date TEXT NOT NULL,
-    -- BREAKFAST, LUNCH, DINNER o SNACK.
-    meal TEXT NOT NULL CHECK (meal IN ('BREAKFAST', 'LUNCH', 'DINNER', 'SNACK')),
+    -- BREAKFAST, MID_MORNING (Almuerzo), LUNCH, SNACK (Merienda), DINNER o LATE_SNACK (Recena); ver 7.sqm.
+    meal TEXT NOT NULL CHECK (meal IN ('BREAKFAST', 'MID_MORNING', 'LUNCH', 'SNACK', 'DINNER', 'LATE_SNACK')),
     barcode TEXT,
     name TEXT NOT NULL,
     -- Cantidad y su unidad: GRAMS (gramos o ml) o SERVINGS (porciones).

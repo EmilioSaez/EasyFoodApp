@@ -37,7 +37,7 @@ class MainActivity : ComponentActivity() {
     private val searchStore by lazy { SqlDelightProductSearchStore(database.productSearchQueries) }
     private val customFoodStore by lazy { SqlDelightCustomFoodStore(database.customFoodQueries) }
     private val importTarget by lazy {
-        SqlDelightImportTarget(database.productQueries, database.diaryEntryQueries, database.customFoodQueries, database.weightEntryQueries, database.recipeQueries)
+        SqlDelightImportTarget(database.productQueries, database.diaryEntryQueries, database.customFoodQueries, database.weightEntryQueries, database.recipeQueries, database.settingsQueries)
     }
     private val genericSeeder by lazy {
         GenericFoodSeeder(GenericFoodImporter(database.productQueries), nowMillis = System::currentTimeMillis)

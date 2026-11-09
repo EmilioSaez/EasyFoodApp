@@ -73,7 +73,7 @@ class AppFlowsTest {
                 customFoodStore = SqlDelightCustomFoodStore(db.customFoodQueries),
                 weightStore = SqlDelightWeightStore(db.weightEntryQueries),
                 recipeStore = SqlDelightRecipeStore(db.recipeQueries),
-                importTarget = SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries, db.recipeQueries),
+                importTarget = SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries, db.recipeQueries, db.settingsQueries),
                 today = { "2026-11-04" },
             )
         }
@@ -91,9 +91,9 @@ class AppFlowsTest {
         onNodeWithText("Código EAN").performClick()
         onNodeWithText("Código EAN").performTextInput(nutella.barcode)
         onNodeWithText("Buscar producto").performClick()
-        waitForText("Añadir a Snacks")
-        onNodeWithText("Añadir a Snacks").performClick()
-        waitGone("Añadir a Snacks")
+        waitForText("Añadir a Merienda")
+        onNodeWithText("Añadir a Merienda").performClick()
+        waitGone("Añadir a Merienda")
     }
 
     @Test
@@ -407,9 +407,9 @@ class AppFlowsTest {
         waitForText("Nada apuntado hoy")
         createPanCasero()
         onNodeWithText("Pan casero").performClick()
-        waitForText("Añadir a Snacks")
-        onNodeWithText("Añadir a Snacks").performClick()
-        waitGone("Añadir a Snacks")
+        waitForText("Añadir a Merienda")
+        onNodeWithText("Añadir a Merienda").performClick()
+        waitGone("Añadir a Merienda")
         waitForText("Pan casero")
         waitGone("Nada apuntado hoy")
     }
@@ -419,7 +419,7 @@ class AppFlowsTest {
         waitForText("Nada apuntado hoy")
         createPanCasero()
         onNodeWithText("Pan casero").performClick()
-        waitForText("Añadir a Snacks")
+        waitForText("Añadir a Merienda")
 
         onNodeWithContentDescription("Editar alimento propio").performClick()
         waitForText("Editar alimento")
@@ -449,7 +449,7 @@ class AppFlowsTest {
         onNodeWithText("Código EAN").performClick()
         onNodeWithText("Código EAN").performTextInput(nutella.barcode)
         onNodeWithText("Buscar producto").performClick()
-        waitForText("Añadir a Snacks")
+        waitForText("Añadir a Merienda")
 
         onNodeWithContentDescription("Copiar como alimento propio").performClick()
         waitForText("Valores por 100 g")
@@ -458,7 +458,7 @@ class AppFlowsTest {
         onNodeWithText("15 g").assertIsDisplayed()
 
         onNodeWithText("Guardar").performClick()
-        waitForText("Añadir a Snacks")
+        waitForText("Añadir a Merienda")
         val saved = db.customFoodQueries.selectAll().executeAsList()
         kotlin.test.assertEquals(1, saved.size)
         kotlin.test.assertEquals("Nutella", saved.single().name)
@@ -476,7 +476,7 @@ class AppFlowsTest {
         onNodeWithText("Buscar alimento").performTextInput("manzana")
         waitForText("Manzana cruda")
         onNodeWithText("Manzana cruda").performClick()
-        waitForText("Añadir a Snacks")
+        waitForText("Añadir a Merienda")
         waitForText("Genérico")
         // La clave interna no se enseña como si fuera un código de barras.
         kotlin.test.assertTrue(onAllNodes(hasText("generic:1")).fetchSemanticsNodes().isEmpty())

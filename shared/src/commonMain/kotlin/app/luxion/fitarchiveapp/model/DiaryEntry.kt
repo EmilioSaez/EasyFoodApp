@@ -1,6 +1,10 @@
 package app.luxion.fitarchiveapp.model
 
-enum class MealType { BREAKFAST, LUNCH, DINNER, SNACK }
+/**
+ * Comidas del día, en orden de aparición. Se guardan por nombre: [SNACK] ya existía y se muestra como «Merienda»;
+ * [MID_MORNING] es el Almuerzo (media mañana) y [LATE_SNACK] la Recena.
+ */
+enum class MealType { BREAKFAST, MID_MORNING, LUNCH, SNACK, DINNER, LATE_SNACK }
 
 enum class QuantityUnit { GRAMS, SERVINGS }
 

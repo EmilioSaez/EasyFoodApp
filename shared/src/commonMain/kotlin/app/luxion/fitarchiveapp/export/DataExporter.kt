@@ -8,6 +8,7 @@ import app.luxion.fitarchiveapp.data.toDomain
 import app.luxion.fitarchiveapp.db.CustomFoodQueries
 import app.luxion.fitarchiveapp.db.DiaryEntryQueries
 import app.luxion.fitarchiveapp.db.ProductQueries
+import app.luxion.fitarchiveapp.db.SettingsQueries
 import app.luxion.fitarchiveapp.db.RecipeQueries
 import app.luxion.fitarchiveapp.db.WeightEntryQueries
 import app.luxion.fitarchiveapp.model.CustomFood
@@ -26,6 +27,7 @@ interface ExportSource {
     suspend fun weights(): List<ExportedWeight> = emptyList()
     suspend fun recipes(): List<ExportedRecipe> = emptyList()
     suspend fun weightGoal(): ExportedWeightGoal? = null
+    suspend fun mealsPerDay(): Int? = null
 }
 
 /** Genera el JSON de exportación a partir de [source]. */
@@ -44,6 +46,7 @@ class DataExporter(
         weights = source.weights(),
         recipes = source.recipes(),
         weightGoal = source.weightGoal(),
+        mealsPerDay = source.mealsPerDay(),
     )
 
     suspend fun exportToJson(): String = ExportCodec.encode(buildFile())
@@ -89,8 +92,13 @@ class SqlDelightExportSource(
     private val customFoodQueries: CustomFoodQueries? = null,
     private val weightQueries: WeightEntryQueries? = null,
     private val recipeQueries: RecipeQueries? = null,
+    private val settingsQueries: SettingsQueries? = null,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : ExportSource {
+    override suspend fun mealsPerDay(): Int? = withContext(dispatcher) {
+        settingsQueries?.selectMealsPerDay()?.executeAsOneOrNull()?.meals_per_day?.toInt()
+    }
+
     override suspend fun recipes(): List<ExportedRecipe> = withContext(dispatcher) {
         recipeQueries?.transactionWithResult { recipeQueries.readAll() }.orEmpty().map { it.toExported() }
     }
