@@ -477,7 +477,7 @@ class AppFlowsTest {
         }
 
         fun ComposeUiTest.assertGoalOnThreeDays(goal: String) {
-            val summary = "100 / $goal kcal"
+            val summary = "100 / $goal"
             openDiary()
             waitForText(summary) // hoy
             onNodeWithContentDescription("Día anterior").performClick()
@@ -525,19 +525,19 @@ class AppFlowsTest {
     }
 
     @Test
-    fun diaryHeaderStaysVisibleWhileScrollingTheList() = runApp(recentWeight = true) { db ->
+    fun diaryHeaderScrollsAwayWithTheList() = runApp(recentWeight = true) { db ->
         fillDiary(db, goalKcal = 1000)
         reloadDiary()
         waitForText("Alimento 0")
         // Con la lista arriba se ve la cabecera completa (franja y tarjeta de objetivo).
         onNodeWithText("1.400 / 1.000").assertIsDisplayed()
         onNodeWithText("L").assertIsDisplayed()
-        // Al desplazar se pliega en el DiaryHeader compacto, que sigue anclado.
+        // Al desplazar, la cabecera se va con la lista: no queda nada anclado.
         onNode(hasScrollAction()).performScrollToNode(hasText("Alimento 13"))
-        onNodeWithText("1.400 / 1.000 kcal").assertIsDisplayed()
-        onNodeWithText("400 kcal de más").assertIsDisplayed()
+        kotlin.test.assertTrue(onAllNodes(hasText("1.400 / 1.000")).fetchSemanticsNodes().isEmpty())
+        kotlin.test.assertTrue(onAllNodes(hasText("1.400 / 1.000 kcal")).fetchSemanticsNodes().isEmpty())
         kotlin.test.assertTrue(onAllNodes(hasText("L")).fetchSemanticsNodes().isEmpty())
-        // Y vuelve a desplegarse con la lista arriba.
+        // Y reaparece al volver arriba.
         onNode(hasScrollAction()).performScrollToIndex(0)
         onNodeWithText("1.400 / 1.000").assertIsDisplayed()
     }
@@ -593,7 +593,6 @@ class AppFlowsTest {
         fillDiary(db, goalKcal = null)
         reloadDiary()
         waitForText("Alimento 0")
-        onNode(hasScrollAction()).performScrollToNode(hasText("Alimento 13"))
         onNodeWithText("Sin objetivo diario").assertIsDisplayed()
         onNodeWithText("Fijar objetivo").performClick()
         waitForText("Tus datos")

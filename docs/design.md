@@ -269,7 +269,8 @@ Cuántas comidas hace el usuario al día y cómo se llaman.
 - **Añadir alimento:** cada alimento se añade a una comida concreta: desde el «+» de la sección (preseleccionada) o eligiéndola en la ficha del alimento (por defecto, la comida más cercana a la hora actual). El selector de la ficha lista solo las comidas activas.
 - **Exportar/importar:** `meals_per_day` viaja en el JSON como campo opcional (compatible con archivos antiguos); importar un archivo sin él no cambia el ajuste.
 
-### 2.10 Cabecera fija del Diario (Fase 10)
+### 2.10 Cabecera fija del Diario (Fase 10) — sustituida: ya no es fija
+> Ya no se aplica: el resumen del objetivo se desplaza con la lista (§2.12). Se conserva como histórico.
 - **Siempre visible:** bajo la barra de fecha, una cabecera que NO se desplaza con la lista (queda anclada arriba) con el objetivo y cómo se va: `CalorieRing` compacto o barra, «consumidas / objetivo kcal», «X kcal restantes» (o «X kcal de más» en error) y los tres macros (P/H/G) con su progreso.
 - **Sin objetivo:** en lugar del progreso, la misma cabecera muestra «Sin objetivo diario» y el botón «Fijar objetivo» que abre Objetivos.
 - **Sustituye** a `DaySummaryCard`, que deja de formar parte de la lista. La lista (comidas) se desplaza por debajo.
@@ -283,7 +284,7 @@ En `WeightChart` (Mi peso) se dibuja un punto por cada registro, no solo el prim
 Mezcla de la captura de referencia (resumen grande arriba, semana con días y tarjetas de comida con «+») con el tema de EasyFood/ApexApp (§1.7): las formas y colores salen del tema, no de la captura (esquinas de 4 dp, rojo sobre negro). Sustituye a la estructura de §2.1 (conserva su lógica y §2.9/§2.10).
 ```
 Scaffold
-├─ Cabecera (siempre anclada; ver «Cabecera colapsable»)
+├─ Cabecera (la fila va anclada; la franja y la tarjeta se desplazan con la lista; ver «Cabecera»)
 │  ├─ Fila: «Hoy ▾» (toca → selector de fecha) · derecha: 🔥 racha (icono de llama + nº de días)
 │  ├─ Franja semanal (7 días, lunes a domingo de la semana del día elegido): inicial (L M X J V S D) · número · punto de estado
 │  └─ Tarjeta de objetivo
@@ -305,9 +306,9 @@ Scaffold
   - El día elegido se marca con un círculo (primaryContainer). Tocar un día lo selecciona; deslizar la franja cambia de semana.
 - **Racha.** Número de días completados consecutivos que terminan hoy; si hoy aún no está completado, se cuenta hasta ayer y la racha no se rompe hasta que acaba el día. Se calcula del historial del diario y del objetivo vigente (el objetivo es el mismo todos los días, §2.10), sin tabla nueva. Con racha 0, la llama sale apagada.
 - **Margen de cumplimiento:** constante única (±10 %) en la lógica (p. ej. `DayStatus.MARGIN`), usada por los colores de la franja, la racha y las marcas del arco.
-- **Cabecera colapsable.** Con la lista arriba se ve completa (fila, franja y tarjeta). Al desplazar, la franja y la tarjeta se pliegan en el `DiaryHeader` compacto de §2.10, que sigue anclado: el objetivo y cómo se va están siempre visibles.
+- **Cabecera.** Solo la fila (‹ «Hoy ▾» › · racha · Datos) queda anclada. La franja y la tarjeta de objetivo se desplazan con la lista y desaparecen al bajar; no hay cabecera compacta anclada (sustituye a §2.10).
 - **Día sin entradas (hoy, pasado o futuro).** No hay estado vacío que sustituya a la lista: se ven la cabecera con el objetivo y TODAS las tarjetas de comida del preset (§2.9), cada una con «🔥 0 kcal · 0 P | 0 H | 0 G», «Nada apuntado todavía» y su «+». Como ayuda de primer uso hay una línea discreta («Nada apuntado hoy» / «este día») al principio de la lista, sin acciones duplicadas. Sin objetivo, la tarjeta de objetivo trae «Sin objetivo diario» y «Fijar objetivo».
-- **Implementación.** La fila anclada (‹ «Hoy ▾» › · racha · ⇅ Datos) va fuera de la lista; la franja y la tarjeta son el primer elemento de la lista y, en cuanto se desplaza, aparece encima de la lista el `DiaryHeader` compacto (no se superpone a las tarjetas). La barra del objetivo es una barra con dos marcas (arco descartado); la escala llega a max(objetivo × 1,3; consumidas). «Hoy ▾» abre el selector de fecha de Material (`DatePicker`). Las kcal por día salen de `DiaryStore.daySummaries` (consulta `selectDailyKcal`, sin migración); estado de día y racha, de `DayStatus`.
+- **Implementación.** La fila anclada (‹ «Hoy ▾» › · racha · ⇅ Datos) va fuera de la lista; la franja y la tarjeta son el primer elemento de la lista. La barra del objetivo es una barra con dos marcas (arco descartado); la escala llega a max(objetivo × 1,3; consumidas). «Hoy ▾» abre el selector de fecha de Material (`DatePicker`). Las kcal por día salen de `DiaryStore.daySummaries` (consulta `selectDailyKcal`, sin migración); estado de día y racha, de `DayStatus`.
 - **No se incluye** de la captura: banner Premium, foto de perfil, botón «Terminar día», pestañas Social y Coach, menús «⋯». «Coach» queda para más adelante, si se añade una IA con clave propia (Fase 11, pendiente).
 
 ### 2.13 Agua diaria (Fase 12)
