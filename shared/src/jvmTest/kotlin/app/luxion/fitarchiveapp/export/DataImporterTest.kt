@@ -12,6 +12,7 @@ import app.luxion.fitarchiveapp.model.NewCustomFood
 import app.luxion.fitarchiveapp.model.NewDiaryEntry
 import app.luxion.fitarchiveapp.model.NewRecipe
 import app.luxion.fitarchiveapp.model.NewWeightEntry
+import app.luxion.fitarchiveapp.model.WeightGoal
 import app.luxion.fitarchiveapp.model.Nutrients
 import app.luxion.fitarchiveapp.model.Product
 import app.luxion.fitarchiveapp.model.Quantity
@@ -23,6 +24,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class DataImporterTest {
@@ -472,4 +474,64 @@ class DataImporterTest {
     private fun NewDiaryEntry.toExportedWithId(id: Long, created: Long) = ExportedDiaryEntry(
         id, date, meal, barcode, name, quantity.amount, quantity.unit, servingSizeG, nutrients.toExported(), created,
     )
+
+    // --- Peso objetivo ---
+
+    private fun goalFile(goal: ExportedWeightGoal?) =
+        ExportCodec.encode(ExportFile(ExportCodec.CURRENT_VERSION, 1L, weightGoal = goal))
+
+    @Test
+    fun weightGoalRoundTripsIntoEmptyDatabase() = runTest {
+        val weights = SqlDelightWeightStore(db.weightEntryQueries)
+        weights.setGoal(72.5, 40L)
+        val json = exporter.exportToJson()
+
+        val other = EasyFoodDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { EasyFoodDatabase.Schema.create(it) })
+        val report = DataImporter(
+            SqlDelightImportTarget(other.productQueries, other.diaryEntryQueries, other.customFoodQueries, other.weightEntryQueries, other.recipeQueries),
+        ).import(json)
+
+        assertEquals(ImportCounts(added = 1), report.weights)
+        assertEquals(WeightGoal(72.5, 40L), SqlDelightWeightStore(other.weightEntryQueries).goal())
+    }
+
+    @Test
+    fun importingTheSameGoalTwiceIsUnchanged() = runTest {
+        val json = goalFile(ExportedWeightGoal(70.0, 5L))
+        importer.import(json)
+        assertEquals(ImportCounts(unchanged = 1), importer.import(json).weights)
+    }
+
+    @Test
+    fun weightGoalConflictNewerWinsTieKeepsLocal() = runTest {
+        val weights = SqlDelightWeightStore(db.weightEntryQueries)
+        weights.setGoal(75.0, 100L)
+
+        assertEquals(ImportCounts(keptLocal = 1), importer.import(goalFile(ExportedWeightGoal(60.0, 100L))).weights)
+        assertEquals(ImportCounts(keptLocal = 1), importer.import(goalFile(ExportedWeightGoal(60.0, 50L))).weights)
+        assertEquals(75.0, weights.goal()?.targetKg)
+
+        assertEquals(ImportCounts(updated = 1), importer.import(goalFile(ExportedWeightGoal(65.0, 200L))).weights)
+        assertEquals(WeightGoal(65.0, 200L), weights.goal())
+    }
+
+    @Test
+    fun invalidWeightGoalIsReportedAndSkipped() = runTest {
+        val report = importer.import(goalFile(ExportedWeightGoal(5.0, 1L)))
+        assertEquals(ImportCounts(invalid = 1), report.weights)
+        assertEquals(1, report.invalidItems.size)
+        assertNull(SqlDelightWeightStore(db.weightEntryQueries).goal())
+    }
+
+    @Test
+    fun filesWithoutGoalLeaveTheLocalGoalUntouched() = runTest {
+        val weights = SqlDelightWeightStore(db.weightEntryQueries)
+        weights.setGoal(75.0, 100L)
+        // Archivo anterior a esta versión: sin el campo `weightGoal`.
+        val old = """{"schemaVersion":1,"exportedAtMillis":1,"weights":[{"date":"2026-11-01","weightKg":80.0}]}"""
+        val report = importer.import(old)
+        assertEquals(ImportCounts(added = 1), report.weights)
+        assertEquals(75.0, weights.goal()?.targetKg)
+        assertNull(ExportCodec.decode(old).weightGoal)
+    }
 }

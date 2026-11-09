@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onLast
@@ -53,10 +54,16 @@ class AppFlowsTest {
             if (barcode == nutella.barcode) ProductLookup.Found(nutella) else ProductLookup.NotFound
     }
 
-    private fun runApp(block: ComposeUiTest.(EasyFoodDatabase) -> Unit) = runComposeUiTest {
+    /** [recentWeight]: guarda un peso de hoy para que el aviso semanal no ocupe sitio en el Diario. */
+    private fun runApp(recentWeight: Boolean = false, block: ComposeUiTest.(EasyFoodDatabase) -> Unit) = runComposeUiTest {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         EasyFoodDatabase.Schema.create(driver)
         val db = EasyFoodDatabase(driver)
+        if (recentWeight) {
+            kotlinx.coroutines.runBlocking {
+                SqlDelightWeightStore(db.weightEntryQueries).save(NewWeightEntry("2026-11-04", 80.0), 1L)
+            }
+        }
         setContent {
             App(
                 repository = ProductRepository(remote, SqlDelightProductStore(db.productQueries), nowMillis = System::currentTimeMillis),
@@ -90,7 +97,7 @@ class AppFlowsTest {
     }
 
     @Test
-    fun manualEanAddsEntryToDiary() = runApp { _ ->
+    fun manualEanAddsEntryToDiary() = runApp(recentWeight = true) { _ ->
         waitForText("Nada apuntado hoy")
         addNutellaByManualEan()
         waitForText("Nutella")
@@ -99,7 +106,7 @@ class AppFlowsTest {
     }
 
     @Test
-    fun entryCanBeEditedAndDeleted() = runApp { _ ->
+    fun entryCanBeEditedAndDeleted() = runApp(recentWeight = true) { _ ->
         waitForText("Nada apuntado hoy")
         addNutellaByManualEan()
         waitForText("Nutella")
@@ -180,6 +187,9 @@ class AppFlowsTest {
     private fun weights(db: EasyFoodDatabase) =
         kotlinx.coroutines.runBlocking { SqlDelightWeightStore(db.weightEntryQueries).all() }
 
+    private fun goal(db: EasyFoodDatabase) =
+        kotlinx.coroutines.runBlocking { SqlDelightWeightStore(db.weightEntryQueries).goal() }?.targetKg
+
     /** El historial es una lista perezosa: hay que desplazarla hasta la fila para que exista. */
     private fun ComposeUiTest.scrollToRow(description: String) =
         onNode(hasScrollAction()).performScrollToNode(hasContentDescription(description))
@@ -201,6 +211,7 @@ class AppFlowsTest {
         waitForText("Peso guardado")
         kotlin.test.assertEquals(listOf("2026-11-04" to 78.5), weights(db).map { it.date to it.weightKg })
         waitForText("78,5 kg")
+        scrollToRow("Editar peso del 2026-11-04")
         onNodeWithContentDescription("Editar peso del 2026-11-04").assertIsDisplayed()
 
         // Segundo registro con punto decimal y fecha anterior: la gráfica ya calcula la diferencia.
@@ -211,7 +222,9 @@ class AppFlowsTest {
         waitForText("−1,5 kg desde el 30 oct")
 
         // Editar el peso más reciente.
+        scrollToRow("Editar peso del 2026-11-04")
         onNodeWithContentDescription("Editar peso del 2026-11-04").performClick()
+        onNode(hasScrollAction()).performScrollToIndex(0) // el formulario queda arriba
         waitForText("Editar registro")
         onNodeWithText("Peso").performTextReplacement("77,0")
         onNodeWithText("Guardar cambios").performClick()
@@ -233,7 +246,43 @@ class AppFlowsTest {
     }
 
     @Test
-    fun invalidWeightAndFutureDateAreRejected() = runApp { db ->
+    fun weightReminderLeadsToWeightScreenAndDisappearsOnceRegistered() = runApp { db ->
+        waitForText("Toca pesarse")
+        waitForText("Aún no has registrado tu peso.")
+        onNodeWithText("Registrar peso").performClick()
+        waitForText("Guardar peso")
+        onNodeWithText("Peso").performTextInput("78,5")
+        onNodeWithText("Guardar peso").performClick()
+        waitForText("Peso guardado")
+        kotlin.test.assertEquals(1, weights(db).size)
+
+        onNodeWithText("Diario").performClick()
+        waitForText("Nada apuntado hoy")
+        kotlin.test.assertTrue(onAllNodes(hasText("Toca pesarse")).fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun weightReminderShowsDaysSinceLastOnlyFromSevenDays() = runApp { db ->
+        kotlinx.coroutines.runBlocking {
+            SqlDelightWeightStore(db.weightEntryQueries).save(NewWeightEntry("2026-10-28", 80.0), 1L) // 7 días
+        }
+        // La pantalla ya se compuso vacía; reabrirla desde otra pestaña fuerza la relectura.
+        waitForText("Nada apuntado hoy")
+        onNodeWithText("Objetivos").performClick()
+        onNodeWithText("Diario").performClick()
+        waitForText("Hace 7 días que no registras tu peso.")
+
+        kotlinx.coroutines.runBlocking {
+            SqlDelightWeightStore(db.weightEntryQueries).save(NewWeightEntry("2026-11-01", 79.0), 2L) // 3 días
+        }
+        onNodeWithText("Objetivos").performClick()
+        onNodeWithText("Diario").performClick()
+        waitForText("Nada apuntado hoy")
+        waitGone("Toca pesarse")
+    }
+
+    @Test
+    fun invalidWeightAndFutureDateAreRejected()= runApp { db ->
         openWeight()
         onNodeWithText("Guardar peso").performClick()
         waitForText("Escribe tu peso")
@@ -263,6 +312,28 @@ class AppFlowsTest {
         onNodeWithContentDescription("Gráfica de peso: 2 registros, de 20 oct a 4 nov, último 80,0 kg").assertIsDisplayed()
         scrollToRow("Editar peso del 2026-06-01")
         onNodeWithContentDescription("Editar peso del 2026-06-01").assertIsDisplayed() // el historial lo muestra todo
+    }
+
+    @Test
+    fun weightGoalCanBeSetChangedAndRemoved() = runApp { db ->
+        openWeight()
+        waitForText("Peso objetivo")
+        onNodeWithText("Objetivo").performTextInput("75,5")
+        onNodeWithText("Guardar objetivo").performClick()
+        waitForText("Peso objetivo guardado")
+        kotlin.test.assertEquals(75.5, goal(db))
+        waitForText("75,5 kg")
+        waitForText("Registra tu peso para ver cuánto te falta.")
+
+        onNodeWithText("Cambiar").performClick()
+        onNodeWithText("Objetivo").performTextReplacement("74")
+        onNodeWithText("Guardar objetivo").performClick()
+        waitUntil(timeoutMillis = 20_000) { goal(db) == 74.0 }
+
+        waitGone("Peso objetivo guardado")
+        onNodeWithText("Quitar").performClick()
+        waitUntil(timeoutMillis = 20_000) { goal(db) == null }
+        waitForText("Guardar objetivo")
     }
 
     @Test
@@ -332,7 +403,7 @@ class AppFlowsTest {
     }
 
     @Test
-    fun customFoodCanBeFoundAndAddedToDiary() = runApp { _ ->
+    fun customFoodCanBeFoundAndAddedToDiary() = runApp(recentWeight = true) { _ ->
         waitForText("Nada apuntado hoy")
         createPanCasero()
         onNodeWithText("Pan casero").performClick()

@@ -9,6 +9,7 @@ import app.luxion.fitarchiveapp.db.WeightEntryQueries
 import app.luxion.fitarchiveapp.model.NewWeightEntry
 import app.luxion.fitarchiveapp.model.RecipeIngredient
 import app.luxion.fitarchiveapp.data.writeIngredients
+import app.luxion.fitarchiveapp.model.WeightRules
 
 import app.luxion.fitarchiveapp.model.DiaryEntry
 import app.luxion.fitarchiveapp.model.NewCustomFood
@@ -52,6 +53,8 @@ import kotlinx.coroutines.withContext
  * - Existe con el mismo peso: duplicado, se ignora.
  * - Existe con peso distinto: gana el de `updatedAtMillis` más reciente; con empate, el local.
  * - Si el archivo trae la misma fecha dos veces, vale el de `updatedAtMillis` más reciente.
+ * - El **peso objetivo** (uno solo) cuenta en el informe de pesos: sin objetivo local se añade; igual, se ignora;
+ *   distinto, gana el de `updatedAtMillis` más reciente (con empate, el local). Fuera de rango es inválido.
  *
  * **Recetas**
  * - Identidad: igual que los alimentos propios: `(id, createdAtMillis)` y, si no hay coincidencia, el nombre sin
@@ -92,6 +95,7 @@ class DataImporter(private val target: ImportTarget) {
         val diary = planDiary(file.diaryEntries, target.diaryEntries(), invalid)
         val weights = planWeights(file.weights, target.weights(), invalid)
         val recipes = planRecipes(file.recipes, target.recipes(), invalid)
+        val goal = planWeightGoal(file.weightGoal, target.weightGoal(), invalid)
         return ImportPlan(
             changes = ImportChanges(
                 products = products.writes,
@@ -101,9 +105,10 @@ class DataImporter(private val target: ImportTarget) {
                 weights = weights.writes,
                 recipesToAdd = recipes.adds,
                 recipesToUpdate = recipes.updates,
+                weightGoal = goal.write,
             ),
             report = ImportReport(
-                products.counts, foods.counts, diary.counts, invalid, weights.counts, recipes.counts,
+                products.counts, foods.counts, diary.counts, invalid, weights.counts + goal.counts, recipes.counts,
             ),
         )
     }
@@ -280,6 +285,22 @@ class DataImporter(private val target: ImportTarget) {
         return WeightPlan(writes.values.toList(), c)
     }
 
+    private class GoalPlan(val write: ExportedWeightGoal?, val counts: ImportCounts)
+
+    private fun planWeightGoal(incoming: ExportedWeightGoal?, local: ExportedWeightGoal?, invalid: MutableList<String>): GoalPlan {
+        if (incoming == null) return GoalPlan(null, ImportCounts())
+        if (!incoming.targetKg.isFinite() || incoming.targetKg !in WeightRules.MIN_KG..WeightRules.MAX_KG) {
+            invalid += "Peso objetivo (${incoming.targetKg} kg): fuera de rango"
+            return GoalPlan(null, ImportCounts(invalid = 1))
+        }
+        return when {
+            local == null -> GoalPlan(incoming, ImportCounts(added = 1))
+            local.targetKg == incoming.targetKg -> GoalPlan(null, ImportCounts(unchanged = 1))
+            incoming.updatedAtMillis > local.updatedAtMillis -> GoalPlan(incoming, ImportCounts(updated = 1))
+            else -> GoalPlan(null, ImportCounts(keptLocal = 1))
+        }
+    }
+
     // --- Diario ---
 
     private class DiaryPlan(val adds: List<ExportedDiaryEntry>, val counts: ImportCounts)
@@ -334,10 +355,13 @@ data class ImportChanges(
     /** Recetas nuevas; el id lo asigna el almacén. */
     val recipesToAdd: List<ExportedRecipe> = emptyList(),
     val recipesToUpdate: List<RecipeUpdate> = emptyList(),
+    /** Peso objetivo a fijar, o `null` si no cambia. */
+    val weightGoal: ExportedWeightGoal? = null,
 ) {
     val isEmpty: Boolean
         get() = products.isEmpty() && customFoodsToAdd.isEmpty() && customFoodsToUpdate.isEmpty() &&
-            diaryEntriesToAdd.isEmpty() && weights.isEmpty() && recipesToAdd.isEmpty() && recipesToUpdate.isEmpty()
+            diaryEntriesToAdd.isEmpty() && weights.isEmpty() && recipesToAdd.isEmpty() && recipesToUpdate.isEmpty() &&
+            weightGoal == null
 }
 
 /** Sustituye los datos de la receta local [localId] por los de [recipe] (se conservan su id y `createdAtMillis`). */
@@ -375,7 +399,11 @@ data class ImportCounts(
     val keptLocal: Int = 0,
     /** Omitidos por ser inválidos. */
     val invalid: Int = 0,
-)
+) {
+    operator fun plus(o: ImportCounts) = ImportCounts(
+        added + o.added, updated + o.updated, unchanged + o.unchanged, keptLocal + o.keptLocal, invalid + o.invalid,
+    )
+}
 
 data class ImportReport(
     val products: ImportCounts,
@@ -449,6 +477,7 @@ class SqlDelightImportTarget(
                 recipeQueries.deleteIngredients(id)
                 recipeQueries.writeIngredients(id, r.toNewRecipe().ingredients)
             }
+            changes.weightGoal?.let { weightQueries.upsertGoal(it.targetKg, it.updatedAtMillis) }
             changes.diaryEntriesToAdd.forEach { e ->
                 diaryQueries.insert(
                     date = e.date, meal = e.meal.name, barcode = e.barcode, name = e.name, quantity = e.quantity,

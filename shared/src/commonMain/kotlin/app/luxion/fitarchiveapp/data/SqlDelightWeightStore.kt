@@ -4,6 +4,8 @@ import app.luxion.fitarchiveapp.db.WeightEntryEntity
 import app.luxion.fitarchiveapp.db.WeightEntryQueries
 import app.luxion.fitarchiveapp.model.NewWeightEntry
 import app.luxion.fitarchiveapp.model.WeightEntry
+import app.luxion.fitarchiveapp.model.WeightGoal
+import app.luxion.fitarchiveapp.model.WeightRules
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -41,6 +43,23 @@ class SqlDelightWeightStore(
             queries.deleteByDate(date)
             existed
         }
+    }
+
+    override suspend fun goal(): WeightGoal? = withContext(dispatcher) {
+        queries.selectGoal().executeAsOneOrNull()?.let { WeightGoal(it.target_kg, it.updated_at) }
+    }
+
+    override suspend fun setGoal(targetKg: Double, nowMillis: Long): Unit = withContext(dispatcher) {
+        require(targetKg.isFinite() && targetKg in WeightRules.MIN_KG..WeightRules.MAX_KG) {
+            "El peso objetivo debe estar entre ${WeightRules.MIN_KG.toInt()} y ${WeightRules.MAX_KG.toInt()} kg: $targetKg"
+        }
+        queries.upsertGoal(targetKg, nowMillis)
+        Unit
+    }
+
+    override suspend fun clearGoal(): Unit = withContext(dispatcher) {
+        queries.clearGoal()
+        Unit
     }
 
     private fun write(entry: NewWeightEntry, nowMillis: Long, createdAt: Long? = null) {

@@ -87,8 +87,8 @@ Riesgo: no hay Mac local. La ruta es la que sigue FitArchiveApp (sesión hermana
 
 - [x] Objetivo fijo: interruptor en Objetivos que impide que la calculadora TDEE recalcule lo guardado (la calculadora solo sugiere); columna `fixed` con migración v3 → v4
 - [x] Recetas: pestaña nueva donde se crea una receta con ingredientes de la BD y la cantidad de cada uno; los macros salen de la suma y la receta se añade al diario como un conjunto de alimentos (una entrada por ingrediente), incluidas en exportar e importar (migración v6 → v7)
-- [ ] Pasos diarios leídos del sensor (Health Connect en Android, HealthKit en iOS) que permitan reevaluar el gasto (TDEE)
+- [x] Pasos diarios leídos del sensor (Health Connect en Android, HealthKit en iOS) que permitan reevaluar el gasto (TDEE): sugiere un nivel de actividad según la media de pasos (fórmula en `StepsActivity`) y, con «Objetivo fijo», solo sugiere; sin tabla nueva (no se guardan pasos)
 - [x] Registro de peso con gráfica de evolución y progreso, incluido en exportar e importar (migración v4 → v5)
-- [ ] Aviso dentro de la app cuando toca registrar el peso (cada semana)
-- [ ] Peso objetivo elegido por el usuario; al actualizar el peso, mostrar lo lejos que se está de lograrlo y una estimación de cuándo se llegará
+- [x] Aviso dentro de la app cuando toca registrar el peso (cada semana): tarjeta en el Diario derivada de los registros, sin tabla nueva
+- [x] Peso objetivo elegido por el usuario; al actualizar el peso, mostrar lo lejos que se está de lograrlo y una estimación de cuándo se llegará (migración v5 → v6, incluido en exportar e importar)
 - [ ] (Pendiente, sin decidir) IA para guiar el registro de comidas, opcional y con la clave de API propia del usuario (guardada solo en el dispositivo, nunca en el repo)
