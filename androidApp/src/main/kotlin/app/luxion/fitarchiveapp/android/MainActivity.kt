@@ -15,6 +15,7 @@ import app.luxion.fitarchiveapp.data.SqlDelightProductSearchStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductStore
 import app.luxion.fitarchiveapp.data.SqlDelightRecipeStore
 import app.luxion.fitarchiveapp.data.SqlDelightSettingsStore
+import app.luxion.fitarchiveapp.data.SqlDelightWaterStore
 import app.luxion.fitarchiveapp.data.SqlDelightWeightStore
 import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
 import app.luxion.fitarchiveapp.data.generic.GenericFoodSeeder
@@ -37,10 +38,11 @@ class MainActivity : ComponentActivity() {
     private val weightStore by lazy { SqlDelightWeightStore(database.weightEntryQueries) }
     private val recipeStore by lazy { SqlDelightRecipeStore(database.recipeQueries) }
     private val settingsStore by lazy { SqlDelightSettingsStore(database.settingsQueries) }
+    private val waterStore by lazy { SqlDelightWaterStore(database.waterQueries) }
     private val searchStore by lazy { SqlDelightProductSearchStore(database.productSearchQueries) }
     private val customFoodStore by lazy { SqlDelightCustomFoodStore(database.customFoodQueries) }
     private val importTarget by lazy {
-        SqlDelightImportTarget(database.productQueries, database.diaryEntryQueries, database.customFoodQueries, database.weightEntryQueries, database.recipeQueries, database.settingsQueries)
+        SqlDelightImportTarget(database.productQueries, database.diaryEntryQueries, database.customFoodQueries, database.weightEntryQueries, database.recipeQueries, database.settingsQueries, waterQueries = database.waterQueries)
     }
     private val genericSeeder by lazy {
         GenericFoodSeeder(GenericFoodImporter(database.productQueries), nowMillis = System::currentTimeMillis)
@@ -59,6 +61,7 @@ class MainActivity : ComponentActivity() {
                     weightStore = weightStore,
                     recipeStore = recipeStore,
                     settingsStore = settingsStore,
+                    waterStore = waterStore,
                     importTarget = importTarget,
                     today = { LocalDate.now().toString() },
                     nowMinutes = { LocalTime.now().let { it.hour * 60 + it.minute } },

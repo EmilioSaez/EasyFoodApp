@@ -30,6 +30,24 @@ data class ExportFile(
     val weightGoal: ExportedWeightGoal? = null,
     /** Comidas al día (3 a 6). Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como `null`. */
     val mealsPerDay: Int? = null,
+    /** Agua por día. Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como vacío. */
+    val water: List<ExportedWater> = emptyList(),
+    /** Objetivo diario de agua. Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como `null`. */
+    val waterGoal: ExportedWaterGoal? = null,
+)
+
+@Serializable
+data class ExportedWater(
+    /** Fecha ISO-8601 (`YYYY-MM-DD`); un total por día. */
+    val date: String,
+    val ml: Int,
+    val updatedAtMillis: Long = 0,
+)
+
+@Serializable
+data class ExportedWaterGoal(
+    val goalMl: Int,
+    val updatedAtMillis: Long = 0,
 )
 
 @Serializable

@@ -7,7 +7,9 @@ import app.luxion.fitarchiveapp.db.ProductQueries
 import app.luxion.fitarchiveapp.db.RecipeQueries
 import app.luxion.fitarchiveapp.db.SettingsQueries
 import app.luxion.fitarchiveapp.domain.MealPlan
+import app.luxion.fitarchiveapp.db.WaterQueries
 import app.luxion.fitarchiveapp.db.WeightEntryQueries
+import app.luxion.fitarchiveapp.model.WaterRules
 import app.luxion.fitarchiveapp.model.NewWeightEntry
 import app.luxion.fitarchiveapp.model.RecipeIngredient
 import app.luxion.fitarchiveapp.data.writeIngredients
@@ -60,6 +62,14 @@ import kotlinx.coroutines.withContext
  * - Las **comidas al día** (`mealsPerDay`, opcional) solo se toman si este dispositivo aún no ha elegido; si ya hay
  *   ajuste local se conserva. Un archivo sin el campo no cambia nada; fuera de 3 a 6 es inválido.
  *
+ * **Agua**
+ * - Identidad: la fecha (`date`); hay un total por día. Misma política que los pesos: no existe en local, se añade;
+ *   mismo total, se ignora; total distinto, gana el de `updatedAtMillis` más reciente (con empate, el local). Si el
+ *   archivo trae la misma fecha dos veces, vale el más reciente. Totales fuera de 1 a 20 000 ml o fechas mal formadas
+ *   son inválidos.
+ * - El **objetivo de agua** (uno solo) cuenta en el informe de agua con la misma regla que el peso objetivo; fuera de
+ *   500 a 10 000 ml es inválido.
+ *
  * **Recetas**
  * - Identidad: igual que los alimentos propios: `(id, createdAtMillis)` y, si no hay coincidencia, el nombre sin
  *   distinguir mayúsculas ni espacios sobrantes. Los ingredientes viajan dentro de la receta (copia de nombre y
@@ -101,6 +111,8 @@ class DataImporter(private val target: ImportTarget) {
         val recipes = planRecipes(file.recipes, target.recipes(), invalid)
         val goal = planWeightGoal(file.weightGoal, target.weightGoal(), invalid)
         val meals = planMealsPerDay(file.mealsPerDay, target.mealsPerDay(), invalid)
+        val water = planWater(file.water, target.water(), invalid)
+        val waterGoal = planWaterGoal(file.waterGoal, target.waterGoal(), invalid)
         return ImportPlan(
             changes = ImportChanges(
                 products = products.writes,
@@ -112,9 +124,12 @@ class DataImporter(private val target: ImportTarget) {
                 recipesToUpdate = recipes.updates,
                 weightGoal = goal.write,
                 mealsPerDay = meals,
+                water = water.writes,
+                waterGoal = waterGoal.write,
             ),
             report = ImportReport(
                 products.counts, foods.counts, diary.counts, invalid, weights.counts + goal.counts, recipes.counts,
+                water.counts + waterGoal.counts,
             ),
         )
     }
@@ -320,6 +335,57 @@ class DataImporter(private val target: ImportTarget) {
         return if (local == null) incoming else null
     }
 
+    // --- Agua ---
+
+    private class WaterPlan(val writes: List<ExportedWater>, val counts: ImportCounts)
+
+    private fun planWater(
+        incoming: List<ExportedWater>,
+        local: List<ExportedWater>,
+        invalid: MutableList<String>,
+    ): WaterPlan {
+        val byDate = local.associateByTo(mutableMapOf()) { it.date }
+        val writes = linkedMapOf<String, ExportedWater>()
+        var c = ImportCounts()
+        for (w in incoming) {
+            val problem = when {
+                !DATE.matches(w.date) -> "fecha no válida"
+                w.ml !in 1..WaterRules.MAX_DAY_ML -> "cantidad fuera de rango"
+                else -> null
+            }
+            if (problem != null) {
+                invalid += "Agua del ${w.date} (${w.ml} ml): $problem"
+                c = c.copy(invalid = c.invalid + 1); continue
+            }
+            val existing = byDate[w.date]
+            when {
+                existing == null -> { c = c.copy(added = c.added + 1); byDate[w.date] = w; writes[w.date] = w }
+                existing.ml == w.ml -> c = c.copy(unchanged = c.unchanged + 1)
+                w.updatedAtMillis > existing.updatedAtMillis -> {
+                    c = c.copy(updated = c.updated + 1); byDate[w.date] = w; writes[w.date] = w
+                }
+                else -> c = c.copy(keptLocal = c.keptLocal + 1)
+            }
+        }
+        return WaterPlan(writes.values.toList(), c)
+    }
+
+    private class WaterGoalPlan(val write: ExportedWaterGoal?, val counts: ImportCounts)
+
+    private fun planWaterGoal(incoming: ExportedWaterGoal?, local: ExportedWaterGoal?, invalid: MutableList<String>): WaterGoalPlan {
+        if (incoming == null) return WaterGoalPlan(null, ImportCounts())
+        if (!WaterRules.isValidGoal(incoming.goalMl)) {
+            invalid += "Objetivo de agua (${incoming.goalMl} ml): fuera de rango"
+            return WaterGoalPlan(null, ImportCounts(invalid = 1))
+        }
+        return when {
+            local == null -> WaterGoalPlan(incoming, ImportCounts(added = 1))
+            local.goalMl == incoming.goalMl -> WaterGoalPlan(null, ImportCounts(unchanged = 1))
+            incoming.updatedAtMillis > local.updatedAtMillis -> WaterGoalPlan(incoming, ImportCounts(updated = 1))
+            else -> WaterGoalPlan(null, ImportCounts(keptLocal = 1))
+        }
+    }
+
     // --- Diario ---
 
     private class DiaryPlan(val adds: List<ExportedDiaryEntry>, val counts: ImportCounts)
@@ -378,11 +444,15 @@ data class ImportChanges(
     val weightGoal: ExportedWeightGoal? = null,
     /** Comidas al día a fijar, o `null` si no cambia. */
     val mealsPerDay: Int? = null,
+    /** Totales de agua a insertar o reemplazar por fecha. */
+    val water: List<ExportedWater> = emptyList(),
+    /** Objetivo de agua a fijar, o `null` si no cambia. */
+    val waterGoal: ExportedWaterGoal? = null,
 ) {
     val isEmpty: Boolean
         get() = products.isEmpty() && customFoodsToAdd.isEmpty() && customFoodsToUpdate.isEmpty() &&
             diaryEntriesToAdd.isEmpty() && weights.isEmpty() && recipesToAdd.isEmpty() && recipesToUpdate.isEmpty() &&
-            weightGoal == null && mealsPerDay == null
+            weightGoal == null && mealsPerDay == null && water.isEmpty() && waterGoal == null
 }
 
 /** Sustituye los datos de la receta local [localId] por los de [recipe] (se conservan su id y `createdAtMillis`). */
@@ -434,6 +504,8 @@ data class ImportReport(
     val invalidItems: List<String> = emptyList(),
     val weights: ImportCounts = ImportCounts(),
     val recipes: ImportCounts = ImportCounts(),
+    /** Totales de agua y su objetivo. */
+    val water: ImportCounts = ImportCounts(),
 )
 
 /** Almacenes locales sobre los que se importa: lectura (como la exportación) y escritura atómica. */
@@ -451,8 +523,10 @@ class SqlDelightImportTarget(
     private val recipeQueries: RecipeQueries,
     private val settingsQueries: SettingsQueries,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
+    private val waterQueries: WaterQueries? = null,
 ) : ImportTarget, ExportSource by SqlDelightExportSource(
     productQueries, diaryQueries, customFoodQueries, weightQueries, recipeQueries, settingsQueries, dispatcher,
+    waterQueries,
 ) {
 
     override suspend fun apply(changes: ImportChanges): Unit = withContext(dispatcher) {
@@ -501,6 +575,10 @@ class SqlDelightImportTarget(
             }
             changes.weightGoal?.let { weightQueries.upsertGoal(it.targetKg, it.updatedAtMillis) }
             changes.mealsPerDay?.let { settingsQueries.upsertMealsPerDay(it.toLong()) }
+            if (waterQueries != null) {
+                changes.water.forEach { waterQueries.upsert(it.date, it.ml.toLong(), it.updatedAtMillis) }
+                changes.waterGoal?.let { waterQueries.upsertGoal(it.goalMl.toLong(), it.updatedAtMillis) }
+            }
             changes.diaryEntriesToAdd.forEach { e ->
                 diaryQueries.insert(
                     date = e.date, meal = e.meal.name, barcode = e.barcode, name = e.name, quantity = e.quantity,

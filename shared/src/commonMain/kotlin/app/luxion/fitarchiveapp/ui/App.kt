@@ -25,6 +25,7 @@ import app.luxion.fitarchiveapp.data.ProductRepository
 import app.luxion.fitarchiveapp.data.ProductSearchStore
 import app.luxion.fitarchiveapp.data.RecipeStore
 import app.luxion.fitarchiveapp.data.SettingsStore
+import app.luxion.fitarchiveapp.data.WaterStore
 import app.luxion.fitarchiveapp.data.WeightStore
 import app.luxion.fitarchiveapp.data.generic.GenericFoodSeeder
 import app.luxion.fitarchiveapp.export.DataExporter
@@ -69,6 +70,7 @@ fun App(
     weightStore: WeightStore,
     recipeStore: RecipeStore,
     settingsStore: SettingsStore,
+    waterStore: WaterStore? = null,
     importTarget: ImportTarget,
     today: () -> String,
     nowMinutes: () -> Int,
@@ -97,7 +99,7 @@ fun App(
                         } else if (meals.needsSetup) {
                             MealsSetupScreen(onConfirm = meals::choose, error = meals.error, saving = meals.saving)
                         } else when (val route = navigator.current) {
-                            Route.Diary -> DiaryScreen(navigator, diaryStore, goalStore, weightStore, today(), meals.count)
+                            Route.Diary -> DiaryScreen(navigator, diaryStore, goalStore, weightStore, today(), meals.count, waterStore)
                             is Route.Add -> AddFoodScreen(
                                 navigator,
                                 route,
@@ -108,7 +110,7 @@ fun App(
                             is Route.Scanner -> ScannerScreen(navigator, route, repository)
                             is Route.CustomFood -> CustomFoodScreen(navigator, route, customFoodStore, route.foodId)
                             is Route.ProductDetail -> ProductDetailScreen(navigator, route, repository, diaryStore, customFoodStore, today, mealChoices)
-                            Route.Goals -> GoalsScreen(navigator, goalStore, today, meals.count, meals::choose)
+                            Route.Goals -> GoalsScreen(navigator, goalStore, today, meals.count, meals::choose, waterStore)
                             Route.Weight -> WeightScreen(navigator, weightStore, today)
                             Route.Recipes -> RecipesScreen(navigator, recipeStore)
                             is Route.RecipeDetail -> RecipeDetailScreen(navigator, route, recipeStore, diaryStore, today, mealChoices)
