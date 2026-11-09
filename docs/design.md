@@ -137,18 +137,22 @@ Estado: `DiaryUiState(date, goalKcal, consumedKcal, macros: List<MacroProgress>,
 
 ### 2.2 Añadir alimento / pestaña Alimentos (`AddFoodScreen`)
 > **Fase 10:** sin selector de comida ni filtros de origen; muestra todos los alimentos. Los accesos rápidos pasan a «Recientes · Escáner · Alimento propio».
+> **Fase 12:** se añade el acceso rápido «Favoritos» junto a «Recientes» y una estrella de favorito en cada fila (ver «Favoritos» más abajo).
 ```
 TopAppBar: ← · «Alimentos»   (sin selector de comida)
 SearchBar (inline, extraLarge, surfaceContainerHigh): icono lupa · texto · IconButton borrar
-Fila de 3 accesos rápidos (grid 3 col, gap 8, alto 72, medium):
-   Recientes (primaryContainer) · Escáner · Alimento propio (surfaceContainer)
-Sin texto en la búsqueda: cabecera «Últimos alimentos · 24» y la lista «Recientes» (los últimos alimentos distintos del diario, del más reciente al más antiguo, FoodResultRow)
+Fila de 4 accesos rápidos (gap 8, alto 72, medium; el activo en primaryContainer, el resto en surfaceContainer):
+   Recientes · Favoritos · Escáner · Alimento propio
+Sin texto en la búsqueda: cabecera «Últimos alimentos · 24» y la lista «Recientes» (los últimos alimentos distintos del diario, del más reciente al más antiguo, FoodResultRow); con «Favoritos» activo, cabecera «Favoritos · 5» y su lista
 Con texto: cabecera «Resultados · 24» (titleSmall primary) y LazyColumn de FoodResultRow (ListItem 72):
-   SourceAvatar 40 · nombre / «marca · tamaño · EAN» · «255» + «kcal/100 g»
+   SourceAvatar 40 · nombre / «marca · tamaño · EAN» · «255» + «kcal/100 g» · estrella ☆/★ (IconButton 48)
 ```
 - **Sin filtros:** se eliminan las fichas «Todos · Genérico · Open Food Facts · Propios» y el filtro por origen. Los resultados mezclan todos los orígenes (genérico, Open Food Facts y propios); el origen sigue visible en cada fila con `SourceAvatar`/`SourceChip`.
 - **Sin comida preseleccionada:** la pestaña Alimentos ya no pide la comida arriba. Al abrir la ficha de un alimento desde la pestaña, la comida se elige en la propia ficha (por defecto la comida que toca por la hora, §2.9). Si se llega desde el «+» de una sección del Diario, la comida viene preseleccionada y no se pregunta de nuevo.
 - **«Recientes»:** la lista de recientes se ve por defecto cuando no hay texto; el botón sirve para volver a ella tras buscar (borra el texto). No necesita tabla nueva ni migración: la consulta `selectRecent` toma la última entrada de cada alimento distinto de `DiaryEntry` (clave: EAN o, sin él, el nombre; hasta 30). Un alimento propio no guarda su id en el diario, así que se enlaza por nombre con los alimentos propios; si ya no existe se omite. Sin recientes: estado vacío «Aún no hay recientes».
+- **Favoritos (Fase 12):** un alimento se marca con la estrella ☆ (pasa a ★) en las filas de resultados y recientes de esta pestaña y en la barra superior de su ficha (§2.4); tocarla de nuevo lo desmarca. No hay estrella en el selector de ingredientes de las recetas ni en la ficha de una entrada del diario de un alimento propio (no guarda su id). El acceso rápido «Favoritos» muestra la lista por nombre (mezcla genéricos, Open Food Facts y propios) cuando no hay texto; «Recientes» vuelve a los recientes y ambos borran el texto de búsqueda. Sin favoritos: estado vacío «Aún no tienes favoritos». Un favorito cuyo producto ya no está en la caché local, o cuyo alimento propio se borró, no se muestra (no hay ficha a la que ir) pero sigue guardado hasta que se desmarque.
+  - **Datos:** tabla `FavoriteFoodEntity(key PK, created_at)` con la clave de navegación de la ficha (EAN, `generic:<id>` o `custom:<id>`), sin clave foránea a `ProductEntity` (es una caché purgable). Migración v8 → v9 (`8.sqm`), idempotente.
+  - **Exportar e importar:** colección opcional `favorites` del JSON, **sin subir `schemaVersion`** (añadir una colección no lo cambia, ver `ExportFormat`): los archivos antiguos no la traen y se leen como vacía. Un producto viaja por su `barcode`; un alimento propio, como su id es local de cada dispositivo, por `customName` + `customBrand`. Fusión: identidad = código, o nombre + marca sin distinguir mayúsculas; los que ya existen cuentan como duplicados y nunca se desmarca nada local. Un favorito propio solo se admite si el alimento existe en local o llega en el mismo archivo; los inválidos se omiten y se listan en el informe («Favoritos» en la vista previa).
 - **«Escáner»:** sustituye a «Código EAN». Abre `ScannerScreen`, que ya incluye la entrada manual de EAN (§2.3). En escritorio no hay cámara y el botón abre directamente la entrada manual.
 - Búsqueda: debounce de 300 ms y FTS local; Open Food Facts solo si hay red, mezclado detrás de los resultados locales.
 
@@ -169,7 +173,7 @@ Al leer un código: vibración corta y navegación directa a la Ficha. Si no est
 
 ### 2.4 Ficha de producto (`ProductDetailScreen`)
 ```
-TopAppBar: ← · «Producto» · IconButton editar (copiar como propio)
+TopAppBar: ← · «Producto» · IconButton estrella de favorito ☆/★ · IconButton editar (copiar como propio)
 LazyColumn (16, spacedBy 16)
 ├─ cabecera: nombre (headlineSmall) · «marca · tamaño · EAN» (bodyMedium, EAN en mono) · SourceChip (AssistChip con icono)
 ├─ DoubtfulDataBanner (si aplica): warningContainer, medium, icono ⚠, título «Revisa estos datos» + motivos + TextButton «Corregir y guardar como propio»

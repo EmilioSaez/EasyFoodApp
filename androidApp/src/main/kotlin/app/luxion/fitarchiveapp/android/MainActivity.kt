@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import app.luxion.fitarchiveapp.data.OpenFoodFactsClient
 import app.luxion.fitarchiveapp.data.ProductRepository
 import app.luxion.fitarchiveapp.data.SqlDelightCustomFoodStore
+import app.luxion.fitarchiveapp.data.SqlDelightFavoriteStore
 import app.luxion.fitarchiveapp.data.SqlDelightDiaryStore
 import app.luxion.fitarchiveapp.data.SqlDelightGoalStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductSearchStore
@@ -37,10 +38,11 @@ class MainActivity : ComponentActivity() {
     private val weightStore by lazy { SqlDelightWeightStore(database.weightEntryQueries) }
     private val recipeStore by lazy { SqlDelightRecipeStore(database.recipeQueries) }
     private val settingsStore by lazy { SqlDelightSettingsStore(database.settingsQueries) }
+    private val favoriteStore by lazy { SqlDelightFavoriteStore(database.favoriteFoodQueries) }
     private val searchStore by lazy { SqlDelightProductSearchStore(database.productSearchQueries) }
     private val customFoodStore by lazy { SqlDelightCustomFoodStore(database.customFoodQueries) }
     private val importTarget by lazy {
-        SqlDelightImportTarget(database.productQueries, database.diaryEntryQueries, database.customFoodQueries, database.weightEntryQueries, database.recipeQueries, database.settingsQueries)
+        SqlDelightImportTarget(database.productQueries, database.diaryEntryQueries, database.customFoodQueries, database.weightEntryQueries, database.recipeQueries, database.settingsQueries, database.favoriteFoodQueries)
     }
     private val genericSeeder by lazy {
         GenericFoodSeeder(GenericFoodImporter(database.productQueries), nowMillis = System::currentTimeMillis)
@@ -59,6 +61,7 @@ class MainActivity : ComponentActivity() {
                     weightStore = weightStore,
                     recipeStore = recipeStore,
                     settingsStore = settingsStore,
+                    favoriteStore = favoriteStore,
                     importTarget = importTarget,
                     today = { LocalDate.now().toString() },
                     nowMinutes = { LocalTime.now().let { it.hour * 60 + it.minute } },

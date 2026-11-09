@@ -1,0 +1,5 @@
+-- Migración v8 -> v9: alimentos favoritos (ver FavoriteFood.sq). Idempotente.
+CREATE TABLE IF NOT EXISTS FavoriteFoodEntity (
+    key TEXT NOT NULL PRIMARY KEY CHECK (length(key) > 0),
+    created_at INTEGER NOT NULL
+);

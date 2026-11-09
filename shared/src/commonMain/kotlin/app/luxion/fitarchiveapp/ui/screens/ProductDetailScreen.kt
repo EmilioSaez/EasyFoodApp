@@ -35,6 +35,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.data.DiaryStore
+import app.luxion.fitarchiveapp.data.FavoriteKeys
+import app.luxion.fitarchiveapp.data.FavoriteStore
 import app.luxion.fitarchiveapp.data.CustomFoodStore
 import app.luxion.fitarchiveapp.data.ProductRepository
 import app.luxion.fitarchiveapp.data.generic.GenericFoodFormat
@@ -57,6 +59,7 @@ import app.luxion.fitarchiveapp.ui.components.label
 import app.luxion.fitarchiveapp.ui.components.parseNumber
 import app.luxion.fitarchiveapp.ui.components.toRows
 import app.luxion.fitarchiveapp.ui.components.EmptyState
+import app.luxion.fitarchiveapp.ui.components.FavoriteStar
 import app.luxion.fitarchiveapp.ui.components.EmptyStateAction
 import app.luxion.fitarchiveapp.ui.components.EmptyStateTone
 import app.luxion.fitarchiveapp.ui.navigation.Navigator
@@ -104,6 +107,7 @@ fun ProductDetailScreen(
     repository: ProductRepository,
     diaryStore: DiaryStore,
     customFoods: CustomFoodStore,
+    favoriteStore: FavoriteStore,
     today: () -> String,
     mealChoices: MealChoices,
 ) {
@@ -121,6 +125,20 @@ fun ProductDetailScreen(
     }
 
     val ready = state as? LoadState.Ready
+    // Clave de favorito de la ficha: la de navegación (EAN, `generic:<id>` o `custom:<id>`); una entrada del diario de
+    // un alimento propio no guarda su id, así que no tiene estrella.
+    val favoriteKey = ready?.detail?.let { d -> d.customFoodId?.let(FavoriteKeys::custom) ?: d.barcode }
+    var favorite by remember(favoriteKey) { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(favoriteKey) {
+        favorite = try {
+            favoriteKey != null && favoriteKey in favoriteStore.keys()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            false
+        }
+    }
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -132,6 +150,25 @@ fun ProductDetailScreen(
                     ) { Text("←", style = MaterialTheme.typography.titleLarge) }
                 },
                 actions = {
+                    if (favoriteKey != null) {
+                        FavoriteStar(
+                            favorite = favorite,
+                            onToggle = {
+                                val target = !favorite
+                                scope.launch {
+                                    try {
+                                        favoriteStore.setFavorite(favoriteKey, target, kotlin.time.Clock.System.now().toEpochMilliseconds())
+                                        favorite = target
+                                    } catch (e: CancellationException) {
+                                        throw e
+                                    } catch (e: Exception) {
+                                        // Sin poder guardar, la estrella se queda como estaba.
+                                    }
+                                }
+                            },
+                            foodName = ready?.detail?.name.orEmpty(),
+                        )
+                    }
                     val barcode = ready?.detail?.displayBarcode
                     val customId = ready?.detail?.customFoodId
                     if (customId != null) {

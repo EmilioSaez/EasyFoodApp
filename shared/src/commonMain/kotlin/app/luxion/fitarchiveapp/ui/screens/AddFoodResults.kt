@@ -1,5 +1,6 @@
 package app.luxion.fitarchiveapp.ui.screens
 
+import app.luxion.fitarchiveapp.data.FavoriteKeys
 import app.luxion.fitarchiveapp.data.generic.GenericFoodFormat
 import app.luxion.fitarchiveapp.model.CustomFood
 import app.luxion.fitarchiveapp.model.Nutrients
@@ -8,7 +9,7 @@ import app.luxion.fitarchiveapp.ui.components.DataSource
 import app.luxion.fitarchiveapp.ui.components.formatGrams
 
 /** Prefijo de la clave de navegación de un alimento propio (el resto es su id). */
-const val CUSTOM_FOOD_KEY_PREFIX = "custom:"
+const val CUSTOM_FOOD_KEY_PREFIX = FavoriteKeys.CUSTOM_PREFIX
 
 /** Id del alimento propio si [key] es una clave `custom:<id>` válida; `null` en cualquier otro caso. */
 fun customFoodIdOf(key: String): Long? =

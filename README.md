@@ -5,7 +5,7 @@ App multiplataforma (Kotlin Multiplatform + Compose Multiplatform) para **contar
 ## Qué hace
 
 - **Diario del día**: totales de kcal y macros, secciones por comida, progreso frente al objetivo, edición y borrado de entradas.
-- **Añadir alimento**: búsqueda de texto en la base local, filtro por origen y accesos rápidos.
+- **Añadir alimento**: búsqueda de texto en la base local y accesos rápidos (recientes, favoritos, escáner y alimento propio); los alimentos se marcan como favoritos con una estrella.
 - **Escáner de códigos de barras** (solo Android) y entrada manual de EAN. La consulta por EAN va a [Open Food Facts](https://world.openfoodfacts.org).
 - **Ficha de producto**: cantidad, tabla nutricional por 100 g y aviso cuando los datos faltan o parecen erróneos.
 - **Alimento propio**: crear, editar y borrar alimentos introducidos a mano.
@@ -22,7 +22,7 @@ App multiplataforma (Kotlin Multiplatform + Compose Multiplatform) para **contar
 
 ## Datos: exportar e importar
 
-La pantalla **Datos** (icono ⇅ del Diario y de Objetivos) exporta el perfil a un JSON versionado (alimentos propios, diario y productos consultados; la base genérica no se exporta porque ya viene con la app) e importa fusionando, con vista previa y detección de duplicados. También transfiere por QR y por red local con código de emparejamiento de un solo uso.
+La pantalla **Datos** (icono ⇅ del Diario y de Objetivos) exporta el perfil a un JSON versionado (alimentos propios, favoritos, diario y productos consultados; la base genérica no se exporta porque ya viene con la app) e importa fusionando, con vista previa y detección de duplicados. También transfiere por QR y por red local con código de emparejamiento de un solo uso.
 
 El seguimiento de lo que falta está en [ROADMAP.md](ROADMAP.md).
 
