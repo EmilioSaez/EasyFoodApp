@@ -48,7 +48,9 @@ import app.luxion.fitarchiveapp.domain.ActivityLevel
 import app.luxion.fitarchiveapp.domain.Goal
 import app.luxion.fitarchiveapp.domain.Sex
 import app.luxion.fitarchiveapp.domain.UserProfile
+import app.luxion.fitarchiveapp.domain.StepsActivity
 import app.luxion.fitarchiveapp.model.DailyGoals
+import app.luxion.fitarchiveapp.steps.rememberStepsProvider
 import app.luxion.fitarchiveapp.ui.components.MacroDot
 import app.luxion.fitarchiveapp.ui.components.NumberField
 import app.luxion.fitarchiveapp.ui.components.formatKcal
@@ -65,7 +67,7 @@ import kotlinx.coroutines.launch
 /** Objetivos y TDEE (docs/design.md §2.6). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GoalsScreen(navigator: Navigator, goalStore: GoalStore) {
+fun GoalsScreen(navigator: Navigator, goalStore: GoalStore, today: () -> String = { "" }) {
     var saved by remember { mutableStateOf(DailyGoals()) }
     var sex by remember { mutableStateOf(Sex.MALE) }
     var ageText by remember { mutableStateOf("") }
@@ -114,6 +116,8 @@ fun GoalsScreen(navigator: Navigator, goalStore: GoalStore) {
     val custom = kcalOverride != null
     // Con el objetivo fijo la calculadora solo sugiere: se muestra aparte de lo que se guardará.
     val suggestion = if (fixed) plan else null
+    val stepsState = rememberStepsState(rememberStepsProvider(), today)
+    val stepsSuggestion = profile?.let { StepsActivity.suggest(it, stepsState.days, today(), fixed) }
     val hasManual = kcalText != null || proteinText != null || carbsText != null || fatText != null
 
     Scaffold(
@@ -205,6 +209,8 @@ fun GoalsScreen(navigator: Navigator, goalStore: GoalStore) {
                     )
                 }
             }
+
+            StepsSection(stepsState, stepsSuggestion, onApply = { activity = it })
 
             Section("Actividad física") {
                 ActivityLevel.entries.forEach { level ->
