@@ -8,13 +8,22 @@ object AiPrivacy {
         "La foto que elijas (reducida a 1024 px como máximo y sin metadatos).",
         "Un resumen mínimo del día: kcal y macros consumidos y tus objetivos de kcal y macros.",
         "La indicación de la tarea (por ejemplo, «lee esta etiqueta»).",
+        "Para sugerencias y consejos: el nombre y las kcal de unos pocos de tus favoritos, recientes, plantillas y recetas, lo ya apuntado en la comida actual, el agua, el ejercicio, los totales de fibra, sal y azúcares y las medias de la semana, y el texto que escribas.",
     )
 
     val notSent: List<String> = listOf(
         "Tu nombre, correo ni ningún dato de cuenta.",
-        "Tu historial completo del diario, tus pesos ni tus recetas.",
+        "Tu historial completo del diario, tus pesos ni el contenido de tus recetas (solo su nombre y kcal por ración).",
         "Tu clave de API: solo viaja a Anthropic, en la cabecera de la petición.",
     )
+
+    /** Id del aviso propio de «¿Qué como?», «¿Cómo voy?» y la pregunta libre (se acepta una vez; ver [AiSettingsStore.hasAck]). */
+    const val ADVICE_ACK = "advice"
+
+    const val ADVICE_NOTICE =
+        "Para responder se envía a Anthropic un resumen mínimo: tus totales y objetivos, lo ya apuntado en la comida actual, " +
+            "agua y ejercicio, y el nombre y las kcal de unos pocos favoritos, recientes, plantillas y recetas, más lo que escribas. " +
+            "Nunca tu nombre, correo ni tu historial completo."
 
     const val FOOTER =
         "Los datos van directamente de tu dispositivo a Anthropic con tu propia clave; EasyFood no tiene servidor ni los ve. " +
