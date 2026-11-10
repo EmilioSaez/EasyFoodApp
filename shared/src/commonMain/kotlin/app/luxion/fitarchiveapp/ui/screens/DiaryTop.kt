@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -249,7 +251,40 @@ fun GoalCard(state: DiaryUiState, onSetGoal: () -> Unit, modifier: Modifier = Mo
                     OutlinedButton(onClick = onSetGoal) { Text("Fijar objetivo") }
                 }
             }
-            MacrosLine(state)
+            NutrientPager(state)
+        }
+    }
+}
+
+/**
+ * Páginas deslizables bajo las kcal (§2.19): macros y «otros nutrientes» (fibra, sal, azúcares, saturadas). Ambas miden
+ * lo mismo, así que la tarjeta no cambia de altura al deslizar; los puntos indican la página.
+ */
+@Composable
+private fun NutrientPager(state: DiaryUiState) {
+    val pages = listOf("Macros", "Otros nutrientes · objetivos orientativos (OMS)")
+    val pager = rememberPagerState { pages.size }
+    val scheme = MaterialTheme.colorScheme
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+        HorizontalPager(pager, Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) { page ->
+            if (page == 0) MacrosLine(state) else IntakeLine(state.intake)
+        }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                pages[pager.currentPage],
+                style = MaterialTheme.typography.labelSmall,
+                color = scheme.onSurfaceVariant,
+                maxLines = 1,
+                modifier = Modifier.weight(1f),
+            )
+            Row(
+                Modifier.semantics { contentDescription = "Página ${pager.currentPage + 1} de ${pages.size}" },
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+            ) {
+                repeat(pages.size) { i ->
+                    Box(Modifier.size(6.dp).background(if (i == pager.currentPage) scheme.primary else scheme.outlineVariant, CircleShape))
+                }
+            }
         }
     }
 }
