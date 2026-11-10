@@ -47,9 +47,11 @@ import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.model.NewDiaryEntry
 import app.luxion.fitarchiveapp.model.Nutrients
 import app.luxion.fitarchiveapp.model.Product
+import app.luxion.fitarchiveapp.model.ProductCorrection
 import app.luxion.fitarchiveapp.model.QuantityUnit
 import app.luxion.fitarchiveapp.model.dataWarnings
 import app.luxion.fitarchiveapp.ui.components.DataSource
+import app.luxion.fitarchiveapp.ui.components.CorrectedChip
 import app.luxion.fitarchiveapp.ui.components.DoubtfulChip
 import app.luxion.fitarchiveapp.ui.components.DoubtfulDataBanner
 import app.luxion.fitarchiveapp.ui.components.StackedMacroBar
@@ -240,8 +242,9 @@ fun ProductDetailScreen(
                     modifier = Modifier.fillMaxSize(),
                 )
                 is LoadState.Ready -> DetailContent(
-                    navigator, route, s, diaryStore, today, mealChoices,
+                    navigator, route, s, repository, diaryStore, today, mealChoices,
                     refreshing = refreshing, refreshMessage = refreshMessage, onRefresh = refreshProduct,
+                    onProductChanged = { reloadKey++ },
                 )
             }
         }
@@ -335,12 +338,14 @@ private fun DetailContent(
     navigator: Navigator,
     route: Route.ProductDetail,
     ready: LoadState.Ready,
+    repository: ProductRepository,
     diaryStore: DiaryStore,
     today: () -> String,
     mealChoices: MealChoices,
     refreshing: Boolean,
     refreshMessage: String?,
     onRefresh: () -> Unit,
+    onProductChanged: () -> Unit,
 ) {
     val detail = ready.detail
     val editing = route.entryId != null
@@ -351,6 +356,8 @@ private fun DetailContent(
     var amountText by remember(ready) { mutableStateOf(formatGrams(ready.initialAmount).replace(".", "")) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var correctionBusy by remember { mutableStateOf(false) }
+    var correctionError by remember { mutableStateOf<String?>(null) }
 
     val servingG = detail.servingSizeG
     val amount = parseNumber(amountText)
@@ -382,10 +389,11 @@ private fun DetailContent(
                             }
                         }
                     }
-                    if (detail.source != null || reasons.isNotEmpty()) {
+                    if (detail.source != null || reasons.isNotEmpty() || detail.product?.isCorrected == true) {
                         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalAlignment = Alignment.CenterVertically) {
                             detail.source?.let { SourceChip(it) }
                             if (reasons.isNotEmpty()) DoubtfulChip()
+                            if (detail.product?.isCorrected == true) CorrectedChip()
                         }
                     }
                 }
@@ -453,6 +461,47 @@ private fun DetailContent(
             }
             if (!editing && detail.source == DataSource.OpenFoodFacts && detail.product != null) {
                 item { RefreshSection(detail, refreshing, refreshMessage, onRefresh) }
+            }
+            detail.product?.let { product ->
+                item {
+                    ProductCorrectionSection(
+                        product = product,
+                        busy = correctionBusy,
+                        error = correctionError,
+                        onSave = { nutrients ->
+                            correctionBusy = true
+                            correctionError = null
+                            scope.launch {
+                                try {
+                                    repository.correct(ProductCorrection(product.barcode, nutrients, nowMillis()))
+                                    onProductChanged()
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    correctionError = "No se pudo guardar la corrección. Inténtalo de nuevo."
+                                } finally {
+                                    correctionBusy = false
+                                }
+                            }
+                        },
+                        onRevert = {
+                            correctionBusy = true
+                            correctionError = null
+                            scope.launch {
+                                try {
+                                    repository.revertCorrection(product.barcode)
+                                    onProductChanged()
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    correctionError = "No se pudo volver al original. Inténtalo de nuevo."
+                                } finally {
+                                    correctionBusy = false
+                                }
+                            }
+                        },
+                    )
+                }
             }
             item {
                 val source = detail.source?.label

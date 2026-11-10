@@ -7,7 +7,7 @@ App multiplataforma (Kotlin Multiplatform + Compose Multiplatform) para **contar
 - **Diario del día**: totales de kcal y macros, secciones por comida, progreso frente al objetivo, edición y borrado de entradas.
 - **Añadir alimento**: búsqueda de texto en la base local (por nombre, marca o supermercado como «mercadona» o «lidl»; tolera acentos, plurales y erratas, prioriza lo que más usas y tiene el filtro «Solo mis productos») y accesos rápidos (recientes, favoritos, plantillas, escáner y alimento propio); los alimentos se marcan como favoritos con una estrella. Las **plantillas de comida** («mi desayuno de siempre») se guardan desde una comida del Diario o desde la pestaña Alimentos y se añaden al diario de un toque, a la comida y fecha que elijas.
 - **Escáner de códigos de barras** (solo Android) y entrada manual de EAN. La consulta por EAN va a [Open Food Facts](https://world.openfoodfacts.org).
-- **Ficha de producto**: cantidad, tabla nutricional por 100 g y aviso cuando los datos faltan o parecen erróneos. Los productos de Open Food Facts se refrescan a mano («Actualizar datos») y en segundo plano (máx. 20 peticiones por arranque, sin red no hace nada) y la ficha avisa de los cambios nutricionales relevantes; el diario conserva los valores con los que registraste cada entrada ([detalles](docs/refrescar-productos.md)).
+- **Ficha de producto**: cantidad, tabla nutricional por 100 g y aviso cuando los datos faltan o parecen erróneos. Los productos de Open Food Facts se refrescan a mano («Actualizar datos») y en segundo plano (máx. 20 peticiones por arranque, sin red no hace nada) y la ficha avisa de los cambios nutricionales relevantes; el diario conserva los valores con los que registraste cada entrada ([detalles](docs/refrescar-productos.md)). Los valores de un producto de Open Food Facts o genérico se pueden **corregir en local** («Corregido por ti», con los originales a la vista y «Volver al original»); la corrección se conserva aunque el producto se actualice, va en exportar e importar, y la ficha ofrece abrir el producto en Open Food Facts para corregirlo allí (sin enviar nada automáticamente).
 - **Alimento propio**: crear, editar y borrar alimentos introducidos a mano.
 - **Objetivos y TDEE**: cálculo del gasto energético, ritmo y ajuste manual de kcal/macros.
 - **Agua diaria**: tarjeta en el Diario con «+ Vaso», «+ 500 ml», «+ 1 L» y deshacer, y progreso frente a un objetivo (2 L por defecto, editable en Objetivos).
@@ -25,7 +25,7 @@ App multiplataforma (Kotlin Multiplatform + Compose Multiplatform) para **contar
 
 ## Datos: exportar e importar
 
-La pantalla **Datos** (icono ⇅ del Diario y de Objetivos) exporta el perfil a un JSON versionado (alimentos propios, favoritos, plantillas de comida, diario, pesos, recetas, agua, ejercicio y productos consultados; la base genérica no se exporta porque ya viene con la app) e importa fusionando, con vista previa y detección de duplicados. También transfiere por QR y por red local con código de emparejamiento de un solo uso.
+La pantalla **Datos** (icono ⇅ del Diario y de Objetivos) exporta el perfil a un JSON versionado (alimentos propios, favoritos, plantillas de comida, diario, pesos, recetas, agua, ejercicio, productos consultados y tus correcciones de productos; la base genérica no se exporta porque ya viene con la app) e importa fusionando, con vista previa y detección de duplicados. También transfiere por QR y por red local con código de emparejamiento de un solo uso.
 
 **Entrada rápida:** para cuando comes fuera, el botón «Entrada rápida» de la pestaña Alimentos (y el «+» de cada comida del Diario) apunta solo kcal y macros, con nombre opcional, a una comida y día concretos, sin crear un alimento. Se edita, se borra, cuenta en los totales y se copia como cualquier entrada, y viaja en exportar e importar.
 
@@ -72,7 +72,7 @@ Para comprobar que compilan los targets de iOS sin Mac (solo klibs, no enlaza el
 
 ## Datos y licencias
 
-- **Productos con código de barras**: [Open Food Facts](https://world.openfoodfacts.org), base abierta aportada por la comunidad bajo licencia ODbL. Los datos pueden ser incorrectos o estar incompletos; la app los marca para revisión cuando detecta valores dudosos.
+- **Productos con código de barras**: [Open Food Facts](https://world.openfoodfacts.org), base abierta aportada por la comunidad bajo licencia ODbL. Los datos pueden ser incorrectos o estar incompletos; la app los marca para revisión cuando detecta valores dudosos y permite corregirlos en local o abrir el producto en Open Food Facts para corregirlo allí.
 - **Alimentos genéricos** (fruta, pan, carne…): [USDA FoodData Central](https://fdc.nal.usda.gov/), conjunto SR Legacy, dominio público (CC0 1.0). Los nombres están traducidos al español (traducción propia con IA, embebida y offline). Detalles en [docs/generic-foods.md](docs/generic-foods.md).
 - BEDCA se descartó por no ofrecer licencia de redistribución.
 

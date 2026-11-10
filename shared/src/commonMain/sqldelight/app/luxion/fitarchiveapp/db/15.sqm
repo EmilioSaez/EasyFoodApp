@@ -1,0 +1,14 @@
+-- Migración v15 -> v16: correcciones del usuario sobre los valores nutricionales de los productos (ver Product.sq).
+-- Solo añade una tabla; no toca ningún dato existente. Idempotente.
+CREATE TABLE IF NOT EXISTS ProductCorrectionEntity (
+    barcode TEXT NOT NULL PRIMARY KEY CHECK (length(barcode) > 0),
+    kcal REAL,
+    protein_g REAL,
+    carbs_g REAL,
+    sugars_g REAL,
+    fat_g REAL,
+    saturated_fat_g REAL,
+    fiber_g REAL,
+    salt_g REAL,
+    updated_at INTEGER NOT NULL
+);

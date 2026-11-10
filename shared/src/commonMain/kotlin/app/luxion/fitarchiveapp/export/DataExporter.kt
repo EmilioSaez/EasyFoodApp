@@ -40,6 +40,7 @@ interface ExportSource {
     suspend fun mealTemplates(): List<ExportedMealTemplate> = emptyList()
     suspend fun exercises(): List<ExportedExercise> = emptyList()
     suspend fun exercisePercent(): ExportedExercisePercent? = null
+    suspend fun productCorrections(): List<ExportedProductCorrection> = emptyList()
 }
 
 /** Genera el JSON de exportación a partir de [source]. */
@@ -65,6 +66,7 @@ class DataExporter(
         mealTemplates = source.mealTemplates(),
         exercises = source.exercises(),
         exercisePercent = source.exercisePercent(),
+        productCorrections = source.productCorrections(),
     )
 
     suspend fun exportToJson(): String = ExportCodec.encode(buildFile())
@@ -160,6 +162,13 @@ class SqlDelightExportSource(
                     ExportedFavorite(customName = it.name, customBrand = it.brand, createdAtMillis = f.created_at)
                 }
             }
+        }
+    }
+
+    override suspend fun productCorrections(): List<ExportedProductCorrection> = withContext(dispatcher) {
+        productQueries.selectAllCorrections().executeAsList().map {
+            val c = it.toDomain()
+            ExportedProductCorrection(c.barcode, c.nutrients.toExported(), c.updatedAtMillis)
         }
     }
 

@@ -49,3 +49,7 @@ SELECT name, brand FROM ProductEntity;
 
 searchVocabularyStamp:
 SELECT count(*) AS n, COALESCE(max(rowid), 0) AS max_rowid, COALESCE(sum(cached_at), 0) AS cached_sum FROM ProductEntity;
+
+-- Correcciones del usuario de los códigos dados (para aplicarlas a los resultados de `search`).
+correctionsFor:
+SELECT * FROM ProductCorrectionEntity WHERE barcode IN ?;

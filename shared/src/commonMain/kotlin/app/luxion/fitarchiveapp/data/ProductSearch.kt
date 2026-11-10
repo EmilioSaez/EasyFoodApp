@@ -102,8 +102,12 @@ class SqlDelightProductSearchStore(
         if (SearchText.terms(text).isEmpty()) return emptyList()
         return withContext(dispatcher) {
             val expression = ProductSearchQuery.toFtsExpression(text, currentVocabulary()) ?: return@withContext emptyList()
-            queries.search(expression, if (onlyMine) 1L else 0L, limit.toLong().coerceAtLeast(0))
+            val found = queries.search(expression, if (onlyMine) 1L else 0L, limit.toLong().coerceAtLeast(0))
                 .executeAsList().map { it.toCached().product }
+            if (found.isEmpty()) return@withContext found
+            // Los resultados muestran los valores corregidos por el usuario, igual que la ficha.
+            val corrections = queries.correctionsFor(found.map { it.barcode }).executeAsList().associate { it.barcode to it.toDomain() }
+            found.map { it.withCorrection(corrections[it.barcode]) }
         }
     }
 

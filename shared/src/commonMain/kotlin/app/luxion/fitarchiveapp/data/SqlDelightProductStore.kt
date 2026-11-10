@@ -4,6 +4,7 @@ import app.luxion.fitarchiveapp.db.ProductEntity
 import app.luxion.fitarchiveapp.db.ProductQueries
 import app.luxion.fitarchiveapp.model.Nutrients
 import app.luxion.fitarchiveapp.model.Product
+import app.luxion.fitarchiveapp.model.ProductCorrection
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -14,7 +15,25 @@ class SqlDelightProductStore(
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : ProductLocalStore {
     override suspend fun find(barcode: String): CachedProduct? = withContext(dispatcher) {
-        queries.selectByBarcode(barcode).executeAsOneOrNull()?.toCached()
+        val cached = queries.selectByBarcode(barcode).executeAsOneOrNull()?.toCached() ?: return@withContext null
+        cached.copy(product = cached.product.withCorrection(queries.selectCorrection(barcode).executeAsOneOrNull()?.toDomain()))
+    }
+
+    override suspend fun applyCorrection(product: Product): Product = withContext(dispatcher) {
+        product.withCorrection(queries.selectCorrection(product.barcode).executeAsOneOrNull()?.toDomain())
+    }
+
+    override suspend fun saveCorrection(correction: ProductCorrection): Unit = withContext(dispatcher) {
+        val n = correction.nutrients
+        queries.upsertCorrection(
+            barcode = correction.barcode, kcal = n.kcal, protein_g = n.proteinG, carbs_g = n.carbsG,
+            sugars_g = n.sugarsG, fat_g = n.fatG, saturated_fat_g = n.saturatedFatG, fiber_g = n.fiberG,
+            salt_g = n.saltG, updated_at = correction.updatedAtMillis,
+        )
+    }
+
+    override suspend fun clearCorrection(barcode: String): Unit = withContext(dispatcher) {
+        queries.deleteCorrection(barcode)
     }
 
     override suspend fun save(product: Product, fetchedAtMillis: Long): Unit = withContext(dispatcher) {

@@ -123,6 +123,7 @@ Cada punto es un PR.
 - [x] Registro de agua diario: tarjeta en el Diario con «+ Vaso», «+ 500 ml», «+ 1 L» y «Deshacer», progreso frente a un objetivo diario (2 L por defecto, editable en Objetivos); migración v8 a v9, incluido en exportar e importar (§2.13)
 - [x] Búsqueda mejorada: por marca y supermercado (Mercadona/Hacendado, Carrefour, Dia, Lidl…), filtro «Solo mis productos» (consultados, propios y favoritos) en la cabecera de resultados, tolerancia a erratas, acentos y plurales, y orden por uso frecuente derivado del diario; sin migración ni tablas nuevas (`docs/design.md` §2.2)
 - [x] Ejercicio que suma al objetivo: registro manual por día en el Diario, porcentaje configurable en Objetivos (50 % por defecto, para no contar dos veces lo que ya incluye el nivel de actividad del TDEE; 0 % lo desactiva), objetivo efectivo en tarjeta, franja y racha; migración 13 (v13 a v14), incluido en exportar e importar sin subir `schemaVersion` (§2.18)
+- [x] Corregir y reportar productos dudosos: corrección local de los valores nutricionales de un producto (OFF o genérico) como override en tabla aparte que sobrevive al refresco y se revierte al original, marcada «Corregido por ti» (`docs/design.md` §2.4); enlace para abrir el producto en Open Food Facts y corregirlo allí (sin enviar datos automáticamente); migración v15 → v16, incluido en exportar e importar (colección opcional `productCorrections`, sin subir la versión del formato)
 
 ## Fase 13: IA
 
