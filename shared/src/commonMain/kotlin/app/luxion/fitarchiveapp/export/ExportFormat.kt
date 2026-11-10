@@ -36,6 +36,29 @@ data class ExportFile(
     val waterGoal: ExportedWaterGoal? = null,
     /** Alimentos favoritos. Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como vacío. */
     val favorites: List<ExportedFavorite> = emptyList(),
+    /** Plantillas de comida. Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como vacío. */
+    val mealTemplates: List<ExportedMealTemplate> = emptyList(),
+)
+
+@Serializable
+data class ExportedMealTemplate(
+    /** Id local del dispositivo de origen; solo sirve para reconocer la misma plantilla al reimportar. */
+    val id: Long,
+    val name: String,
+    val items: List<ExportedTemplateItem> = emptyList(),
+    val createdAtMillis: Long = 0,
+    val updatedAtMillis: Long = 0,
+)
+
+@Serializable
+data class ExportedTemplateItem(
+    /** EAN o `generic:<id>`; `null` en un alimento propio. */
+    val barcode: String? = null,
+    val name: String,
+    val quantity: Double,
+    val unit: QuantityUnit,
+    val servingSizeG: Double? = null,
+    val nutrients: ExportedNutrients = ExportedNutrients(),
 )
 
 /**

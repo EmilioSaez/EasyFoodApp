@@ -1,0 +1,63 @@
+-- Plantillas de comida: «mi desayuno de siempre», un conjunto de alimentos con cantidades que se añade al diario de una vez.
+-- Cada alimento guarda una copia (snapshot) del nombre y de los valores por 100 g, como el diario y las recetas, y la
+-- cantidad con su unidad (gramos o porciones) tal como estaba en el diario.
+-- Los alimentos se borran desde el almacén (SQLite no aplica ON DELETE CASCADE sin PRAGMA foreign_keys).
+CREATE TABLE IF NOT EXISTS MealTemplateEntity (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS MealTemplateItemEntity (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    template_id INTEGER NOT NULL REFERENCES MealTemplateEntity(id) ON DELETE CASCADE,
+    -- Orden dentro de la plantilla.
+    position INTEGER NOT NULL,
+    -- EAN o generic:<id>; NULL en un alimento propio.
+    barcode TEXT,
+    name TEXT NOT NULL,
+    -- Cantidad y su unidad: GRAMS (gramos o ml) o SERVINGS (porciones).
+    quantity REAL NOT NULL CHECK (quantity > 0),
+    unit TEXT NOT NULL CHECK (unit IN ('GRAMS', 'SERVINGS')),
+    serving_size_g REAL,
+    -- Valores nutricionales por 100 g; NULL = dato no disponible.
+    kcal_100g REAL,
+    protein_100g REAL,
+    carbs_100g REAL,
+    fat_100g REAL
+);
+
+CREATE INDEX IF NOT EXISTS meal_template_item_template_idx ON MealTemplateItemEntity(template_id, position);
+
+selectAll:
+SELECT * FROM MealTemplateEntity ORDER BY name COLLATE NOCASE, id;
+
+selectById:
+SELECT * FROM MealTemplateEntity WHERE id = ?;
+
+insert:
+INSERT INTO MealTemplateEntity(name, created_at, updated_at) VALUES (?, ?, ?);
+
+lastInsertedId:
+SELECT last_insert_rowid();
+
+update:
+UPDATE MealTemplateEntity SET name = ?, updated_at = ? WHERE id = ?;
+
+deleteById:
+DELETE FROM MealTemplateEntity WHERE id = ?;
+
+selectAllItems:
+SELECT * FROM MealTemplateItemEntity ORDER BY template_id, position, id;
+
+selectItems:
+SELECT * FROM MealTemplateItemEntity WHERE template_id = ? ORDER BY position, id;
+
+insertItem:
+INSERT INTO MealTemplateItemEntity(
+    template_id, position, barcode, name, quantity, unit, serving_size_g, kcal_100g, protein_100g, carbs_100g, fat_100g
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteItems:
+DELETE FROM MealTemplateItemEntity WHERE template_id = ?;

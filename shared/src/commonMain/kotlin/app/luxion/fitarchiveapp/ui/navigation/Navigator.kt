@@ -11,8 +11,11 @@ sealed interface Route {
     /** Diario del día (pantalla de inicio). */
     data object Diary : Route
 
-    /** Añadir alimento; [meal] es la comida preseleccionada (`null` desde la pestaña: se elige en la ficha). */
-    data class Add(val meal: MealType? = null) : Route
+    /**
+     * Añadir alimento; [meal] es la comida preseleccionada (`null` desde la pestaña: se elige en la ficha).
+     * [templates] indica que se ve la lista de plantillas (así se vuelve a ella tras editar una).
+     */
+    data class Add(val meal: MealType? = null, val templates: Boolean = false) : Route
 
     /** Escáner de cámara + entrada manual de EAN. */
     data class Scanner(val meal: MealType? = null) : Route
@@ -45,6 +48,9 @@ sealed interface Route {
 
     /** Detalle de una receta: macros, ingredientes y añadirla al diario. */
     data class RecipeDetail(val recipeId: Long) : Route
+
+    /** Crear una plantilla de comida, o editarla (renombrarla o borrarla) si se indica [templateId]. */
+    data class TemplateEdit(val templateId: Long? = null) : Route
 
     /** Crear una receta, o editarla (y borrarla) si se indica [recipeId]. */
     data class RecipeEdit(val recipeId: Long? = null) : Route

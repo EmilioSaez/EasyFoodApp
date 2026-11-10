@@ -10,6 +10,7 @@ import app.luxion.fitarchiveapp.data.OpenFoodFactsClient
 import app.luxion.fitarchiveapp.data.ProductRepository
 import app.luxion.fitarchiveapp.data.SqlDelightCustomFoodStore
 import app.luxion.fitarchiveapp.data.SqlDelightFavoriteStore
+import app.luxion.fitarchiveapp.data.SqlDelightMealTemplateStore
 import app.luxion.fitarchiveapp.data.SqlDelightDiaryStore
 import app.luxion.fitarchiveapp.data.SqlDelightGoalStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductSearchStore
@@ -40,11 +41,12 @@ class MainActivity : ComponentActivity() {
     private val recipeStore by lazy { SqlDelightRecipeStore(database.recipeQueries) }
     private val settingsStore by lazy { SqlDelightSettingsStore(database.settingsQueries) }
     private val favoriteStore by lazy { SqlDelightFavoriteStore(database.favoriteFoodQueries) }
+    private val templateStore by lazy { SqlDelightMealTemplateStore(database.mealTemplateQueries) }
     private val waterStore by lazy { SqlDelightWaterStore(database.waterQueries) }
     private val searchStore by lazy { SqlDelightProductSearchStore(database.productSearchQueries) }
     private val customFoodStore by lazy { SqlDelightCustomFoodStore(database.customFoodQueries) }
     private val importTarget by lazy {
-        SqlDelightImportTarget(database.productQueries, database.diaryEntryQueries, database.customFoodQueries, database.weightEntryQueries, database.recipeQueries, database.settingsQueries, database.favoriteFoodQueries, waterQueries = database.waterQueries)
+        SqlDelightImportTarget(database.productQueries, database.diaryEntryQueries, database.customFoodQueries, database.weightEntryQueries, database.recipeQueries, database.settingsQueries, database.favoriteFoodQueries, waterQueries = database.waterQueries, templateQueries = database.mealTemplateQueries)
     }
     private val genericSeeder by lazy {
         GenericFoodSeeder(GenericFoodImporter(database.productQueries), nowMillis = System::currentTimeMillis)
@@ -64,6 +66,7 @@ class MainActivity : ComponentActivity() {
                     recipeStore = recipeStore,
                     settingsStore = settingsStore,
                     waterStore = waterStore,
+                    templateStore = templateStore,
                     favoriteStore = favoriteStore,
                     importTarget = importTarget,
                     today = { LocalDate.now().toString() },

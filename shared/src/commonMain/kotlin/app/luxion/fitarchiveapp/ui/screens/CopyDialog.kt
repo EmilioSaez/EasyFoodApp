@@ -1,6 +1,5 @@
 package app.luxion.fitarchiveapp.ui.screens
 
-import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Arrangement
@@ -17,9 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.domain.MealPlan
 import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.ui.components.label
@@ -42,7 +39,6 @@ fun CopyDialog(
 ) {
     var date by remember { mutableStateOf(IsoDate.plusDays(sourceDate, -1)) }
     var meal by remember { mutableStateOf<MealType?>(null) } // null = la equivalente
-    var pickingDate by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -50,14 +46,7 @@ fun CopyDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
                 Text("Copiar a", style = MaterialTheme.typography.labelLarge)
-                Row(
-                    Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    TextButton(onClick = { date = IsoDate.plusDays(date, -1); error = null }) { Text("‹") }
-                    TextButton(onClick = { pickingDate = true }, modifier = Modifier.weight(1f)) { Text(IsoDate.long(date)) }
-                    TextButton(onClick = { date = IsoDate.plusDays(date, 1); error = null }) { Text("›") }
-                }
+                DateStepperRow(date, onDateChange = { date = it; error = null })
                 if (request.meal != null) {
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                         FilterChip(selected = meal == null, onClick = { meal = null; error = null }, label = { Text("La misma") })
@@ -84,7 +73,4 @@ fun CopyDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
     )
-    if (pickingDate) {
-        DiaryDatePicker(date = date, onPick = { date = it; pickingDate = false }, onDismiss = { pickingDate = false })
-    }
 }

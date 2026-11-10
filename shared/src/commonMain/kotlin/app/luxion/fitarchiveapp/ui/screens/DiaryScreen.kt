@@ -40,6 +40,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.data.DiaryStore
 import app.luxion.fitarchiveapp.data.GoalStore
+import app.luxion.fitarchiveapp.data.MealTemplateStore
+import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.data.WaterStore
 import app.luxion.fitarchiveapp.data.WeightStore
 import app.luxion.fitarchiveapp.ui.components.WaterCard
@@ -74,14 +76,17 @@ fun DiaryScreen(
     today: String,
     mealsPerDay: Int? = null,
     waterStore: WaterStore? = null,
+    templateStore: MealTemplateStore? = null,
 ) {
     val scope = rememberCoroutineScope()
-    val presenter = remember(diaryStore, goalStore, mealsPerDay) { DiaryPresenter(diaryStore, goalStore, scope, today, mealsPerDay) }
+    val presenter = remember(diaryStore, goalStore, mealsPerDay) { DiaryPresenter(diaryStore, goalStore, scope, today, mealsPerDay, templates = templateStore) }
     val state by presenter.state.collectAsState()
     val snackbar = remember { SnackbarHostState() }
     var editing by remember { mutableStateOf<EntryUi?>(null) }
     var pickingDate by remember { mutableStateOf(false) }
     var copying by remember { mutableStateOf<CopyRequest?>(null) }
+    var savingTemplate by remember { mutableStateOf<MealType?>(null) }
+    var templateError by remember { mutableStateOf<String?>(null) }
 
     // Aviso semanal de peso: se recalcula cada vez que se abre el Diario, así desaparece al registrar.
     var weightDue by remember { mutableStateOf(false) }
@@ -178,6 +183,9 @@ fun DiaryScreen(
                                 summary = mealSummary(meal.kcal, meal.proteinG, meal.carbsG, meal.fatG),
                                 onAdd = { navigator.push(Route.Add(meal.meal)) },
                                 onCopy = if (meal.entries.isEmpty()) null else { { copying = CopyRequest(meal.meal) } },
+                                onSaveTemplate = if (meal.entries.isEmpty() || templateStore == null) null else {
+                                    { templateError = null; savingTemplate = meal.meal }
+                                },
                                 isEmpty = meal.entries.isEmpty(),
                             ) {
                                 meal.entries.forEach { entry ->
@@ -218,6 +226,22 @@ fun DiaryScreen(
             onConfirm = { date, meal ->
                 copying = null
                 if (request.meal == null) presenter.copyDay(date) else presenter.copyMeal(request.meal, date, meal)
+            },
+        )
+    }
+
+    savingTemplate?.let { meal ->
+        TemplateNameDialog(
+            title = "Guardar ${meal.label} como plantilla",
+            initialName = meal.label,
+            confirmLabel = "Guardar",
+            error = templateError,
+            onDismiss = { savingTemplate = null },
+            onConfirm = { name ->
+                presenter.saveMealAsTemplate(meal, name) { error ->
+                    templateError = error
+                    if (error == null) savingTemplate = null
+                }
             },
         )
     }

@@ -137,12 +137,12 @@ Estado: `DiaryUiState(date, goalKcal, consumedKcal, macros: List<MacroProgress>,
 
 ### 2.2 Añadir alimento / pestaña Alimentos (`AddFoodScreen`)
 > **Fase 10:** sin selector de comida ni filtros de origen; muestra todos los alimentos. Los accesos rápidos pasan a «Recientes · Escáner · Alimento propio».
-> **Fase 12:** se añade el acceso rápido «Favoritos» junto a «Recientes» y una estrella de favorito en cada fila (ver «Favoritos» más abajo).
+> **Fase 12:** se añade el acceso rápido «Favoritos» junto a «Recientes» y una estrella de favorito en cada fila (ver «Favoritos» más abajo). Se añade también «Plantillas» (§2.17).
 ```
 TopAppBar: ← · «Alimentos»   (sin selector de comida)
 SearchBar (inline, extraLarge, surfaceContainerHigh): icono lupa · texto · IconButton borrar
 Fila de 4 accesos rápidos (gap 8, alto 72, medium; el activo en primaryContainer, el resto en surfaceContainer):
-   Recientes · Favoritos · Escáner · Alimento propio
+   Recientes · Favoritos · Plantillas · Escáner · Alimento propio
 Sin texto en la búsqueda: cabecera «Últimos alimentos · 24» y la lista «Recientes» (los últimos alimentos distintos del diario, del más reciente al más antiguo, FoodResultRow); con «Favoritos» activo, cabecera «Favoritos · 5» y su lista
 Con texto: cabecera «Resultados · 24» (titleSmall primary) y LazyColumn de FoodResultRow (ListItem 72):
    SourceAvatar 40 · nombre / «marca · tamaño · EAN» · «255» + «kcal/100 g» · estrella ☆/★ (IconButton 48)
@@ -362,6 +362,16 @@ Copia las entradas de una comida, o de todo el día, al diario de otra fecha. Im
 - **Diálogo** (`AlertDialog`): título «Copiar Desayuno» (nombre de la comida) o «Copiar día»; «Copiar a» con ‹ [fecha larga] › (tocar la fecha abre el `DatePicker`; por defecto, el día anterior al mostrado); al copiar una comida, `FilterChip`s con scroll «La misma» (por defecto, la equivalente) y las comidas del preset activo; al copiar el día, el texto «Cada comida va a la misma del día elegido; si no existe en tu preset, a la más cercana.»; «Cancelar» / «Copiar».
 - **Comportamiento:** las entradas (alimento y cantidad) se añaden al destino sin tocar lo que ya hubiera, al final de cada comida y en el mismo orden. Una comida de origen que no existe en el preset se reubica en la más cercana. El Diario sigue en el día de origen.
 - **Mensajes.** Éxito: snackbar sin acción, «Copiado a 6 de noviembre: 5 alimentos» («1 alimento» en singular), con « (algunas comidas, a la más cercana)» si hubo reubicación; no tiene «Deshacer». Errores: «Elige otro día u otra comida.» (mismo día y misma comida), «No hay nada que copiar.» y «No se pudo copiar. Inténtalo de nuevo.». **Rediseño (§2.14):** los errores salen dentro del diálogo, encima de los botones, en ámbar con icono, y el diálogo no se cierra; hoy salen por el snackbar del Diario (`DiaryPresenter.fail`).
+
+### 2.17 Plantillas de comida (Fase 12)
+«Mi desayuno de siempre»: un conjunto de alimentos con sus cantidades que se añade al diario de una vez. Implementación: `MealTemplate` / `TemplateItem` (`model`), `MealTemplateStore` (`data`), `TemplateList`, `TemplateEditScreen`, `TemplateDialogs` y `TemplateForm` (`ui/screens`).
+- **Qué se guarda:** nombre y lista ordenada de alimentos; cada uno, como una entrada del diario, con copia del nombre y de los valores por 100 g (no cambia si se purga la caché) y su **cantidad con unidad** (gramos o porciones). Los nombres no se repiten (sin distinguir mayúsculas), porque la importación identifica por nombre.
+- **Crear:** (1) desde el Diario, botón «Plantilla» junto a «Copiar» en cada comida con entradas: pide el nombre (por defecto, el de la comida) y guarda sus entradas tal cual; snackbar «Plantilla «Mi desayuno» guardada»; errores dentro del diálogo («Ya tienes una plantilla con ese nombre»). (2) Desde la pestaña Alimentos: acceso rápido «Plantillas» (junto a Recientes y Favoritos) → «Nueva», con el mismo buscador de alimentos que las recetas.
+- **Añadir al diario:** en la lista «PLANTILLAS · n», **«Añadir»** apunta todos los alimentos de un toque en la comida preseleccionada (o la más cercana a la hora) y el día de hoy; tocar la fila abre el diálogo «Añadir a» con ‹ fecha › (`DateStepperRow`, compartido con «Copiar») y las comidas del preset. Crea una entrada por alimento, en orden, con su cantidad; la plantilla no cambia. Luego vuelve al Diario.
+- **Gestionar:** ✎ abre `TemplateEditScreen`: renombrar, cambiar la cantidad de un alimento (tocándolo), quitarlo, añadir más y «Borrar» (con confirmación; lo ya añadido al diario no cambia).
+- **Reutilización:** `FoodSearch`, el cuadro de cantidad y la barra superior de las recetas; el selector de fecha de «Copiar»; el orden por instantes crecientes de `DiaryCopy`/recetas. No se reutiliza `RecipeEntity` porque una receta se añade como un conjunto con raciones y solo en gramos, y la plantilla conserva las porciones.
+- **Datos:** tablas `MealTemplateEntity` y `MealTemplateItemEntity` (`MealTemplate.sq`); migración v11 → v12 (`11.sqm`), idempotente y sin tocar tablas existentes.
+- **Exportar e importar:** colección opcional `mealTemplates`, **sin subir `schemaVersion`**; los archivos antiguos se leen como vacía. Misma política que las recetas: identidad `(id, createdAtMillis)` o nombre sin distinguir mayúsculas; mismo contenido = duplicado; contenido distinto, gana el `updatedAtMillis` más reciente (empate: el local); plantillas sin nombre, sin alimentos, con cantidad ≤ 0 o nutrientes negativos se omiten y se listan («Plantillas de comida» en la vista previa).
 
 ## 3. Componentes compartidos (en `shared/ui`)
 `EasyFoodTheme` · `CalorieRing` · `MacroProgressRow` · `MacroDot` · `SourceAvatar` / `SourceChip` (enum `DataSource { OpenFoodFacts, Generic, Custom }`) · `DoubtfulChip` · `DoubtfulDataBanner` · `MealSection` · `DiaryEntryRow` · `FoodResultRow` · `QuantitySelector` · `NutritionTable` · `EmptyState` · `NumberField` (OutlinedTextField con sufijo de unidad) · `FoodSearch` (buscador de alimentos de «Añadir» y del editor de recetas).

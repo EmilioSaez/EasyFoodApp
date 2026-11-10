@@ -6,6 +6,7 @@ import app.luxion.fitarchiveapp.db.CustomFoodQueries
 import app.luxion.fitarchiveapp.db.DiaryEntryQueries
 import app.luxion.fitarchiveapp.db.FavoriteFoodQueries
 import app.luxion.fitarchiveapp.db.ProductQueries
+import app.luxion.fitarchiveapp.db.MealTemplateQueries
 import app.luxion.fitarchiveapp.db.RecipeQueries
 import app.luxion.fitarchiveapp.db.SettingsQueries
 import app.luxion.fitarchiveapp.domain.MealPlan
@@ -15,6 +16,9 @@ import app.luxion.fitarchiveapp.model.WaterRules
 import app.luxion.fitarchiveapp.model.NewWeightEntry
 import app.luxion.fitarchiveapp.model.RecipeIngredient
 import app.luxion.fitarchiveapp.data.writeIngredients
+import app.luxion.fitarchiveapp.data.writeItems
+import app.luxion.fitarchiveapp.model.NewMealTemplate
+import app.luxion.fitarchiveapp.model.TemplateItem
 import app.luxion.fitarchiveapp.model.WeightRules
 
 import app.luxion.fitarchiveapp.model.DiaryEntry
@@ -90,6 +94,12 @@ import kotlinx.coroutines.withContext
  * - Un favorito propio solo se admite si ese alimento existe en local o llega en el mismo archivo; si no, es
  *   inválido. Uno sin `barcode` ni nombre, o con ambos, también.
  *
+ * **Plantillas de comida** (`mealTemplates`, colección opcional)
+ * - Identidad y política: las mismas que las recetas (`(id, createdAtMillis)` y, si no hay coincidencia, el nombre sin
+ *   distinguir mayúsculas ni espacios sobrantes; gana el `updatedAtMillis` más reciente, con empate el local). Los
+ *   alimentos viajan dentro de la plantilla con su cantidad y unidad y se comparan en el mismo orden.
+ * - Una plantilla sin nombre, sin alimentos o con una cantidad ≤ 0 o nutrientes negativos se omite entera.
+ *
  * **Elementos inválidos** (cantidad ≤ 0, fecha mal formada, nutrientes negativos, nombre vacío…): se
  * omiten y se listan en el informe; el resto se importa.
  *
@@ -124,6 +134,7 @@ class DataImporter(private val target: ImportTarget) {
         val water = planWater(file.water, target.water(), invalid)
         val waterGoal = planWaterGoal(file.waterGoal, target.waterGoal(), invalid)
         val favorites = planFavorites(file.favorites, target.favorites(), foods.finalKeys, foods.renamed, invalid)
+        val templates = planTemplates(file.mealTemplates, target.mealTemplates(), invalid)
         return ImportPlan(
             changes = ImportChanges(
                 products = products.writes,
@@ -138,10 +149,12 @@ class DataImporter(private val target: ImportTarget) {
                 water = water.writes,
                 waterGoal = waterGoal.write,
                 favoritesToAdd = favorites.adds,
+                templatesToAdd = templates.adds,
+                templatesToUpdate = templates.updates,
             ),
             report = ImportReport(
                 products.counts, foods.counts, diary.counts, invalid, weights.counts + goal.counts, recipes.counts,
-                water.counts + waterGoal.counts, favorites.counts,
+                water.counts + waterGoal.counts, favorites.counts, templates.counts,
             ),
         )
     }
@@ -293,6 +306,50 @@ class DataImporter(private val target: ImportTarget) {
 
     private fun ExportedRecipe.sameContent(o: ExportedRecipe) =
         name.lowercase() == o.name.lowercase() && servings == o.servings && ingredients == o.ingredients
+
+    // --- Plantillas de comida ---
+
+    private class TemplatePlan(
+        val adds: List<ExportedMealTemplate>,
+        val updates: List<TemplateUpdate>,
+        val counts: ImportCounts,
+    )
+
+    /** Plantilla local o ya añadida en esta importación (`localId == null`). */
+    private class KnownTemplate(val localId: Long?, var template: ExportedMealTemplate)
+
+    private fun planTemplates(
+        incoming: List<ExportedMealTemplate>,
+        local: List<ExportedMealTemplate>,
+        invalid: MutableList<String>,
+    ): TemplatePlan {
+        val known = local.mapTo(mutableListOf()) { KnownTemplate(it.id, it) }
+        val adds = mutableListOf<ExportedMealTemplate>()
+        val updates = linkedMapOf<Long, TemplateUpdate>()
+        var c = ImportCounts()
+        for (raw in incoming) {
+            val t = raw.copy(name = raw.name.trim())
+            val problem = try { t.toNewTemplate(); null } catch (e: IllegalArgumentException) { e.message ?: "datos no válidos" }
+            if (problem != null) {
+                invalid += "Plantilla \"${raw.name}\": $problem"; c = c.copy(invalid = c.invalid + 1); continue
+            }
+            val match = known.firstOrNull { it.template.id == t.id && it.template.createdAtMillis == t.createdAtMillis }
+                ?: known.firstOrNull { it.template.name.lowercase() == t.name.lowercase() }
+            when {
+                match == null -> { c = c.copy(added = c.added + 1); adds += t; known += KnownTemplate(null, t) }
+                match.template.name.lowercase() == t.name.lowercase() && match.template.items == t.items ->
+                    c = c.copy(unchanged = c.unchanged + 1)
+                // Las añadidas en esta misma importación no se reescriben: se queda la primera.
+                match.localId != null && t.updatedAtMillis > match.template.updatedAtMillis -> {
+                    c = c.copy(updated = c.updated + 1)
+                    updates[match.localId] = TemplateUpdate(match.localId, t)
+                    match.template = t.copy(id = match.template.id, createdAtMillis = match.template.createdAtMillis)
+                }
+                else -> c = c.copy(keptLocal = c.keptLocal + 1)
+            }
+        }
+        return TemplatePlan(adds, updates.values.toList(), c)
+    }
 
     // --- Pesos ---
 
@@ -522,15 +579,34 @@ data class ImportChanges(
     val waterGoal: ExportedWaterGoal? = null,
     /** Favoritos nuevos; los propios se enlazan por nombre y marca con el alimento local. */
     val favoritesToAdd: List<ExportedFavorite> = emptyList(),
+    /** Plantillas de comida nuevas; el id lo asigna el almacén. */
+    val templatesToAdd: List<ExportedMealTemplate> = emptyList(),
+    val templatesToUpdate: List<TemplateUpdate> = emptyList(),
 ) {
     val isEmpty: Boolean
         get() = products.isEmpty() && customFoodsToAdd.isEmpty() && customFoodsToUpdate.isEmpty() &&
             diaryEntriesToAdd.isEmpty() && weights.isEmpty() && recipesToAdd.isEmpty() && recipesToUpdate.isEmpty() &&
-            weightGoal == null && mealsPerDay == null && water.isEmpty() && waterGoal == null && favoritesToAdd.isEmpty()
+            weightGoal == null && mealsPerDay == null && water.isEmpty() && waterGoal == null && favoritesToAdd.isEmpty() &&
+            templatesToAdd.isEmpty() && templatesToUpdate.isEmpty()
 }
 
 /** Sustituye los datos de la receta local [localId] por los de [recipe] (se conservan su id y `createdAtMillis`). */
 data class RecipeUpdate(val localId: Long, val recipe: ExportedRecipe)
+
+/** Sustituye los datos de la plantilla local [localId] por los de [template] (se conservan su id y `createdAtMillis`). */
+data class TemplateUpdate(val localId: Long, val template: ExportedMealTemplate)
+
+/** Plantilla de un archivo de exportación como datos de dominio; lanza [IllegalArgumentException] si no es válida. */
+fun ExportedMealTemplate.toNewTemplate() = NewMealTemplate(
+    name = name,
+    items = items.map {
+        require(it.nutrients.presentValues().all { v -> v.isFinite() && v >= 0 }) {
+            "los nutrientes de «${it.name}» no pueden ser negativos"
+        }
+        require(it.quantity > 0 && it.quantity.isFinite()) { "la cantidad de «${it.name}» debe ser mayor que 0" }
+        TemplateItem(it.barcode, it.name, quantityOf(it.quantity, it.unit), it.servingSizeG, it.nutrients.toDomain())
+    },
+)
 
 /** Receta de un archivo de exportación como datos de dominio; lanza [IllegalArgumentException] si no es válida. */
 fun ExportedRecipe.toNewRecipe() = NewRecipe(
@@ -581,6 +657,7 @@ data class ImportReport(
     /** Totales de agua y su objetivo. */
     val water: ImportCounts = ImportCounts(),
     val favorites: ImportCounts = ImportCounts(),
+    val mealTemplates: ImportCounts = ImportCounts(),
 )
 
 /** Almacenes locales sobre los que se importa: lectura (como la exportación) y escritura atómica. */
@@ -600,9 +677,10 @@ class SqlDelightImportTarget(
     private val favoriteQueries: FavoriteFoodQueries,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val waterQueries: WaterQueries? = null,
+    private val templateQueries: MealTemplateQueries? = null,
 ) : ImportTarget, ExportSource by SqlDelightExportSource(
     productQueries, diaryQueries, customFoodQueries, weightQueries, recipeQueries, settingsQueries, favoriteQueries,
-    dispatcher, waterQueries,
+    dispatcher, waterQueries, templateQueries,
 ) {
 
     override suspend fun apply(changes: ImportChanges): Unit = withContext(dispatcher) {
@@ -648,6 +726,17 @@ class SqlDelightImportTarget(
                 recipeQueries.update(r.name, r.servings?.toLong(), r.updatedAtMillis, id)
                 recipeQueries.deleteIngredients(id)
                 recipeQueries.writeIngredients(id, r.toNewRecipe().ingredients)
+            }
+            if (templateQueries != null) {
+                changes.templatesToAdd.forEach { t ->
+                    templateQueries.insert(t.name, t.createdAtMillis, t.updatedAtMillis)
+                    templateQueries.writeItems(templateQueries.lastInsertedId().executeAsOne(), t.toNewTemplate().items)
+                }
+                changes.templatesToUpdate.forEach { (id, t) ->
+                    templateQueries.update(t.name, t.updatedAtMillis, id)
+                    templateQueries.deleteItems(id)
+                    templateQueries.writeItems(id, t.toNewTemplate().items)
+                }
             }
             changes.weightGoal?.let { weightQueries.upsertGoal(it.targetKg, it.updatedAtMillis) }
             changes.mealsPerDay?.let { settingsQueries.upsertMealsPerDay(it.toLong()) }

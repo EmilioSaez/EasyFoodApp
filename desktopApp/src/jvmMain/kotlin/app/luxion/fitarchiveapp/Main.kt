@@ -9,6 +9,7 @@ import app.luxion.fitarchiveapp.data.OpenFoodFactsClient
 import app.luxion.fitarchiveapp.data.ProductRepository
 import app.luxion.fitarchiveapp.data.SqlDelightCustomFoodStore
 import app.luxion.fitarchiveapp.data.SqlDelightFavoriteStore
+import app.luxion.fitarchiveapp.data.SqlDelightMealTemplateStore
 import app.luxion.fitarchiveapp.data.SqlDelightDiaryStore
 import app.luxion.fitarchiveapp.data.SqlDelightGoalStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductSearchStore
@@ -73,8 +74,9 @@ fun main() = application {
             settingsStore = remember(db) { SqlDelightSettingsStore(db.settingsQueries) },
             favoriteStore = remember(db) { SqlDelightFavoriteStore(db.favoriteFoodQueries) },
             waterStore = remember(db) { SqlDelightWaterStore(db.waterQueries) },
+            templateStore = remember(db) { SqlDelightMealTemplateStore(db.mealTemplateQueries) },
             importTarget = remember(db) {
-                SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries, db.recipeQueries, db.settingsQueries, db.favoriteFoodQueries, waterQueries = db.waterQueries)
+                SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries, db.recipeQueries, db.settingsQueries, db.favoriteFoodQueries, waterQueries = db.waterQueries, templateQueries = db.mealTemplateQueries)
             },
             today = { LocalDate.now().toString() },
             nowMinutes = { LocalTime.now().let { it.hour * 60 + it.minute } },
