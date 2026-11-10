@@ -8,7 +8,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-/** Barra inferior estándar: Diario · Alimentos · Recetas · Mi peso · Objetivos (indicador transparente, seleccionado en `primary`). */
+/** Barra inferior estándar: Diario · Alimentos · Recetas · Mi peso · Objetivos · IA (indicador transparente, seleccionado en `primary`). */
 @Composable
 fun EasyFoodNavigationBar(selected: TopLevelTab, navigator: Navigator) {
     val scheme = MaterialTheme.colorScheme

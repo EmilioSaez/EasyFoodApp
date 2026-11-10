@@ -6,6 +6,9 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.ui.Modifier
+import app.luxion.fitarchiveapp.ai.AiModule
+import app.luxion.fitarchiveapp.ai.AndroidAiPreferences
+import app.luxion.fitarchiveapp.ai.AndroidKeystoreKeyVault
 import app.luxion.fitarchiveapp.data.OpenFoodFactsClient
 import app.luxion.fitarchiveapp.data.ProductRepository
 import app.luxion.fitarchiveapp.data.SqlDelightCustomFoodStore
@@ -48,6 +51,9 @@ class MainActivity : ComponentActivity() {
     private val importTarget by lazy {
         SqlDelightImportTarget(database.productQueries, database.diaryEntryQueries, database.customFoodQueries, database.weightEntryQueries, database.recipeQueries, database.settingsQueries, database.favoriteFoodQueries, waterQueries = database.waterQueries, templateQueries = database.mealTemplateQueries)
     }
+    private val aiModule by lazy {
+        AiModule.create(AndroidKeystoreKeyVault(applicationContext), AndroidAiPreferences(applicationContext), today = { LocalDate.now().toString() })
+    }
     private val genericSeeder by lazy {
         GenericFoodSeeder(GenericFoodImporter(database.productQueries), nowMillis = System::currentTimeMillis)
     }
@@ -72,6 +78,7 @@ class MainActivity : ComponentActivity() {
                     today = { LocalDate.now().toString() },
                     nowMinutes = { LocalTime.now().let { it.hour * 60 + it.minute } },
                     genericSeeder = genericSeeder,
+                    ai = aiModule,
                 )
             }
         }

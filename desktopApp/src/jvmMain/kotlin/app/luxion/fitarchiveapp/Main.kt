@@ -5,6 +5,9 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import app.luxion.fitarchiveapp.ai.AiModule
+import app.luxion.fitarchiveapp.ai.JvmAiKeyVault
+import app.luxion.fitarchiveapp.ai.JvmAiPreferences
 import app.luxion.fitarchiveapp.data.OpenFoodFactsClient
 import app.luxion.fitarchiveapp.data.ProductRepository
 import app.luxion.fitarchiveapp.data.SqlDelightCustomFoodStore
@@ -62,6 +65,8 @@ fun main() = application {
             nowMillis = System::currentTimeMillis,
         )
     }
+    // Clave y ajustes de IA en ~/.easyfood/ai/, aparte de easyfood.db (que es lo que se exporta).
+    val aiModule = remember { AiModule.create(JvmAiKeyVault.default(), JvmAiPreferences.default(), today = { LocalDate.now().toString() }) }
     Window(onCloseRequest = ::exitApplication, title = "EasyFood") {
         App(
             repository = repository,
@@ -83,6 +88,7 @@ fun main() = application {
             genericSeeder = remember(db) {
                 GenericFoodSeeder(GenericFoodImporter(db.productQueries), nowMillis = System::currentTimeMillis)
             },
+            ai = aiModule,
         )
     }
 }

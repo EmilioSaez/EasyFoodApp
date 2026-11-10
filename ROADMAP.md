@@ -91,7 +91,7 @@ Riesgo: no hay Mac local. La ruta es la que sigue FitArchiveApp (sesión hermana
 - [x] Registro de peso con gráfica de evolución y progreso, incluido en exportar e importar (migración v4 → v5)
 - [x] Aviso dentro de la app cuando toca registrar el peso (cada semana): tarjeta en el Diario derivada de los registros, sin tabla nueva
 - [x] Peso objetivo elegido por el usuario; al actualizar el peso, mostrar lo lejos que se está de lograrlo y una estimación de cuándo se llegará (migración v5 → v6, incluido en exportar e importar)
-- [ ] (Pendiente, sin decidir) IA para guiar el registro de comidas, opcional y con la clave de API propia del usuario (guardada solo en el dispositivo, nunca en el repo)
+- [ ] IA para guiar el registro de comidas, opcional y con la clave de API propia del usuario (guardada solo en el dispositivo, nunca en el repo): pasa a la Fase 13
 
 ## Fase 10: Pulido del uso diario
 
@@ -109,7 +109,7 @@ Especificación en `docs/design.md` §1.7, §2.6 y §2.12. Cada punto es un PR; 
 - [x] Tema de ApexApp: paleta oscura y clara, tipografías Sora e Inter, formas de 4 dp, espaciado y barra de navegación estándar (§1.7)
 - [x] Ritmo de perder/ganar sin mínimo de 0 kg/semana: el slider empieza en 0,25 kg/sem (`GoalsPlanner.PACES` sin el 0,0); «Mantener» sigue siendo la forma de no perder ni ganar
 - [x] Diario rediseñado (las tarjetas de comida salen siempre, también con el día vacío): franja semanal con los días coloreados según se hayan completado (objetivo ±10 %), racha de días completados, tarjeta de objetivo con el margen marcado y tarjetas de comida con «+» (§2.12)
-- [ ] (Pendiente, sin decidir) «Coach» con IA y clave de API propia del usuario; se une al punto de IA de la Fase 9
+- [ ] «Coach» con IA y clave de API propia del usuario: pasa a la Fase 13
 
 ## Fase 12: Atajos y base en español
 
@@ -120,3 +120,13 @@ Cada punto es un PR.
 - [x] Plantillas de comida («mi desayuno de siempre»): guardar una comida del Diario como plantilla o crearla en la pestaña Alimentos (acceso rápido «Plantillas»), añadirla al diario de un toque o eligiendo comida y fecha, y renombrar, editar y borrar (`docs/design.md` §2.17); migración v11 → v12, incluido en exportar e importar (colección opcional `mealTemplates`, sin subir la versión del formato)
 - [x] Registro de agua diario: tarjeta en el Diario con «+ Vaso», «+ 500 ml», «+ 1 L» y «Deshacer», progreso frente a un objetivo diario (2 L por defecto, editable en Objetivos); migración v8 a v9, incluido en exportar e importar (§2.13)
 - [x] Búsqueda mejorada: por marca y supermercado (Mercadona/Hacendado, Carrefour, Dia, Lidl…), filtro «Solo mis productos» (consultados, propios y favoritos) en la cabecera de resultados, tolerancia a erratas, acentos y plurales, y orden por uso frecuente derivado del diario; sin migración ni tablas nuevas (`docs/design.md` §2.2)
+
+## Fase 13: IA
+
+Cada punto es un PR. Usa la clave de API de Anthropic de cada usuario (sin servidor nuestro); especificación en `docs/design.md` §2.16 y detalles en `docs/ia.md`. Sustituye a los puntos «sin decidir» de las fases 9 y 11.
+
+- [x] Base técnica: cliente de la API de Claude con Ktor (`POST /v1/messages`, modelo `claude-haiku-5-5` configurable, `effort` fijo, salida estructurada, imágenes, negativas y errores 401/429/5xx con reintentos), clave en almacén seguro por plataforma, ajustes (activar, modelo, tope diario, contador de uso), aviso de privacidad, reducción de imágenes (1024 px, JPEG) y pestaña «IA» vacía. Sin migración de base de datos
+- [ ] Etiqueta nutricional por foto: rellenar un alimento propio a partir de la foto de la etiqueta
+- [ ] Sugerencias y consejos a partir del resumen del día (kcal y macros frente a objetivos)
+- [ ] Foto del plato: estimar kcal y macros (modelo configurable, p. ej. `claude-sonnet-5-5`)
+- [ ] Comprobar en un iPhone el Keychain y la reducción de imágenes (ver `docs/ios-pendiente.md`)

@@ -1025,4 +1025,22 @@ class AppFlowsTest {
         kotlin.test.assertEquals(0, db.mealTemplateQueries.selectAll().executeAsList().size)
         kotlin.test.assertEquals(0, db.mealTemplateQueries.selectAllItems().executeAsList().size)
     }
+
+    @Test
+    fun aiTabShowsConfigureKeyAndOpensSettingsWithoutTouchingTheRestOfTheApp() = runApp(recentWeight = true) { _ ->
+        waitForText("Nada apuntado hoy")
+        onAllNodesWithText("IA").onLast().performClick()
+        waitForText("Configura tu clave")
+
+        onNodeWithText("Ajustes de IA").performClick()
+        waitForText("Clave de API de Anthropic")
+        onNodeWithText("Pega aquí tu clave (sk-ant-…)").performTextInput("no-es-una-clave")
+        onNodeWithText("Guardar y probar").performClick()
+        waitForText("Esa clave no parece válida: debe empezar por «sk-ant-» y no llevar espacios.")
+
+        onNodeWithContentDescription("Atrás").performClick()
+        waitForText("Configura tu clave")
+        onNodeWithText("Diario").performClick()
+        waitForText("Nada apuntado hoy")
+    }
 }
