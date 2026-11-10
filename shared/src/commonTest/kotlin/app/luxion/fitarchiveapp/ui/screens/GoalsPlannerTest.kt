@@ -70,25 +70,4 @@ class GoalsPlannerTest {
         assertEquals(150, manual.proteinG)
         assertEquals(GoalsPlanner.macros(2000, 80.0, Goal.MAINTAIN).carbsG, manual.carbsG)
     }
-
-    @Test
-    fun fixedGoalsIgnoreTheCalculator() {
-        val p = profile(Goal.MAINTAIN)
-        val plan = GoalsPlanner.plan(p, GoalsPlanner.DEFAULT_PACE_INDEX)
-        val saved = DailyGoals(kcal = 1800, proteinG = 100, carbsG = 200, fatG = 60, fixed = true)
-
-        assertEquals(saved, GoalsPlanner.resolve(plan, p, saved, null, null, null, null, fixed = true))
-        // Los ajustes manuales siguen mandando; unas kcal a mano reparten los macros según el perfil.
-        val manual = GoalsPlanner.resolve(plan, p, saved, null, 150, null, null, fixed = true)
-        assertEquals(DailyGoals(1800, 150, 200, 60, fixed = true), manual)
-        val kcal = GoalsPlanner.resolve(plan, p, saved, 2000, null, null, null, fixed = true)
-        assertEquals(2000, kcal.kcal)
-        assertEquals(GoalsPlanner.macros(2000, 80.0, Goal.MAINTAIN).proteinG, kcal.proteinG)
-        assertTrue(kcal.fixed)
-    }
-
-    @Test
-    fun notFixedByDefault() {
-        assertFalse(GoalsPlanner.resolve(null, null, DailyGoals(), null, null, null, null).fixed)
-    }
 }

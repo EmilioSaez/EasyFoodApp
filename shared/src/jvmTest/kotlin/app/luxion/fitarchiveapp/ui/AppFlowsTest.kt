@@ -10,6 +10,10 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToNode
@@ -36,7 +40,6 @@ import app.luxion.fitarchiveapp.data.SqlDelightProductSearchStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductStore
 import app.luxion.fitarchiveapp.data.SqlDelightRecipeStore
 import app.luxion.fitarchiveapp.data.SqlDelightSettingsStore
-import app.luxion.fitarchiveapp.data.SqlDelightExerciseStore
 import app.luxion.fitarchiveapp.data.SqlDelightWaterStore
 import app.luxion.fitarchiveapp.data.SqlDelightWeightStore
 import app.luxion.fitarchiveapp.db.EasyFoodDatabase
@@ -53,6 +56,9 @@ import app.luxion.fitarchiveapp.model.Product
 import app.luxion.fitarchiveapp.model.Quantity
 import app.luxion.fitarchiveapp.model.QuantityUnit
 import kotlin.test.Test
+
+/** La lista vertical del Diario: la tarjeta de kcal lleva un pager horizontal que también tiene acción de scroll. */
+private fun hasVerticalScroll() = SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange)
 
 /** La [App] completa sobre una base SQLite en memoria y un Open Food Facts simulado. */
 @OptIn(ExperimentalTestApi::class)
@@ -101,7 +107,6 @@ class AppFlowsTest {
                 recipeStore = SqlDelightRecipeStore(db.recipeQueries),
                 settingsStore = SqlDelightSettingsStore(db.settingsQueries),
                 waterStore = SqlDelightWaterStore(db.waterQueries),
-                exerciseStore = SqlDelightExerciseStore(db.exerciseQueries),
                 favoriteStore = SqlDelightFavoriteStore(db.favoriteFoodQueries),
                 templateStore = SqlDelightMealTemplateStore(db.mealTemplateQueries),
                 importTarget = SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries, db.recipeQueries, db.settingsQueries, db.favoriteFoodQueries),
@@ -190,47 +195,6 @@ class AppFlowsTest {
     }
 
     @Test
-    fun exerciseIsAddedRaisesTheGoalAndIsRemoved() = runApp(
-        recentWeight = true,
-        seed = { db -> kotlinx.coroutines.runBlocking { SqlDelightGoalStore(db.dailyGoalQueries).save(DailyGoals(kcal = 2000)) } },
-    ) { db ->
-        val exercise = SqlDelightExerciseStore(db.exerciseQueries)
-        waitForText("Suma el 50 % de lo que gastes al objetivo del día.")
-        onNodeWithContentDescription("Añadir ejercicio").performScrollTo().performClick()
-        waitForText("Kcal gastadas")
-        onNodeWithText("Actividad").performTextInput("Correr")
-        onNodeWithText("Kcal gastadas").performTextInput("400")
-        onNodeWithText("Duración (opcional)").performTextInput("40")
-        onNodeWithText("Guardar").performClick()
-        waitForText("+200 kcal al objetivo (50 % de 400)")
-        waitForText("40 min")
-        val saved = kotlinx.coroutines.runBlocking { exercise.entriesForDate("2026-11-04") }
-        kotlin.test.assertEquals(listOf("Correr"), saved.map { it.name })
-        kotlin.test.assertEquals(40, saved.single().minutes)
-
-        onNodeWithContentDescription("Quitar Correr").performScrollTo().performClick()
-        waitForText("Suma el 50 % de lo que gastes al objetivo del día.")
-        kotlin.test.assertEquals(emptyList(), kotlinx.coroutines.runBlocking { exercise.entriesForDate("2026-11-04") })
-    }
-
-    @Test
-    fun exercisePercentIsEditedInGoalsAndUsedByTheDiary() = runApp(recentWeight = true) { db ->
-        waitForText("Suma el 50 % de lo que gastes al objetivo del día.")
-        onNodeWithText("Objetivos").performClick()
-        waitForText("Sumar todo (100 %)")
-        onNodeWithText("Sumar todo (100 %)").performScrollTo().performClick()
-        waitUntil(timeoutMillis = 20_000) {
-            kotlinx.coroutines.runBlocking { SqlDelightExerciseStore(db.exerciseQueries).percent() } == 100
-        }
-        onNodeWithText("No sumar (desactivado)").performScrollTo().performClick()
-        waitUntil(timeoutMillis = 20_000) {
-            kotlinx.coroutines.runBlocking { SqlDelightExerciseStore(db.exerciseQueries).percent() } == 0
-        }
-        onNodeWithText("Diario").performClick()
-        waitForText("Desactivado en Objetivos: no suma al objetivo.")
-    }
-
-    @Test
     fun waterGoalIsEditedInGoalsAndUsedByTheDiary() = runApp(recentWeight = true) { db ->
         waitForText("0 de 2 L")
         onNodeWithText("Objetivos").performClick()
@@ -315,8 +279,8 @@ class AppFlowsTest {
      * para que el FAB «Registrar peso» no quede encima de sus botones.
      */
     private fun ComposeUiTest.scrollToRow(description: String): SemanticsNodeInteraction {
-        onNode(hasScrollAction()).performScrollToNode(hasContentDescription(description))
-        onNode(hasScrollAction()).performTouchInput { swipeUp() }
+        onNode(hasVerticalScroll()).performScrollToNode(hasContentDescription(description))
+        onNode(hasVerticalScroll()).performTouchInput { swipeUp() }
         waitForIdle()
         return onNodeWithContentDescription(description)
     }
@@ -582,21 +546,21 @@ class AppFlowsTest {
         onNodeWithText("1.400 / 1.000").assertIsDisplayed()
         onNodeWithText("L").assertIsDisplayed()
         // Al desplazar, la cabecera se va con la lista: no queda nada anclado.
-        onNode(hasScrollAction()).performScrollToNode(hasText("Alimento 13"))
+        onNode(hasVerticalScroll()).performScrollToNode(hasText("Alimento 13"))
         kotlin.test.assertTrue(onAllNodes(hasText("1.400 / 1.000")).fetchSemanticsNodes().isEmpty())
         kotlin.test.assertTrue(onAllNodes(hasText("1.400 / 1.000 kcal")).fetchSemanticsNodes().isEmpty())
         kotlin.test.assertTrue(onAllNodes(hasText("L")).fetchSemanticsNodes().isEmpty())
         // Y reaparece al volver arriba.
-        onNode(hasScrollAction()).performScrollToIndex(0)
+        onNode(hasVerticalScroll()).performScrollToIndex(0)
         onNodeWithText("1.400 / 1.000").assertIsDisplayed()
     }
 
     private fun ComposeUiTest.assertAllPresetMealCards(vararg meals: String) {
         for (meal in meals) {
-            onNode(hasScrollAction()).performScrollToNode(hasContentDescription("Añadir a $meal"))
+            onNode(hasVerticalScroll()).performScrollToNode(hasContentDescription("Añadir a $meal"))
             onNodeWithContentDescription("Añadir a $meal").assertIsDisplayed()
         }
-        onNode(hasScrollAction()).performScrollToIndex(0)
+        onNode(hasVerticalScroll()).performScrollToIndex(0)
     }
 
     @Test
@@ -798,7 +762,7 @@ class AppFlowsTest {
         waitForText("Nutella")
         // La lista es perezosa: cada sección existe solo cuando se desplaza hasta ella.
         listOf("Desayuno", "Almuerzo", "Comida", "Merienda", "Cena", "Recena").forEach {
-            onNode(hasScrollAction()).performScrollToNode(hasText(it))
+            onNode(hasVerticalScroll()).performScrollToNode(hasText(it))
             onNodeWithText(it).assertIsDisplayed()
         }
     }
@@ -849,7 +813,7 @@ class AppFlowsTest {
         seed = seedGalletas(MealType.LUNCH),
     ) { db ->
         waitForText("Galletas")
-        onNode(hasScrollAction()).performScrollToNode(hasContentDescription("Añadir a Almuerzo"))
+        onNode(hasVerticalScroll()).performScrollToNode(hasContentDescription("Añadir a Almuerzo"))
         onNodeWithContentDescription("Añadir a Almuerzo").performClick()
         addNutellaFromEan()
         waitForAddButton()
@@ -871,14 +835,14 @@ class AppFlowsTest {
         kotlin.test.assertTrue(onAllNodes(hasText("Recena")).fetchSemanticsNodes().isEmpty())
         onNodeWithText("Objetivos").performClick()
         waitForText("Comidas al día")
-        onNode(hasScrollAction()).performScrollToNode(hasText("6 comidas"))
+        onNode(hasVerticalScroll()).performScrollToNode(hasText("6 comidas"))
         onNodeWithText("6 comidas").performClick()
         waitUntil(timeoutMillis = 20_000) { meals(db) == 6 }
         onNodeWithText("Diario").performClick()
         waitForText("Galletas")
-        onNode(hasScrollAction()).performScrollToNode(hasText("Recena"))
+        onNode(hasVerticalScroll()).performScrollToNode(hasText("Recena"))
         onNodeWithText("Recena").assertIsDisplayed()
-        onNode(hasScrollAction()).performScrollToNode(hasText("Almuerzo"))
+        onNode(hasVerticalScroll()).performScrollToNode(hasText("Almuerzo"))
         onNodeWithText("Almuerzo").assertIsDisplayed()
     }
 
@@ -1092,7 +1056,7 @@ class AppFlowsTest {
     @Test
     fun quickEntryIsAddedEditedAndDeletedWithoutCreatingAFood() = runApp(recentWeight = true) { db ->
         waitForText("Nada apuntado hoy")
-        onNode(hasScrollAction()).performScrollToNode(hasContentDescription("Añadir a Comida")) // la tarjeta de ejercicio la empuja fuera de pantalla
+        onNode(hasVerticalScroll()).performScrollToNode(hasContentDescription("Añadir a Comida")) // la tarjeta de ejercicio la empuja fuera de pantalla
         onNodeWithContentDescription("Añadir a Comida").performClick()
         waitForText("Entrada rápida · solo kcal y macros")
         onNodeWithText("Entrada rápida · solo kcal y macros").performClick()
@@ -1114,7 +1078,7 @@ class AppFlowsTest {
         kotlin.test.assertEquals(0, db.productQueries.selectAll().executeAsList().size) // no crea alimento en la base
         kotlin.test.assertEquals(0, db.customFoodQueries.selectAll().executeAsList().size)
 
-        onNode(hasScrollAction()).performScrollToNode(hasText("Menú del día")) // la lista es perezosa: se desplaza hasta la fila
+        onNode(hasVerticalScroll()).performScrollToNode(hasText("Menú del día")) // la lista es perezosa: se desplaza hasta la fila
         onNodeWithText("Menú del día").performScrollTo().performClick() // la fila queda bajo la barra inferior
         waitForText("Editar entrada rápida")
         waitForText("Energía") // los campos aparecen al terminar de cargar la entrada
@@ -1123,7 +1087,7 @@ class AppFlowsTest {
         waitForText("1.200")
         kotlin.test.assertEquals(1200.0, db.diaryEntryQueries.selectAll().executeAsList().single().kcal_100g)
 
-        onNode(hasScrollAction()).performScrollToNode(hasText("Menú del día"))
+        onNode(hasVerticalScroll()).performScrollToNode(hasText("Menú del día"))
         onNodeWithText("Menú del día").performScrollTo().performTouchInput { longClick() }
         waitForText("Borrar")
         onNodeWithText("Borrar").performClick()

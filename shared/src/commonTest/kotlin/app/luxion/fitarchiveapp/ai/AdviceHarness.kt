@@ -46,7 +46,7 @@ internal class AdviceHarness(
 
     val state = AiTabState(
         module = module,
-        source = AiAdviceSource(diary, FakeAdviceGoals(goals), FakeAdviceFavorites(), FakeAdviceCustomFoods(), FakeAdviceRecipes(), FakeAdviceTemplates(), FakeAdviceWater(), null),
+        source = AiAdviceSource(diary, FakeAdviceGoals(goals), FakeAdviceFavorites(), FakeAdviceCustomFoods(), FakeAdviceRecipes(), FakeAdviceTemplates(), FakeAdviceWater()),
         diary = diary,
         today = { TODAY },
         defaultMeal = { meal },

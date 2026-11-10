@@ -79,7 +79,7 @@ fun rememberStepsState(provider: StepsProvider, today: () -> String): StepsState
     return state
 }
 
-/** Pasos del día, estado del permiso y la sugerencia de nivel de actividad (solo informa si está «Objetivo fijo»). */
+/** Pasos del día, estado del permiso y la sugerencia de nivel de actividad. */
 @Composable
 fun StepsSection(
     state: StepsState,
@@ -154,18 +154,10 @@ private fun SuggestionContent(suggestion: StepsSuggestion, onApply: (ActivityLev
                 "en lugar de ${suggestion.currentLevel.title.lowercase()}.",
             style = MaterialTheme.typography.bodyMedium,
         )
-        if (suggestion.fixed) {
-            Text(
-                "Objetivo fijo activo: solo es una sugerencia, tus objetivos guardados no cambian.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
-            OutlinedButton(
-                onClick = { onApply(suggestion.suggestedLevel) },
-                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-            ) { Text("Usar actividad ${suggestion.suggestedLevel.title.lowercase()}") }
-        }
+        OutlinedButton(
+            onClick = { onApply(suggestion.suggestedLevel) },
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+        ) { Text("Usar actividad ${suggestion.suggestedLevel.title.lowercase()}") }
     }
     Text(
         "Los pasos no recogen ciclismo, pesas ni natación; es una estimación.",

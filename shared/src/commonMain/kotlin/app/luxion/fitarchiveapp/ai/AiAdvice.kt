@@ -91,7 +91,6 @@ data class AiAdviceContext(
     val currentMealFoods: List<String> = emptyList(),
     val waterMl: Int = 0,
     val waterGoalMl: Int? = null,
-    val exerciseKcal: Int = 0,
     val intake: List<NutrientIntake> = emptyList(),
     val candidates: AiCandidates = AiCandidates(),
     val week: AiWeekSummary? = null,
@@ -110,7 +109,6 @@ data class AiAdviceContext(
         left("Hidratos", day.goalCarbsG, day.carbsG)
         left("Grasa", day.goalFatG, day.fatG)
         if (waterGoalMl != null) appendLine("Agua: $waterMl ml de $waterGoalMl ml.")
-        if (exerciseKcal > 0) appendLine("Ejercicio registrado hoy: $exerciseKcal kcal.")
         intake.filter { it.hasData }.forEach {
             val rel = if (it.limit == IntakeLimit.AT_LEAST) "mínimo orientativo" else "máximo orientativo"
             appendLine("${it.label}: ${it.totalG.oneDecimal()} g ($rel ${it.goalG.oneDecimal()} g)${if (it.incomplete) ", dato incompleto" else ""}.")
@@ -204,7 +202,7 @@ object AiAdvicePrompts {
     fun reviewSystem(ctx: AiAdviceContext, period: AiReviewPeriod): String = buildString {
         appendLine(RULES)
         appendLine("Tarea: resume en 1-2 frases cómo va ${if (period == AiReviewPeriod.DAY) "el día" else "la semana"} y da hasta 4 puntos concretos.")
-        appendLine("Cada punto cubre un tema (kcal, proteína, fibra, sal, azúcares, agua o ejercicio) con estado «ok», «alto» o «bajo» y un consejo breve y accionable.")
+        appendLine("Cada punto cubre un tema (kcal, proteína, fibra, sal, azúcares o agua) con estado «ok», «alto» o «bajo» y un consejo breve y accionable.")
         appendLine("Solo habla de lo que tenga datos; si falta el dato, no lo inventes. Los máximos y mínimos de fibra, sal y azúcares son orientativos.")
         appendLine()
         appendLine(ctx.dayText())

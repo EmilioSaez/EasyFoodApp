@@ -1,7 +1,6 @@
 package app.luxion.fitarchiveapp.ui.screens
 
 import app.luxion.fitarchiveapp.data.DiaryStore
-import app.luxion.fitarchiveapp.data.ExerciseStore
 import app.luxion.fitarchiveapp.data.GoalStore
 import app.luxion.fitarchiveapp.data.MealTemplateStore
 import app.luxion.fitarchiveapp.model.NewMealTemplate
@@ -15,9 +14,6 @@ import app.luxion.fitarchiveapp.domain.MealPlan
 import app.luxion.fitarchiveapp.domain.NutrientIntake
 import app.luxion.fitarchiveapp.model.DailyGoals
 import app.luxion.fitarchiveapp.model.DiaryEntry
-import app.luxion.fitarchiveapp.model.ExerciseEntry
-import app.luxion.fitarchiveapp.model.ExerciseRules
-import app.luxion.fitarchiveapp.model.NewExercise
 import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.model.NewDiaryEntry
 import app.luxion.fitarchiveapp.model.epochDayToIsoDate
@@ -80,15 +76,8 @@ data class DiaryUiState(
     val week: List<WeekDayUi> = emptyList(),
     /** Días completados consecutivos que terminan hoy (0 = sin racha). */
     val streak: Int = 0,
-    /** Objetivo efectivo del día: el objetivo base más [exerciseBonusKcal]. */
+    /** Objetivo de kcal del día. */
     val goalKcal: Int? = null,
-    /** Kcal gastadas en el ejercicio registrado ese día. */
-    val exerciseKcal: Int = 0,
-    /** Kcal que el ejercicio suma al objetivo ese día (según el porcentaje elegido en Objetivos). */
-    val exerciseBonusKcal: Int = 0,
-    /** Porcentaje del ejercicio que se suma (0 = desactivado). */
-    val exercisePercent: Int = ExerciseRules.DEFAULT_PERCENT,
-    val exercises: List<ExerciseEntry> = emptyList(),
     val consumedKcal: Double = 0.0,
     val macros: List<MacroProgress> = emptyList(),
     val meals: List<MealUi> = emptyList(),
@@ -131,10 +120,6 @@ fun buildDiaryUiState(
     mealsPerDay: Int? = null,
     today: String = date,
     summaries: List<DaySummary> = emptyList(),
-    exercises: List<ExerciseEntry> = emptyList(),
-    exercisePercent: Int = ExerciseRules.DEFAULT_PERCENT,
-    /** Kcal de ejercicio de cada día del historial, para el objetivo efectivo de la franja y la racha. */
-    exerciseKcalByDate: Map<String, Int> = emptyMap(),
 ): DiaryUiState {
     // Solo las comidas del preset, más las que ya no lo son pero tienen entradas (no se oculta ningún dato).
     val meals = MealPlan.visible(mealsPerDay, entries.mapTo(mutableSetOf()) { it.meal }).map { meal ->
@@ -163,19 +148,12 @@ fun buildDiaryUiState(
         )
     }
     val byDate = summaries.associateBy { it.date }
-    val bonusByDate = exerciseKcalByDate.mapValues { ExerciseRules.bonusKcal(it.value, exercisePercent) }
-    val exerciseKcal = exercises.sumOf { it.kcal }
-    val bonus = ExerciseRules.bonusKcal(exerciseKcal, exercisePercent)
     return DiaryUiState(
         date = date,
         today = today,
-        week = buildWeek(date, today, goals.kcal, byDate, bonusByDate),
-        streak = DayStatus.streak(today, goals.kcal, byDate, bonusByDate),
-        goalKcal = goals.kcal?.plus(bonus),
-        exerciseKcal = exerciseKcal,
-        exerciseBonusKcal = bonus,
-        exercisePercent = exercisePercent,
-        exercises = exercises,
+        week = buildWeek(date, today, goals.kcal, byDate),
+        streak = DayStatus.streak(today, goals.kcal, byDate),
+        goalKcal = goals.kcal,
         consumedKcal = meals.sumOf { it.kcal },
         macros = listOf(
             MacroProgress("Proteína", meals.sumOf { it.proteinG }, goals.proteinG?.toDouble()),
@@ -183,7 +161,7 @@ fun buildDiaryUiState(
             MacroProgress("Grasa", meals.sumOf { it.fatG }, goals.fatG?.toDouble()),
         ),
         meals = meals,
-        intake = if (entries.isEmpty()) emptyList() else IntakeGuidelines.intake(entries, goals.kcal),
+        intake = IntakeGuidelines.intake(entries, goals.kcal),
         loading = false,
     )
 }
@@ -196,7 +174,6 @@ fun buildWeek(
     today: String,
     goalKcal: Int?,
     summaries: Map<String, DaySummary>,
-    bonusKcal: Map<String, Int> = emptyMap(),
 ): List<WeekDayUi> {
     val start = IsoDate.weekStart(date)
     return (0 until 7).map { i ->
@@ -205,7 +182,7 @@ fun buildWeek(
             date = day,
             initial = weekInitials[i],
             dayNumber = day.substring(8, 10).toInt(),
-            status = DayStatus.of(day, today, goalKcal?.plus(bonusKcal[day] ?: 0), summaries[day]),
+            status = DayStatus.of(day, today, goalKcal, summaries[day]),
             selected = day == date,
         )
     }
@@ -230,7 +207,6 @@ class DiaryPresenter(
     private val mealsPerDay: Int? = null,
     private val nowMillis: () -> Long = { kotlin.time.Clock.System.now().toEpochMilliseconds() },
     private val templates: MealTemplateStore? = null,
-    private val exercise: ExerciseStore? = null,
 ) {
     private val _state = MutableStateFlow(DiaryUiState(date = today))
     val state: StateFlow<DiaryUiState> = _state.asStateFlow()
@@ -243,14 +219,9 @@ class DiaryPresenter(
             _state.value = try {
                 // Resumen de kcal de todo el historial hasta el fin de la semana (o hoy): franja y racha salen de él.
                 val upTo = maxOf(IsoDate.plusDays(IsoDate.weekStart(date), 6), today)
-                val percent = exercise?.percent() ?: ExerciseRules.DEFAULT_PERCENT
                 buildDiaryUiState(
                     date, diary.entriesForDate(date), goals.get(), mealsPerDay,
                     today = today, summaries = diary.daySummaries(IsoDate.EARLIEST, upTo),
-                    exercises = exercise?.entriesForDate(date).orEmpty(),
-                    exercisePercent = percent,
-                    // Con el ejercicio desactivado no hace falta leer el historial.
-                    exerciseKcalByDate = if (exercise != null && percent > 0) exercise.dailyKcal(IsoDate.EARLIEST, upTo) else emptyMap(),
                 )
             } catch (e: CancellationException) {
                 throw e
@@ -282,38 +253,6 @@ class DiaryPresenter(
                 throw e
             } catch (e: Exception) {
                 fail(SAVE_ERROR)
-                return@launch
-            }
-            load()
-        }
-    }
-
-    /** Registra una actividad en el día mostrado; la validación de los datos es de [NewExercise]. */
-    fun addExercise(name: String, kcal: Int, minutes: Int?) {
-        val store = exercise ?: return
-        val date = _state.value.date
-        scope.launch {
-            try {
-                store.add(NewExercise(date, name, kcal, minutes), nowMillis())
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                fail(EXERCISE_SAVE_ERROR)
-                return@launch
-            }
-            load()
-        }
-    }
-
-    fun deleteExercise(id: Long) {
-        val store = exercise ?: return
-        scope.launch {
-            try {
-                store.delete(id)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                fail(DELETE_ERROR)
                 return@launch
             }
             load()
@@ -438,7 +377,6 @@ class DiaryPresenter(
         const val COPY_EMPTY = "No hay nada que copiar."
         const val COPY_SAME_ERROR = "Elige otro día u otra comida."
         const val SAVE_ERROR = "No se pudo guardar el cambio. Inténtalo de nuevo."
-        const val EXERCISE_SAVE_ERROR = "No se pudo guardar el ejercicio. Inténtalo de nuevo."
         const val DELETE_ERROR = "No se pudo borrar. Inténtalo de nuevo."
         const val UNDO_ERROR = "No se pudo deshacer el borrado."
     }

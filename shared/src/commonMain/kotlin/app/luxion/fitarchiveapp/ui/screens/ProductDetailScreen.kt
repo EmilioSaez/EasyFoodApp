@@ -14,7 +14,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
+import app.luxion.fitarchiveapp.ui.components.EasyFoodFilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -517,7 +517,7 @@ private fun DetailContent(
                 error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                     mealChoices.options(ready.initialMeal).forEach { m ->
-                        FilterChip(selected = meal == m, onClick = { meal = m }, label = { Text(m.label) })
+                        EasyFoodFilterChip(selected = meal == m, onClick = { meal = m }, label = { Text(m.label) })
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalAlignment = Alignment.CenterVertically) {
@@ -533,7 +533,7 @@ private fun DetailContent(
                                     } else {
                                         diaryStore.add(
                                             NewDiaryEntry(
-                                                date = today(),
+                                                date = route.date ?: today(),
                                                 meal = meal,
                                                 barcode = detail.barcode,
                                                 name = detail.name,

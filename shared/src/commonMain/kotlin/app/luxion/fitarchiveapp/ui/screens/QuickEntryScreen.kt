@@ -12,7 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
+import app.luxion.fitarchiveapp.ui.components.EasyFoodFilterChip
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -111,7 +111,7 @@ fun QuickEntryScreen(
             )
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                 mealChoices.options(meal).forEach { m ->
-                    FilterChip(selected = meal == m, onClick = { meal = m }, label = { Text(m.label) })
+                    EasyFoodFilterChip(selected = meal == m, onClick = { meal = m }, label = { Text(m.label) })
                 }
             }
             OutlinedTextField(

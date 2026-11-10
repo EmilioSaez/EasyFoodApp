@@ -3,7 +3,10 @@ package app.luxion.fitarchiveapp.data
 import app.luxion.fitarchiveapp.model.ExerciseEntry
 import app.luxion.fitarchiveapp.model.NewExercise
 
-/** Ejercicio registrado por día y su ajuste (la implementación real es [SqlDelightExerciseStore]). */
+/**
+ * Ejercicio registrado por día y su ajuste (la implementación real es [SqlDelightExerciseStore]).
+ * Ya no se usa en la app (sin tarjeta Ejercicio ni suma al objetivo): los datos guardados se conservan en la BD.
+ */
 interface ExerciseStore {
     /** Actividades del día, en orden de registro. */
     suspend fun entriesForDate(date: String): List<ExerciseEntry>

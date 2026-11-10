@@ -8,7 +8,7 @@ object AiPrivacy {
         "La foto que elijas (reducida a 1024 px como máximo y sin metadatos).",
         "Un resumen mínimo del día: kcal y macros consumidos y tus objetivos de kcal y macros.",
         "La indicación de la tarea (por ejemplo, «lee esta etiqueta»).",
-        "Para sugerencias y consejos: el nombre y las kcal de unos pocos de tus favoritos, recientes, plantillas y recetas, lo ya apuntado en la comida actual, el agua, el ejercicio, los totales de fibra, sal y azúcares y las medias de la semana, y el texto que escribas.",
+        "Para sugerencias y consejos: el nombre y las kcal de unos pocos de tus favoritos, recientes, plantillas y recetas, lo ya apuntado en la comida actual, el agua, los totales de fibra, sal y azúcares y las medias de la semana, y el texto que escribas.",
     )
 
     val notSent: List<String> = listOf(
@@ -22,7 +22,7 @@ object AiPrivacy {
 
     const val ADVICE_NOTICE =
         "Para responder se envía a Anthropic un resumen mínimo: tus totales y objetivos, lo ya apuntado en la comida actual, " +
-            "agua y ejercicio, y el nombre y las kcal de unos pocos favoritos, recientes, plantillas y recetas, más lo que escribas. " +
+            "agua, y el nombre y las kcal de unos pocos favoritos, recientes, plantillas y recetas, más lo que escribas. " +
             "Nunca tu nombre, correo ni tu historial completo."
 
     const val FOOTER =

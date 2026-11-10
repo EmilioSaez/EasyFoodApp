@@ -2,7 +2,6 @@ package app.luxion.fitarchiveapp.ai
 
 import app.luxion.fitarchiveapp.model.CustomFood
 import app.luxion.fitarchiveapp.model.DailyGoals
-import app.luxion.fitarchiveapp.model.ExerciseEntry
 import app.luxion.fitarchiveapp.model.MealTemplate
 import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.model.Nutrients
@@ -29,11 +28,10 @@ class AiAdviceSourceTest {
         custom: List<CustomFood> = emptyList(),
         recipes: List<Recipe> = emptyList(),
         templates: List<MealTemplate> = emptyList(),
-        exercise: FakeAdviceExercise? = null,
         water: FakeAdviceWater? = FakeAdviceWater(500, 2000),
     ) = AiAdviceSource(
         FakeAdviceDiary(entries), FakeAdviceGoals(goals), favorites, FakeAdviceCustomFoods(custom),
-        FakeAdviceRecipes(recipes), FakeAdviceTemplates(templates), water, exercise,
+        FakeAdviceRecipes(recipes), FakeAdviceTemplates(templates), water,
     )
 
     @Test
@@ -47,14 +45,6 @@ class AiAdviceSourceTest {
         assertTrue("Proteína: quedan 80 g de 100 g." in text, text)
         assertTrue("Agua: 500 ml de 2000 ml." in text, text)
         assertEquals(MealType.DINNER, ctx.currentMeal)
-    }
-
-    @Test
-    fun exerciseBonusRaisesTheEffectiveGoal() = runTest {
-        val exercise = FakeAdviceExercise(listOf(ExerciseEntry(1, day, "Correr", kcal = 400)), percent = 50)
-        val ctx = source(exercise = exercise).build(day, MealType.LUNCH)
-        assertEquals(2200.0, ctx.day.goalKcal) // 2000 + 50 % de 400
-        assertEquals(400, ctx.exerciseKcal)
     }
 
     @Test

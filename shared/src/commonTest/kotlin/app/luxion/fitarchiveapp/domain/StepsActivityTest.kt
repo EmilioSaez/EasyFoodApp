@@ -35,7 +35,7 @@ class StepsActivityTest {
     @Test
     fun pocosDiasNoGeneranSugerencia() {
         assertNull(StepsActivity.averageSteps(days(4, 10_000), today))
-        assertNull(StepsActivity.suggest(profile, days(4, 10_000), today, fixed = false))
+        assertNull(StepsActivity.suggest(profile, days(4, 10_000), today))
     }
 
     @Test
@@ -61,34 +61,25 @@ class StepsActivityTest {
 
     @Test
     fun sugiereSubirElNivel() {
-        val s = StepsActivity.suggest(profile, days(7, 13_000), today, fixed = false)!!
+        val s = StepsActivity.suggest(profile, days(7, 13_000), today)!!
         // factor = 1,2 + 350 / TMB (1 648,75) ≈ 1,41 → ligera (1,375)
         assertEquals(ActivityLevel.LIGHT, s.suggestedLevel)
         assertEquals(13_000, s.averageSteps)
         assertEquals(7, s.daysUsed)
         assertTrue(s.changesLevel)
-        assertTrue(s.canApply)
     }
 
     @Test
     fun sinCambioSiElNivelYaEncaja() {
-        val s = StepsActivity.suggest(profile, days(7, 3_500), today, fixed = false)!!
+        val s = StepsActivity.suggest(profile, days(7, 3_500), today)!!
         assertEquals(ActivityLevel.SEDENTARY, s.suggestedLevel)
         assertFalse(s.changesLevel)
-        assertFalse(s.canApply)
-    }
-
-    @Test
-    fun objetivoFijoSoloSugiere() {
-        val s = StepsActivity.suggest(profile, days(7, 13_000), today, fixed = true)!!
-        assertTrue(s.changesLevel)
-        assertFalse(s.canApply)
     }
 
     @Test
     fun puedeSugerirBajarElNivel() {
         val active = profile.copy(activity = ActivityLevel.VERY_ACTIVE)
-        val s = StepsActivity.suggest(active, days(7, 4_000), today, fixed = false)!!
+        val s = StepsActivity.suggest(active, days(7, 4_000), today)!!
         assertEquals(ActivityLevel.SEDENTARY, s.suggestedLevel)
         assertTrue(s.stepsTdeeKcal < s.currentTdeeKcal)
     }

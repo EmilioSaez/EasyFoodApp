@@ -14,7 +14,6 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -29,7 +28,6 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -45,10 +43,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import app.luxion.fitarchiveapp.data.ExerciseStore
 import app.luxion.fitarchiveapp.data.GoalStore
 import app.luxion.fitarchiveapp.data.WaterStore
-import app.luxion.fitarchiveapp.ui.components.ExercisePercentPicker
 import app.luxion.fitarchiveapp.ui.components.WaterGoalRow
 import app.luxion.fitarchiveapp.domain.ActivityLevel
 import app.luxion.fitarchiveapp.domain.Goal
@@ -82,7 +78,6 @@ fun GoalsScreen(
     mealsPerDay: Int? = null,
     onMealsPerDayChange: (Int) -> Unit = {},
     waterStore: WaterStore? = null,
-    exerciseStore: ExerciseStore? = null,
 ) {
     var saved by remember { mutableStateOf(DailyGoals()) }
     var sex by remember { mutableStateOf(Sex.MALE) }
@@ -93,7 +88,6 @@ fun GoalsScreen(
     var goal by remember { mutableStateOf(Goal.MAINTAIN) }
     var paceIndex by remember { mutableStateOf(GoalsPlanner.DEFAULT_PACE_INDEX) }
     var editing by remember { mutableStateOf(false) }
-    var fixed by remember { mutableStateOf(false) }
     // null = automático; texto (posiblemente vacío) = ajuste manual.
     var kcalText by remember { mutableStateOf<String?>(null) }
     var proteinText by remember { mutableStateOf<String?>(null) }
@@ -105,7 +99,6 @@ fun GoalsScreen(
     LaunchedEffect(goalStore) {
         try {
             saved = goalStore.get()
-            fixed = saved.fixed
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -127,13 +120,11 @@ fun GoalsScreen(
     fun override(text: String?): Int? = text?.let { parseNumber(it)?.toInt() }?.takeIf { it >= 0 }
     val kcalOverride = override(kcalText)?.takeIf { it > 0 }
     val resolved = GoalsPlanner.resolve(
-        plan, profile, saved, kcalOverride, override(proteinText), override(carbsText), override(fatText), fixed,
+        plan, profile, saved, kcalOverride, override(proteinText), override(carbsText), override(fatText),
     )
     val custom = kcalOverride != null
-    // Con el objetivo fijo la calculadora solo sugiere: se muestra aparte de lo que se guardará.
-    val suggestion = if (fixed) plan else null
     val stepsState = rememberStepsState(rememberStepsProvider(), today)
-    val stepsSuggestion = profile?.let { StepsActivity.suggest(it, stepsState.days, today(), fixed) }
+    val stepsSuggestion = profile?.let { StepsActivity.suggest(it, stepsState.days, today()) }
     val hasManual = kcalText != null || proteinText != null || carbsText != null || fatText != null
 
     Scaffold(
@@ -180,11 +171,7 @@ fun GoalsScreen(
             Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = Spacing.l),
             verticalArrangement = Arrangement.spacedBy(Spacing.xl),
         ) {
-            ResultCard(
-                resolved.kcal, plan, custom, fixed, { fixed = it },
-                suggestion?.targetKcal?.takeIf { it != resolved.kcal },
-                Modifier.padding(top = Spacing.s),
-            )
+            ResultCard(resolved.kcal, plan, custom, Modifier.padding(top = Spacing.s))
 
             if (plan?.limited == true) {
                 Text(
@@ -241,7 +228,7 @@ fun GoalsScreen(
                                     onClick = { sex = value },
                                     shape = SegmentedButtonDefaults.itemShape(i, 2),
                                     icon = {},
-                                    label = { Text(label, maxLines = 1, style = MaterialTheme.typography.labelMedium) },
+                                    label = { Text(label, maxLines = 1) },
                                     contentPadding = PaddingValues(horizontal = Spacing.xs),
                                 )
                             }
@@ -294,13 +281,6 @@ fun GoalsScreen(
                 MealsPerDayPicker(mealsPerDay ?: MealPlan.DEFAULT_MEALS, onMealsPerDayChange)
             }
 
-            if (exerciseStore != null) {
-                Section("Ejercicio") {
-                    // Se guarda al elegir, aparte de «Guardar objetivos»; el Diario suma ese porcentaje al objetivo del día.
-                    ExercisePercentPicker(exerciseStore)
-                }
-            }
-
             if (waterStore != null) {
                 Section("Agua") {
                     // Se guarda al pulsar, aparte de «Guardar objetivos»; el Diario la compara con el agua del día.
@@ -351,9 +331,6 @@ private fun ResultCard(
     targetKcal: Int?,
     plan: GoalsPlan?,
     custom: Boolean,
-    fixed: Boolean,
-    onFixedChange: (Boolean) -> Unit,
-    suggestionKcal: Int?,
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -366,7 +343,6 @@ private fun ResultCard(
     ) {
         Column(Modifier.padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
             val label = when {
-                fixed -> "Objetivo diario · Fijo"
                 custom -> "Objetivo diario · Personalizado"
                 else -> "Objetivo diario"
             }
@@ -386,21 +362,6 @@ private fun ResultCard(
                 "Mifflin-St Jeor: TMB = 10·kg + 6,25·cm − 5·edad + 5 (hombre) / −161 (mujer); TDEE = TMB × actividad",
                 style = MaterialTheme.typography.bodySmall,
             )
-            HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f))
-            Row(
-                Modifier.fillMaxWidth().heightIn(min = 56.dp)
-                    .selectable(selected = fixed, onClick = { onFixedChange(!fixed) }, role = Role.Switch),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text("Objetivo fijo", style = MaterialTheme.typography.bodyLarge)
-                    Text("Mantiene tus objetivos tal cual; la calculadora solo sugiere.", style = MaterialTheme.typography.bodySmall)
-                }
-                Switch(checked = fixed, onCheckedChange = null)
-            }
-            if (suggestionKcal != null) {
-                Text("La calculadora sugiere ${formatKcal(suggestionKcal.toDouble())} kcal.", style = MaterialTheme.typography.bodySmall)
-            }
         }
     }
 }

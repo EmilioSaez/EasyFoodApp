@@ -1,10 +1,12 @@
 package app.luxion.fitarchiveapp.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -166,10 +168,10 @@ fun AddFoodScreen(
             onQueryChange = { query = it },
             searchStore = searchStore,
             customFoods = customFoods,
-            onPick = { navigator.push(Route.ProductDetail(barcode = it.result.key, meal = route.meal)) },
+            onPick = { navigator.push(route.toProductDetail(it.result.key)) },
             modifier = Modifier.padding(padding),
             emptyPrimary = EmptyStateAction("Crear alimento propio") { navigator.push(Route.CustomFood(meal = route.meal)) },
-            emptySecondary = EmptyStateAction("Escanear código") { navigator.push(Route.Scanner(route.meal)) },
+            emptySecondary = EmptyStateAction("Escanear código") { navigator.push(route.toScanner()) },
             emptyTertiary = EmptyStateAction("Fotografiar etiqueta") { navigator.push(Route.LabelPhoto(meal = route.meal)) },
             header = {
                 Column(Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s)) {
@@ -193,7 +195,7 @@ fun AddFoodScreen(
                         query = ""; templateError = null; mode = QuickMode.Templates
                         if (!route.templates) navigator.replace(route.copy(templates = true))
                     },
-                    onScan = { navigator.push(Route.Scanner(route.meal)) },
+                    onScan = { navigator.push(route.toScanner()) },
                     onCustom = { navigator.push(Route.CustomFood(meal = route.meal)) },
                     onQuick = { navigator.push(Route.QuickEntry(route.meal, route.date ?: today?.invoke())) },
                     onPlate = { navigator.push(Route.PlatePhoto(route.meal, route.date)) },
@@ -201,11 +203,11 @@ fun AddFoodScreen(
                 )
             },
             idleContent = {
-                val onPick = { r: FoodResult -> navigator.push(Route.ProductDetail(barcode = r.key, meal = route.meal)) }
+                val onPick = { r: FoodResult -> navigator.push(route.toProductDetail(r.key)) }
                 if (mode == QuickMode.Templates && templatesEnabled) {
                     TemplateListSection(
                         templates = templates,
-                        onAdd = { t -> templateError = null; addTemplate(t, today!!(), route.meal ?: mealChoices!!.defaultMeal()) },
+                        onAdd = { t -> templateError = null; addTemplate(t, route.date ?: today!!(), route.meal ?: mealChoices!!.defaultMeal()) },
                         onChoose = { t -> templateError = null; addingTemplate = t },
                         onEdit = { t -> navigator.push(Route.TemplateEdit(t.id)) },
                         onNew = { navigator.push(Route.TemplateEdit()) },
@@ -243,7 +245,7 @@ fun AddFoodScreen(
     addingTemplate?.let { t ->
         AddTemplateDialog(
             template = t,
-            today = today!!(),
+            today = route.date ?: today!!(),
             initialMeal = route.meal ?: mealChoices!!.defaultMeal(),
             mealChoices = mealChoices!!,
             error = templateError,
@@ -336,7 +338,7 @@ private fun QuickActions(
             colors = colors,
             contentPadding = pad,
         ) {
-            Text(label, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
+            Text(label, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
         }
     }
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
@@ -349,13 +351,19 @@ private fun QuickActions(
         }
         // Para comer fuera (kcal y macros sin crear un alimento) y foto del plato con IA (clave propia; la pantalla
         // explica qué falta si la IA no está lista). En la misma fila para no restar sitio a la lista de debajo.
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-            OutlinedButton(onClick = onQuick, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium) {
-                Text("Entrada rápida · solo kcal y macros", style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
+            OutlinedButton(onClick = onQuick, modifier = Modifier.weight(1f).fillMaxHeight(), shape = MaterialTheme.shapes.medium) {
+                Text("Entrada rápida · solo kcal y macros", style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
             }
-            OutlinedButton(onClick = onPlate, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium) {
-                Text("✦ Foto del plato · con IA", style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
+            OutlinedButton(onClick = onPlate, modifier = Modifier.weight(1f).fillMaxHeight(), shape = MaterialTheme.shapes.medium) {
+                Text("✦ Foto del plato · con IA", style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
             }
         }
     }
 }
+
+/** Ficha de producto para dar de alta [barcode] en la comida y el día con los que se abrió la pantalla de añadir. */
+internal fun Route.Add.toProductDetail(barcode: String) = Route.ProductDetail(barcode = barcode, meal = meal, date = date)
+
+/** Escáner que conserva la comida y el día con los que se abrió la pantalla de añadir. */
+internal fun Route.Add.toScanner() = Route.Scanner(meal, date)

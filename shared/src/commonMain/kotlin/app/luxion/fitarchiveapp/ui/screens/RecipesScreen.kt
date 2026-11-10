@@ -26,7 +26,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.data.RecipeStore
 import app.luxion.fitarchiveapp.model.Recipe
 import app.luxion.fitarchiveapp.ui.components.EmptyState
@@ -102,7 +101,7 @@ fun RecipesScreen(navigator: Navigator, recipeStore: RecipeStore) {
                     LazyColumn(
                         Modifier.fillMaxSize(),
                         // Hueco final para que el FAB no tape la última tarjeta.
-                        contentPadding = PaddingValues(start = Spacing.l, end = Spacing.l, top = Spacing.s, bottom = 88.dp),
+                        contentPadding = PaddingValues(start = Spacing.screen, end = Spacing.screen, top = Spacing.s, bottom = Spacing.bottomInset),
                         verticalArrangement = Arrangement.spacedBy(Spacing.m),
                     ) {
                         items(s.recipes, key = { it.id }) { r ->

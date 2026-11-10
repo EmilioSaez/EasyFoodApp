@@ -8,7 +8,6 @@ import kotlin.math.roundToInt
 
 /**
  * Propuesta de reevaluar el nivel de actividad a partir de los pasos medidos.
- * [fixed]: con el objetivo fijo solo se muestra; no se aplica ni se recalcula lo guardado.
  */
 data class StepsSuggestion(
     val averageSteps: Int,
@@ -17,13 +16,9 @@ data class StepsSuggestion(
     val currentTdeeKcal: Int,
     val currentLevel: ActivityLevel,
     val suggestedLevel: ActivityLevel,
-    val fixed: Boolean,
 ) {
     /** `true` si los pasos apuntan a otro nivel que el elegido. */
     val changesLevel: Boolean get() = suggestedLevel != currentLevel
-
-    /** El usuario puede aplicarla (no está en «Objetivo fijo» y hay cambio). */
-    val canApply: Boolean get() = changesLevel && !fixed
 }
 
 /**
@@ -81,7 +76,7 @@ object StepsActivity {
     fun nearestLevel(factor: Double): ActivityLevel =
         ActivityLevel.entries.minBy { abs(it.factor - factor) }
 
-    fun suggest(profile: UserProfile, steps: List<DailySteps>, today: String, fixed: Boolean): StepsSuggestion? {
+    fun suggest(profile: UserProfile, steps: List<DailySteps>, today: String): StepsSuggestion? {
         val (avg, days) = averageSteps(steps, today) ?: return null
         val bmr = TdeeCalculator.bmr(profile)
         val tdee = stepsTdee(profile, avg)
@@ -92,7 +87,6 @@ object StepsActivity {
             currentTdeeKcal = (bmr * profile.activity.factor).roundToInt(),
             currentLevel = profile.activity,
             suggestedLevel = nearestLevel(tdee / bmr),
-            fixed = fixed,
         )
     }
 }

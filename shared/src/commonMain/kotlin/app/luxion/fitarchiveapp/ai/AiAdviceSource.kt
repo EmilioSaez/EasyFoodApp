@@ -2,7 +2,6 @@ package app.luxion.fitarchiveapp.ai
 
 import app.luxion.fitarchiveapp.data.CustomFoodStore
 import app.luxion.fitarchiveapp.data.DiaryStore
-import app.luxion.fitarchiveapp.data.ExerciseStore
 import app.luxion.fitarchiveapp.data.FavoriteKeys
 import app.luxion.fitarchiveapp.data.FavoriteStore
 import app.luxion.fitarchiveapp.data.GoalStore
@@ -15,14 +14,13 @@ import app.luxion.fitarchiveapp.domain.PeriodSummaries
 import app.luxion.fitarchiveapp.domain.RecipeCalculator
 import app.luxion.fitarchiveapp.domain.SummaryPeriod
 import app.luxion.fitarchiveapp.model.DiaryEntry
-import app.luxion.fitarchiveapp.model.ExerciseRules
 import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.model.Nutrients
 import kotlin.math.round
 
 /**
  * Reúne de los almacenes locales el resumen mínimo que se envía a la IA ([AiAdviceContext]). Solo lee; no guarda nada.
- * Los almacenes opcionales (agua, ejercicio, plantillas) pueden faltar: ese dato simplemente no se envía.
+ * Los almacenes opcionales (agua, plantillas) pueden faltar: ese dato simplemente no se envía.
  */
 class AiAdviceSource(
     private val diary: DiaryStore,
@@ -32,7 +30,6 @@ class AiAdviceSource(
     private val recipes: RecipeStore,
     private val templates: MealTemplateStore? = null,
     private val water: WaterStore? = null,
-    private val exercise: ExerciseStore? = null,
 ) {
     /** Contexto de [date] para [currentMeal]. [withCandidates] y [withWeek] evitan lecturas que la función no necesita. */
     suspend fun build(
@@ -43,15 +40,13 @@ class AiAdviceSource(
     ): AiAdviceContext {
         val entries = diary.entriesForDate(date)
         val g = goals.get()
-        val exerciseKcal = exercise?.entriesForDate(date)?.sumOf { it.kcal } ?: 0
-        val bonus = exercise?.let { ExerciseRules.bonusKcal(exerciseKcal, it.percent()) } ?: 0
         val totals = entries.map { it.totals }
         val day = AiDaySummary(
             kcal = totals.sumOf { it.kcal ?: 0.0 },
             proteinG = totals.sumOf { it.proteinG ?: 0.0 },
             carbsG = totals.sumOf { it.carbsG ?: 0.0 },
             fatG = totals.sumOf { it.fatG ?: 0.0 },
-            goalKcal = g.kcal?.plus(bonus)?.toDouble(),
+            goalKcal = g.kcal?.toDouble(),
             goalProteinG = g.proteinG?.toDouble(),
             goalCarbsG = g.carbsG?.toDouble(),
             goalFatG = g.fatG?.toDouble(),
@@ -65,7 +60,6 @@ class AiAdviceSource(
             },
             waterMl = water?.total(date) ?: 0,
             waterGoalMl = water?.goalMl(),
-            exerciseKcal = exerciseKcal,
             intake = IntakeGuidelines.intake(entries, g.kcal),
             candidates = if (withCandidates) candidates() else AiCandidates(),
             week = if (withWeek) week(date, g.kcal) else null,

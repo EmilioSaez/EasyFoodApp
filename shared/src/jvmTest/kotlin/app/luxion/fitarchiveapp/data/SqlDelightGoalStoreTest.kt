@@ -43,16 +43,7 @@ class SqlDelightGoalStoreTest {
     }
 
     @Test
-    fun fixedFlagRoundTrips() = runTest {
-        val goals = DailyGoals(kcal = 2000, proteinG = 140, fixed = true)
-        store.save(goals)
-        assertEquals(goals, store.get())
-        store.save(goals.copy(fixed = false))
-        assertEquals(false, store.get().fixed)
-    }
-
-    @Test
-    fun migrationFromV3KeepsGoalsAsNotFixed() = runTest {
+    fun migrationFromV3KeepsGoals() = runTest {
         val old = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         EasyFoodDatabase.Schema.create(old)
         // Estado v3: sin la columna `fixed`.
@@ -68,9 +59,7 @@ class SqlDelightGoalStoreTest {
         EasyFoodDatabase.Schema.migrate(old, 3, EasyFoodDatabase.Schema.version)
 
         val migrated = SqlDelightGoalStore(EasyFoodDatabase(old).dailyGoalQueries)
-        assertEquals(DailyGoals(2100, 150, 230, 70, fixed = false), migrated.get())
-        migrated.save(DailyGoals(kcal = 2100, fixed = true))
-        assertTrue(migrated.get().fixed)
+        assertEquals(DailyGoals(2100, 150, 230, 70), migrated.get())
         old.close()
     }
 

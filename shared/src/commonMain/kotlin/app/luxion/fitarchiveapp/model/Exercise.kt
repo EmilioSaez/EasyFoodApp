@@ -1,11 +1,8 @@
 package app.luxion.fitarchiveapp.model
 
 /**
- * Reglas del ejercicio que suma al objetivo del día (docs/design.md §2.14).
- *
- * Criterio contra el doble conteo: el TDEE ya incluye la actividad habitual (nivel de actividad y sugerencia por
- * pasos), así que solo debe registrarse el ejercicio que NO está en ese nivel. Además, solo se suma un
- * [DEFAULT_PERCENT] % por defecto, porque las kcal de tablas y relojes suelen estar sobreestimadas.
+ * Reglas de los ejercicios guardados. La app ya no los usa (sin tarjeta ni suma al objetivo); se conservan
+ * en la base de datos y en las copias de seguridad, y estas reglas validan su importación.
  */
 object ExerciseRules {
     /** Porcentaje que se suma si el usuario no lo ha cambiado. */
@@ -27,12 +24,6 @@ object ExerciseRules {
     fun isValidKcal(kcal: Int) = kcal in 1..MAX_KCAL
 
     fun isValidMinutes(minutes: Int?) = minutes == null || minutes in 1..MAX_MINUTES
-
-    /** Kcal que se suman al objetivo por [exerciseKcal] gastadas: `exerciseKcal × percent / 100`, redondeado. */
-    fun bonusKcal(exerciseKcal: Int, percent: Int): Int {
-        if (exerciseKcal <= 0 || percent <= 0) return 0
-        return ((exerciseKcal.toLong() * percent.coerceAtMost(MAX_PERCENT) + 50) / 100).toInt()
-    }
 }
 
 /** Una actividad registrada. [minutes] es opcional. */

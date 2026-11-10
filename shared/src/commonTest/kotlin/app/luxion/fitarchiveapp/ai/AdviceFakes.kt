@@ -2,7 +2,6 @@ package app.luxion.fitarchiveapp.ai
 
 import app.luxion.fitarchiveapp.data.CustomFoodStore
 import app.luxion.fitarchiveapp.data.DiaryStore
-import app.luxion.fitarchiveapp.data.ExerciseStore
 import app.luxion.fitarchiveapp.data.FavoriteStore
 import app.luxion.fitarchiveapp.data.GoalStore
 import app.luxion.fitarchiveapp.data.MealTemplateStore
@@ -11,12 +10,10 @@ import app.luxion.fitarchiveapp.data.WaterStore
 import app.luxion.fitarchiveapp.model.CustomFood
 import app.luxion.fitarchiveapp.model.DailyGoals
 import app.luxion.fitarchiveapp.model.DiaryEntry
-import app.luxion.fitarchiveapp.model.ExerciseEntry
 import app.luxion.fitarchiveapp.model.MealTemplate
 import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.model.NewCustomFood
 import app.luxion.fitarchiveapp.model.NewDiaryEntry
-import app.luxion.fitarchiveapp.model.NewExercise
 import app.luxion.fitarchiveapp.model.NewMealTemplate
 import app.luxion.fitarchiveapp.model.NewRecipe
 import app.luxion.fitarchiveapp.model.Nutrients
@@ -94,15 +91,6 @@ internal class FakeAdviceWater(private val ml: Int = 0, private val goal: Int = 
     override suspend fun add(date: String, deltaMl: Int, nowMillis: Long) = ml
     override suspend fun goalMl() = goal
     override suspend fun setGoalMl(ml: Int, nowMillis: Long) = Unit
-}
-
-internal class FakeAdviceExercise(private val entries: List<ExerciseEntry> = emptyList(), private val percent: Int = 50) : ExerciseStore {
-    override suspend fun entriesForDate(date: String) = entries.filter { it.date == date }
-    override suspend fun add(exercise: NewExercise, nowMillis: Long) = 0L
-    override suspend fun delete(id: Long) = Unit
-    override suspend fun dailyKcal(from: String, to: String) = emptyMap<String, Int>()
-    override suspend fun percent() = percent
-    override suspend fun setPercent(percent: Int, nowMillis: Long) = Unit
 }
 
 internal fun adviceEntry(
