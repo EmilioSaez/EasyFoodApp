@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilterChip
+import app.luxion.fitarchiveapp.ui.components.EasyFoodFilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -100,7 +100,7 @@ fun AddTemplateDialog(
                 DateStepperRow(date, onDateChange = { date = it })
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                     mealChoices.options(initialMeal).forEach { m ->
-                        FilterChip(selected = meal == m, onClick = { meal = m }, label = { Text(m.label) })
+                        EasyFoodFilterChip(selected = meal == m, onClick = { meal = m }, label = { Text(m.label) })
                     }
                 }
                 error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }

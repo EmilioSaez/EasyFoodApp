@@ -223,7 +223,7 @@ fun GoalsScreen(
                                     onClick = { sex = value },
                                     shape = SegmentedButtonDefaults.itemShape(i, 2),
                                     icon = {},
-                                    label = { Text(label, maxLines = 1, style = MaterialTheme.typography.labelMedium) },
+                                    label = { Text(label, maxLines = 1) },
                                     contentPadding = PaddingValues(horizontal = Spacing.xs),
                                 )
                             }

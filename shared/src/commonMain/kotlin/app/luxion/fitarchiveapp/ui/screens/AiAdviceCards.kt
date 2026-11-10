@@ -10,7 +10,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
+import app.luxion.fitarchiveapp.ui.components.EasyFoodFilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -147,7 +147,7 @@ fun AiReviewCard(state: AiTabState) {
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
             AiReviewPeriod.entries.forEach { period ->
                 val selected = state.reviewPeriod == period && state.review !is AiLoad.Idle
-                FilterChip(
+                EasyFoodFilterChip(
                     selected = selected,
                     onClick = { if (enabled && !running) scope.launch { state.review(period) } },
                     label = { Text(if (period == AiReviewPeriod.DAY) "Hoy" else "Esta semana") },
