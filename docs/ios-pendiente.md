@@ -101,3 +101,12 @@ Implementación: `shared/src/iosMain/.../reminders/ReminderScheduler.ios.kt` (`U
 - [ ] **TestFlight con fastlane:** clave API de App Store Connect, `archive`/export del `.ipa`, subida y número de build incremental. Ni fastlane ni secretos en CI están configurados.
 - [ ] **Prueba en iPhone real** vía TestFlight, o en un Mac prestado (Xcode con Apple ID gratuito, ver `docs/ios.md`).
 - [ ] Cumplimiento de App Store: `ITSAppUsesNonExemptEncryption=NO` declarado; revisar descripción de privacidad y capturas.
+
+## Foto del plato (UIImagePickerController)
+
+Implementación: `shared/src/iosMain/.../photo/PhotoCapture.ios.kt`. Solo tipado en Windows; el simulador no tiene cámara.
+
+- [ ] «Hacer foto» abre la cámara del sistema (diálogo de `NSCameraUsageDescription` la primera vez) y la foto llega a «Foto lista».
+- [ ] «Elegir de la fototeca» funciona sin pedir permiso y devuelve la imagen.
+- [ ] El delegado sigue vivo al volver del selector (UIKit solo guarda una referencia débil) y cancelar no deja la pantalla bloqueada.
+- [ ] La orientación de fotos hechas en vertical es correcta tras `downscaleToJpeg`.

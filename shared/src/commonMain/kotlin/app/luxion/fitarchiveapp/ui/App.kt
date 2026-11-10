@@ -57,6 +57,7 @@ import app.luxion.fitarchiveapp.ui.screens.DiaryScreen
 import app.luxion.fitarchiveapp.ui.screens.GoalsScreen
 import app.luxion.fitarchiveapp.ui.screens.MealChoices
 import app.luxion.fitarchiveapp.ui.screens.MealsSetupScreen
+import app.luxion.fitarchiveapp.ui.screens.PlatePhotoScreen
 import app.luxion.fitarchiveapp.ui.screens.ProductDetailScreen
 import app.luxion.fitarchiveapp.ui.screens.LabelPhotoScreen
 import app.luxion.fitarchiveapp.ui.screens.QuickEntryScreen
@@ -204,6 +205,7 @@ fun App(
                             Route.Reminders -> RemindersScreen(navigator, settingsStore, reminderScheduler, meals.count) { remindersRevision++ }
                             Route.Summary -> SummaryScreen(navigator, diaryStore, goalStore, weightStore, today)
                             Route.Data -> DataScreen(navigator, dataPresenter, today)
+                            is Route.PlatePhoto -> PlatePhotoScreen(navigator, route, aiModule, searchStore, customFoodStore, diaryStore, today, mealChoices)
                             Route.Ai -> AiScreen(navigator, aiModule, aiAdviceSource, diaryStore, today, mealChoices)
                             Route.AiSettings -> AiSettingsScreen(navigator, aiModule, today)
                         }

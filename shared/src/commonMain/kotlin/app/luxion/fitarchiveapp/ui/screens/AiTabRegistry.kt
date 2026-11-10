@@ -52,7 +52,7 @@ class AiTabCard(
 
 /** Acciones de la fila «Herramientas», en orden. Una línea por función, con una línea en blanco entre ellas para evitar conflictos de fusión. */
 val aiTabActions: List<AiTabAction> = listOf(
-    // ia-plato: aiPlateAction,
+    aiPlateAction,
 
     aiLabelAction,
 )

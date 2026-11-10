@@ -196,6 +196,7 @@ fun AddFoodScreen(
                     onScan = { navigator.push(Route.Scanner(route.meal)) },
                     onCustom = { navigator.push(Route.CustomFood(meal = route.meal)) },
                     onQuick = { navigator.push(Route.QuickEntry(route.meal, route.date ?: today?.invoke())) },
+                    onPlate = { navigator.push(Route.PlatePhoto(route.meal, route.date)) },
                     modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s),
                 )
             },
@@ -313,6 +314,7 @@ private fun QuickActions(
     onScan: () -> Unit,
     onCustom: () -> Unit,
     onQuick: () -> Unit,
+    onPlate: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val tall = Modifier.height(72.dp)
@@ -345,9 +347,15 @@ private fun QuickActions(
             Tile("Escáner", onScan, neutral)
             Tile("Alimento propio", onCustom, neutral)
         }
-        // Para comer fuera: kcal y macros sin crear un alimento.
-        OutlinedButton(onClick = onQuick, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium) {
-            Text("Entrada rápida · solo kcal y macros")
+        // Para comer fuera (kcal y macros sin crear un alimento) y foto del plato con IA (clave propia; la pantalla
+        // explica qué falta si la IA no está lista). En la misma fila para no restar sitio a la lista de debajo.
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
+            OutlinedButton(onClick = onQuick, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium) {
+                Text("Entrada rápida · solo kcal y macros", style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
+            }
+            OutlinedButton(onClick = onPlate, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium) {
+                Text("✦ Foto del plato · con IA", style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
+            }
         }
     }
 }
