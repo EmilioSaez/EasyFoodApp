@@ -2,7 +2,6 @@ package app.luxion.fitarchiveapp.data
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import app.luxion.fitarchiveapp.db.EasyFoodDatabase
-import app.luxion.fitarchiveapp.domain.ActivityLevel
 import app.luxion.fitarchiveapp.domain.Goal
 import app.luxion.fitarchiveapp.domain.Sex
 import app.luxion.fitarchiveapp.domain.TdeeCalculator
@@ -43,16 +42,7 @@ class SqlDelightGoalStoreTest {
     }
 
     @Test
-    fun fixedFlagRoundTrips() = runTest {
-        val goals = DailyGoals(kcal = 2000, proteinG = 140, fixed = true)
-        store.save(goals)
-        assertEquals(goals, store.get())
-        store.save(goals.copy(fixed = false))
-        assertEquals(false, store.get().fixed)
-    }
-
-    @Test
-    fun migrationFromV3KeepsGoalsAsNotFixed() = runTest {
+    fun migrationFromV3KeepsGoals() = runTest {
         val old = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         EasyFoodDatabase.Schema.create(old)
         // Estado v3: sin la columna `fixed`.
@@ -68,9 +58,7 @@ class SqlDelightGoalStoreTest {
         EasyFoodDatabase.Schema.migrate(old, 3, EasyFoodDatabase.Schema.version)
 
         val migrated = SqlDelightGoalStore(EasyFoodDatabase(old).dailyGoalQueries)
-        assertEquals(DailyGoals(2100, 150, 230, 70, fixed = false), migrated.get())
-        migrated.save(DailyGoals(kcal = 2100, fixed = true))
-        assertTrue(migrated.get().fixed)
+        assertEquals(DailyGoals(2100, 150, 230, 70), migrated.get())
         old.close()
     }
 
@@ -149,7 +137,7 @@ class SqlDelightGoalStoreTest {
     @Test
     fun buildsFromTdeeTargets() = runTest {
         val targets = TdeeCalculator.calculate(
-            UserProfile(30, Sex.MALE, 80.0, 180.0, ActivityLevel.MODERATE, Goal.MAINTAIN),
+            UserProfile(30, Sex.MALE, 80.0, 180.0, Goal.MAINTAIN),
         )
         val goals = DailyGoals.from(targets)
         store.save(goals)

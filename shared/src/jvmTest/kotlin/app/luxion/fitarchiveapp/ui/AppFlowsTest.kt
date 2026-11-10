@@ -254,8 +254,8 @@ class AppFlowsTest {
         onNodeWithText("Guardar objetivos").performClick()
         waitUntil(timeoutMillis = 20_000) { SqlDelightGoalStore(db.dailyGoalQueries).let { kotlinx.coroutines.runBlocking { it.get().kcal } } != null }
         val goals = kotlinx.coroutines.runBlocking { SqlDelightGoalStore(db.dailyGoalQueries).get() }
-        // Mifflin-St Jeor, hombre 30 a / 80 kg / 180 cm: BMR 1780 × 1,55 (actividad moderada).
-        kotlin.test.assertEquals(2759, goals.kcal!!)
+        // Mifflin-St Jeor, hombre 30 a / 80 kg / 180 cm: BMR 1780 × 1,2 (base sedentaria, sin pasos).
+        kotlin.test.assertEquals(2136, goals.kcal!!)
     }
 
     @Test
@@ -548,8 +548,8 @@ class AppFlowsTest {
         onNodeWithText("Altura").performTextInput("180")
         onNodeWithText("Guardar objetivos").performClick()
         waitForText("Objetivos guardados")
-        kotlin.test.assertEquals(2759, kotlinx.coroutines.runBlocking { goals.get().kcal })
-        assertGoalOnThreeDays("2.759")
+        kotlin.test.assertEquals(2136, kotlinx.coroutines.runBlocking { goals.get().kcal })
+        assertGoalOnThreeDays("2.136")
     }
 
     private fun fillDiary(db: EasyFoodDatabase, goalKcal: Int?) = kotlinx.coroutines.runBlocking {

@@ -1,6 +1,5 @@
 package app.luxion.fitarchiveapp.ui.screens
 
-import app.luxion.fitarchiveapp.domain.ActivityLevel
 import app.luxion.fitarchiveapp.domain.Goal
 import app.luxion.fitarchiveapp.domain.MacroTargets
 import app.luxion.fitarchiveapp.domain.TdeeCalculator
@@ -27,10 +26,13 @@ object GoalsPlanner {
 
     fun paceKcal(paceIndex: Int): Int = (PACES[paceIndex.coerceIn(PACES.indices)] * KCAL_PER_KG_PER_WEEK).roundToInt()
 
-    /** TDEE ± ajuste de la meta; nunca baja de max(TMB, mínimo del calculador). */
-    fun plan(profile: UserProfile, paceIndex: Int): GoalsPlan {
+    /**
+     * TDEE ± ajuste de la meta; nunca baja de max(TMB, mínimo del calculador).
+     * [averageSteps]: media de pasos medidos; sin ella, TMB × 1,2.
+     */
+    fun plan(profile: UserProfile, paceIndex: Int, averageSteps: Int? = null): GoalsPlan {
         val bmr = TdeeCalculator.bmr(profile)
-        val tdee = bmr * profile.activity.factor
+        val tdee = TdeeCalculator.tdee(profile, averageSteps)
         val delta = when (profile.goal) {
             Goal.LOSE -> -paceKcal(paceIndex)
             Goal.MAINTAIN -> 0
@@ -71,8 +73,6 @@ object GoalsPlanner {
     /**
      * Objetivos finales: los ajustes manuales mandan sobre la calculadora y esta sobre lo guardado.
      * Con kcal a mano y datos de perfil, los macros se recalculan para esas kcal.
-     * Con [fixed], la calculadora no interviene: manda lo guardado salvo los ajustes manuales
-     * (y solo unas kcal a mano reparten los macros según el perfil).
      */
     fun resolve(
         plan: GoalsPlan?,
@@ -82,10 +82,7 @@ object GoalsPlanner {
         proteinOverride: Int?,
         carbsOverride: Int?,
         fatOverride: Int?,
-        fixed: Boolean = false,
     ): DailyGoals {
-        val plan = plan.takeUnless { fixed }
-        val profile = profile.takeUnless { fixed && kcalOverride == null }
         val kcal = kcalOverride ?: plan?.targetKcal ?: saved.kcal
         val base: MacroTargets? = when {
             plan != null && kcalOverride == null -> plan.macros
@@ -99,25 +96,6 @@ object GoalsPlanner {
             proteinG = proteinOverride ?: base?.proteinG,
             carbsG = carbsOverride ?: base?.carbsG,
             fatG = fatOverride ?: base?.fatG,
-            fixed = fixed,
         )
     }
 }
-
-val ActivityLevel.title: String
-    get() = when (this) {
-        ActivityLevel.SEDENTARY -> "Sedentaria"
-        ActivityLevel.LIGHT -> "Ligera"
-        ActivityLevel.MODERATE -> "Moderada"
-        ActivityLevel.ACTIVE -> "Alta"
-        ActivityLevel.VERY_ACTIVE -> "Muy alta"
-    }
-
-val ActivityLevel.description: String
-    get() = when (this) {
-        ActivityLevel.SEDENTARY -> "Trabajo de oficina, poco o nada de ejercicio"
-        ActivityLevel.LIGHT -> "Ejercicio ligero 1–3 días por semana"
-        ActivityLevel.MODERATE -> "Ejercicio moderado 3–5 días por semana"
-        ActivityLevel.ACTIVE -> "Ejercicio intenso 6–7 días por semana"
-        ActivityLevel.VERY_ACTIVE -> "Entrenamiento muy intenso o trabajo físico"
-    }

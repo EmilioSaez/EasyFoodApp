@@ -4,14 +4,12 @@ import app.luxion.fitarchiveapp.domain.NutritionTargets
 
 /**
  * Objetivos diarios; `null` = sin definir. Macros en gramos.
- * [fixed]: el objetivo se mantiene tal cual y la calculadora TDEE solo sugiere, no lo recalcula.
  */
 data class DailyGoals(
     val kcal: Int? = null,
     val proteinG: Int? = null,
     val carbsG: Int? = null,
     val fatG: Int? = null,
-    val fixed: Boolean = false,
 ) {
     init {
         require(kcal == null || kcal > 0) { "Las kcal objetivo deben ser > 0: $kcal" }
