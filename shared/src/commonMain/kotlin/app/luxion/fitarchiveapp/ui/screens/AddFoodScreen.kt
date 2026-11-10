@@ -347,13 +347,15 @@ private fun QuickActions(
             Tile("Escáner", onScan, neutral)
             Tile("Alimento propio", onCustom, neutral)
         }
-        // Para comer fuera: kcal y macros sin crear un alimento.
-        OutlinedButton(onClick = onQuick, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium) {
-            Text("Entrada rápida · solo kcal y macros")
-        }
-        // Foto del plato con IA (clave propia): la pantalla explica qué falta si la IA no está lista.
-        OutlinedButton(onClick = onPlate, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium) {
-            Text("✦ Foto del plato · con IA")
+        // Para comer fuera (kcal y macros sin crear un alimento) y foto del plato con IA (clave propia; la pantalla
+        // explica qué falta si la IA no está lista). En la misma fila para no restar sitio a la lista de debajo.
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
+            OutlinedButton(onClick = onQuick, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium) {
+                Text("Entrada rápida · solo kcal y macros", style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
+            }
+            OutlinedButton(onClick = onPlate, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium) {
+                Text("✦ Foto del plato · con IA", style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
+            }
         }
     }
 }
