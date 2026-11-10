@@ -49,6 +49,7 @@ class SqlDelightDiaryStore(
                 carbs_100g = entry.nutrients.carbsG,
                 fat_100g = entry.nutrients.fatG,
                 created_at = createdAtMillis,
+                quick = if (entry.quick) 1L else 0L,
             )
             queries.lastInsertedId().executeAsOne()
         }
@@ -61,6 +62,17 @@ class SqlDelightDiaryStore(
             exists
         }
     }
+
+    override suspend fun updateQuick(id: Long, meal: MealType, name: String, totals: Nutrients): Boolean =
+        withContext(dispatcher) {
+            queries.transactionWithResult {
+                val exists = queries.selectById(id).executeAsOneOrNull()?.quick == 1L
+                if (exists) {
+                    queries.updateQuick(meal.name, name, totals.kcal, totals.proteinG, totals.carbsG, totals.fatG, id)
+                }
+                exists
+            }
+        }
 
     override suspend fun delete(id: Long): Boolean = withContext(dispatcher) {
         queries.transactionWithResult {
@@ -86,4 +98,5 @@ internal fun DiaryEntryEntity.toDomain() = DiaryEntry(
         fatG = fat_100g,
     ),
     createdAtMillis = created_at,
+    quick = quick == 1L,
 )

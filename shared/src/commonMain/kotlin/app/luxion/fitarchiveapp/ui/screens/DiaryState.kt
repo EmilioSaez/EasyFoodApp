@@ -40,6 +40,9 @@ data class EntryUi(
     val kcal: Double?,
     val doubtful: Boolean,
     val servingSizeG: Double?,
+    /** Entrada rápida: sin alimento; [macrosText] sustituye a la cantidad en la fila. */
+    val quick: Boolean = false,
+    val macrosText: String = "",
 )
 
 /** Una comida con sus totales. */
@@ -130,8 +133,11 @@ fun buildDiaryUiState(
                     quantity = it.quantity,
                     source = it.dataSource(),
                     kcal = it.totals.kcal,
-                    doubtful = it.nutrients.needsReview,
+                    // Los valores de una entrada rápida son totales (no «por 100 g»): no tiene sentido marcarlos como dudosos.
+                    doubtful = !it.quick && it.nutrients.needsReview,
                     servingSizeG = it.servingSizeG,
+                    quick = it.quick,
+                    macrosText = if (it.quick) quickMacrosText(it.totals.proteinG, it.totals.carbsG, it.totals.fatG) else "",
                 )
             },
         )
@@ -249,7 +255,7 @@ class DiaryPresenter(
                 val entry = diary.find(id) ?: return@launch
                 diary.delete(id)
                 removed = NewDiaryEntry(
-                    entry.date, entry.meal, entry.barcode, entry.name, entry.quantity, entry.servingSizeG, entry.nutrients,
+                    entry.date, entry.meal, entry.barcode, entry.name, entry.quantity, entry.servingSizeG, entry.nutrients, entry.quick,
                 ) to entry.createdAtMillis
             } catch (e: CancellationException) {
                 throw e

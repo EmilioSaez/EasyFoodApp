@@ -50,6 +50,17 @@ object RepresentativeUserData {
         diary(9, "2026-11-02", "DINNER", null, "Algo sin nutrientes", 80.0, "GRAMS", null, null, null, null, null),
         diary(11, "2026-11-02", "MID_MORNING", "8410000000017", "Leche entera", 100.0, "GRAMS", 250.0, 64.0, 3.1, 4.7, 3.6),
         diary(12, "2026-11-02", "LATE_SNACK", "generic:1", "Apples, raw, with skin", 90.0, "GRAMS", null, 52.0, 0.26, 13.8, 0.17),
+        // Entradas rápidas (12.sqm): 100 g con los totales en las columnas por 100 g; con macros a medias y sin nombre propio.
+        "DiaryEntryEntity" to mapOf(
+            "id" to 14, "date" to "2026-11-03", "meal" to "LUNCH", "barcode" to null, "name" to "Menú del día (d'Ana) 🍝",
+            "quantity" to 100.0, "unit" to "GRAMS", "serving_size_g" to null, "kcal_100g" to 850.0, "protein_100g" to 30.0,
+            "carbs_100g" to null, "fat_100g" to 40.0, "created_at" to 1_700_001_000_014L, "quick" to 1,
+        ),
+        "DiaryEntryEntity" to mapOf(
+            "id" to 15, "date" to "2026-11-03", "meal" to "DINNER", "barcode" to null, "name" to "Entrada rápida",
+            "quantity" to 100.0, "unit" to "GRAMS", "serving_size_g" to null, "kcal_100g" to 500.0, "protein_100g" to null,
+            "carbs_100g" to null, "fat_100g" to null, "created_at" to 1_700_001_000_015L, "quick" to 1,
+        ),
         // Objetivos diarios (fixed solo existe desde la v4).
         "DailyGoalEntity" to mapOf(
             "id" to 1, "kcal" to 2200, "protein_g" to 150, "carbs_g" to 250, "fat_g" to 70, "fixed" to 1,

@@ -22,6 +22,8 @@ import app.luxion.fitarchiveapp.model.TemplateItem
 import app.luxion.fitarchiveapp.model.WeightRules
 
 import app.luxion.fitarchiveapp.model.DiaryEntry
+import app.luxion.fitarchiveapp.model.QuantityUnit
+import app.luxion.fitarchiveapp.model.QuickEntry
 import app.luxion.fitarchiveapp.model.NewCustomFood
 import app.luxion.fitarchiveapp.model.NewRecipe
 import kotlinx.coroutines.CoroutineDispatcher
@@ -535,6 +537,9 @@ class DataImporter(private val target: ImportTarget) {
             val domain = try {
                 require(DATE.matches(e.date)) { "fecha no válida" }
                 require(e.name.isNotBlank()) { "nombre vacío" }
+                require(!e.quick || (e.quantity == QuickEntry.QUANTITY_G && e.unit == QuantityUnit.GRAMS)) {
+                    "entrada rápida con cantidad no válida"
+                }
                 e.toDomain()
             } catch (ex: IllegalArgumentException) {
                 invalid += "Entrada del diario \"${e.name}\" (${e.date}): ${ex.message}"
@@ -759,7 +764,7 @@ class SqlDelightImportTarget(
                     date = e.date, meal = e.meal.name, barcode = e.barcode, name = e.name, quantity = e.quantity,
                     unit = e.unit.name, serving_size_g = e.servingSizeG, kcal_100g = e.nutrients.kcal,
                     protein_100g = e.nutrients.proteinG, carbs_100g = e.nutrients.carbsG,
-                    fat_100g = e.nutrients.fatG, created_at = e.createdAtMillis,
+                    fat_100g = e.nutrients.fatG, created_at = e.createdAtMillis, quick = if (e.quick) 1L else 0L,
                 )
             }
         }

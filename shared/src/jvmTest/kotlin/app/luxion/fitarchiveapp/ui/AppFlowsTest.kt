@@ -20,6 +20,8 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.runComposeUiTest
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import app.luxion.fitarchiveapp.data.ProductLookup
@@ -1041,6 +1043,44 @@ class AppFlowsTest {
         onNodeWithContentDescription("Atrás").performClick()
         waitForText("Configura tu clave")
         onNodeWithText("Diario").performClick()
+        waitForText("Nada apuntado hoy")
+    }
+
+    @Test
+    fun quickEntryIsAddedEditedAndDeletedWithoutCreatingAFood() = runApp(recentWeight = true) { db ->
+        waitForText("Nada apuntado hoy")
+        onNodeWithContentDescription("Añadir a Comida").performClick()
+        waitForText("Entrada rápida · solo kcal y macros")
+        onNodeWithText("Entrada rápida · solo kcal y macros").performClick()
+        waitForText("Nombre (opcional)")
+        onNodeWithText("Añadir al diario").performClick() // sin ningún valor: no guarda y avisa
+        waitForText("Indica al menos las kcal o algún macro.")
+        onNodeWithText("Nombre (opcional)").performTextInput("Menú del día")
+        onNodeWithText("Energía").performTextInput("850")
+        onNodeWithText("Proteínas (opcional)").performTextInput("30")
+        onNodeWithText("Añadir al diario").performClick()
+
+        waitForText("Menú del día")
+        waitForText("850")
+        waitGone("Nada apuntado hoy")
+        val saved = db.diaryEntryQueries.selectAll().executeAsList().single()
+        kotlin.test.assertEquals(1L, saved.quick)
+        kotlin.test.assertEquals("LUNCH", saved.meal)
+        kotlin.test.assertEquals("2026-11-04", saved.date)
+        kotlin.test.assertEquals(0, db.productQueries.selectAll().executeAsList().size) // no crea alimento en la base
+        kotlin.test.assertEquals(0, db.customFoodQueries.selectAll().executeAsList().size)
+
+        onNodeWithText("Menú del día").performScrollTo().performClick() // la fila queda bajo la barra inferior
+        waitForText("Editar entrada rápida")
+        waitForText("Energía") // los campos aparecen al terminar de cargar la entrada
+        onNodeWithText("Energía").performTextReplacement("1200")
+        onNodeWithText("Guardar cambios").performClick()
+        waitForText("1.200")
+        kotlin.test.assertEquals(1200.0, db.diaryEntryQueries.selectAll().executeAsList().single().kcal_100g)
+
+        onNodeWithText("Menú del día").performScrollTo().performTouchInput { longClick() }
+        waitForText("Borrar")
+        onNodeWithText("Borrar").performClick()
         waitForText("Nada apuntado hoy")
     }
 }

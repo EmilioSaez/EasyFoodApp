@@ -26,6 +26,8 @@ App multiplataforma (Kotlin Multiplatform + Compose Multiplatform) para **contar
 
 La pantalla **Datos** (icono ⇅ del Diario y de Objetivos) exporta el perfil a un JSON versionado (alimentos propios, favoritos, plantillas de comida, diario, pesos, recetas, agua y productos consultados; la base genérica no se exporta porque ya viene con la app) e importa fusionando, con vista previa y detección de duplicados. También transfiere por QR y por red local con código de emparejamiento de un solo uso.
 
+**Entrada rápida:** para cuando comes fuera, el botón «Entrada rápida» de la pestaña Alimentos (y el «+» de cada comida del Diario) apunta solo kcal y macros, con nombre opcional, a una comida y día concretos, sin crear un alimento. Se edita, se borra, cuenta en los totales y se copia como cualquier entrada, y viaja en exportar e importar.
+
 El seguimiento de lo que falta está en [ROADMAP.md](ROADMAP.md).
 
 ## Arquitectura

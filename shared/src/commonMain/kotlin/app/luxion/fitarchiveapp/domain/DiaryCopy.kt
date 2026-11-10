@@ -21,7 +21,7 @@ object DiaryCopy {
         var remapped = false
         val copies = entries.map {
             val meal = targetMeal ?: targetMeal(it.meal, active).also { m -> if (m != it.meal) remapped = true }
-            NewDiaryEntry(targetDate, meal, it.barcode, it.name, it.quantity, it.servingSizeG, it.nutrients)
+            NewDiaryEntry(targetDate, meal, it.barcode, it.name, it.quantity, it.servingSizeG, it.nutrients, it.quick)
         }
         return CopyPlan(copies, remapped)
     }

@@ -20,7 +20,10 @@ CREATE TABLE DiaryEntryEntity (
     carbs_100g REAL,
     fat_100g REAL,
     -- Instante de creación, en milisegundos epoch (desempata el orden dentro de una comida).
-    created_at INTEGER NOT NULL
+    created_at INTEGER NOT NULL,
+    -- 1 = entrada rápida (comer fuera): sin alimento en la base; ver 12.sqm. Se guarda como 100 g cuyos
+    -- valores «por 100 g» son los totales de la entrada, así totales, progreso y copia funcionan igual.
+    quick INTEGER NOT NULL DEFAULT 0 CHECK (quick IN (0, 1))
 );
 
 CREATE INDEX diary_entry_date_idx ON DiaryEntryEntity(date, meal);
@@ -49,15 +52,16 @@ SELECT * FROM DiaryEntryEntity WHERE id = ?;
 insert:
 INSERT INTO DiaryEntryEntity(
     date, meal, barcode, name, quantity, unit, serving_size_g,
-    kcal_100g, protein_100g, carbs_100g, fat_100g, created_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    kcal_100g, protein_100g, carbs_100g, fat_100g, created_at, quick
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- Última entrada de cada alimento distinto (clave: EAN o, sin él, el nombre), la más reciente primero.
+-- Las entradas rápidas no son alimentos: no salen aquí.
 selectRecent:
 SELECT e.* FROM DiaryEntryEntity AS e
-WHERE e.id = (
+WHERE e.quick = 0 AND e.id = (
     SELECT e2.id FROM DiaryEntryEntity AS e2
-    WHERE COALESCE(e2.barcode, lower(e2.name)) = COALESCE(e.barcode, lower(e.name))
+    WHERE e2.quick = 0 AND COALESCE(e2.barcode, lower(e2.name)) = COALESCE(e.barcode, lower(e.name))
     ORDER BY e2.created_at DESC, e2.id DESC LIMIT 1
 )
 ORDER BY e.created_at DESC, e.id DESC
@@ -68,6 +72,11 @@ SELECT last_insert_rowid();
 
 updateQuantityAndMeal:
 UPDATE DiaryEntryEntity SET meal = ?, quantity = ?, unit = ? WHERE id = ?;
+
+-- Edita una entrada rápida: comida, nombre y totales (guardados como valores por 100 g de una cantidad de 100 g).
+updateQuick:
+UPDATE DiaryEntryEntity SET meal = ?, name = ?, kcal_100g = ?, protein_100g = ?, carbs_100g = ?, fat_100g = ?
+WHERE id = ? AND quick = 1;
 
 deleteById:
 DELETE FROM DiaryEntryEntity WHERE id = ?;
