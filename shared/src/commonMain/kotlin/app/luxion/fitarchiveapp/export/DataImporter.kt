@@ -907,6 +907,8 @@ class SqlDelightImportTarget(
                     unit = e.unit.name, serving_size_g = e.servingSizeG, kcal_100g = e.nutrients.kcal,
                     protein_100g = e.nutrients.proteinG, carbs_100g = e.nutrients.carbsG,
                     fat_100g = e.nutrients.fatG, created_at = e.createdAtMillis, quick = if (e.quick) 1L else 0L,
+                    saturated_fat_100g = e.nutrients.saturatedFatG, sugars_100g = e.nutrients.sugarsG,
+                    fiber_100g = e.nutrients.fiberG, salt_100g = e.nutrients.saltG,
                 )
             }
         }

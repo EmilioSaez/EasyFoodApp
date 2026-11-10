@@ -50,6 +50,10 @@ class SqlDelightDiaryStore(
                 fat_100g = entry.nutrients.fatG,
                 created_at = createdAtMillis,
                 quick = if (entry.quick) 1L else 0L,
+                saturated_fat_100g = entry.nutrients.saturatedFatG,
+                sugars_100g = entry.nutrients.sugarsG,
+                fiber_100g = entry.nutrients.fiberG,
+                salt_100g = entry.nutrients.saltG,
             )
             queries.lastInsertedId().executeAsOne()
         }
@@ -96,6 +100,10 @@ internal fun DiaryEntryEntity.toDomain() = DiaryEntry(
         proteinG = protein_100g,
         carbsG = carbs_100g,
         fatG = fat_100g,
+        saturatedFatG = saturated_fat_100g,
+        sugarsG = sugars_100g,
+        fiberG = fiber_100g,
+        saltG = salt_100g,
     ),
     createdAtMillis = created_at,
     quick = quick == 1L,

@@ -10,7 +10,9 @@ import app.luxion.fitarchiveapp.data.generic.GenericFoodFormat
 import app.luxion.fitarchiveapp.domain.DayStatus
 import app.luxion.fitarchiveapp.domain.DiaryCopy
 import app.luxion.fitarchiveapp.domain.DaySummary
+import app.luxion.fitarchiveapp.domain.IntakeGuidelines
 import app.luxion.fitarchiveapp.domain.MealPlan
+import app.luxion.fitarchiveapp.domain.NutrientIntake
 import app.luxion.fitarchiveapp.model.DailyGoals
 import app.luxion.fitarchiveapp.model.DiaryEntry
 import app.luxion.fitarchiveapp.model.ExerciseEntry
@@ -90,6 +92,8 @@ data class DiaryUiState(
     val consumedKcal: Double = 0.0,
     val macros: List<MacroProgress> = emptyList(),
     val meals: List<MealUi> = emptyList(),
+    /** Fibra, sal, azúcares y saturadas del día (vacío si el día no tiene entradas). */
+    val intake: List<NutrientIntake> = emptyList(),
     val loading: Boolean = true,
     /** La carga del día falló (base de datos ilegible): se muestra un estado de error con «Reintentar». */
     val loadFailed: Boolean = false,
@@ -179,6 +183,7 @@ fun buildDiaryUiState(
             MacroProgress("Grasa", meals.sumOf { it.fatG }, goals.fatG?.toDouble()),
         ),
         meals = meals,
+        intake = if (entries.isEmpty()) emptyList() else IntakeGuidelines.intake(entries, goals.kcal),
         loading = false,
     )
 }

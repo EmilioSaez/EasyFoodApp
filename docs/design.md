@@ -417,6 +417,17 @@ Objetivos: sección «Ejercicio» (antes de «Agua») → No sumar · 25 % · 50
 - **Exportar e importar.** `ExportFile.exercises` (`date`, `name`, `kcal`, `minutes`, `createdAtMillis`) y `ExportFile.exercisePercent` (`percent`, `updatedAtMillis`): colecciones opcionales nuevas, así que **`schemaVersion` sigue en 1**. Las actividades no tienen id estable entre dispositivos: se reconocen por fecha, nombre (sin distinguir mayúsculas), kcal y duración; las idénticas se cuentan como duplicadas (y dos sesiones idénticas del mismo día se conservan) y el resto se añade. El porcentaje sigue la regla del agua (gana el más reciente; empate, el local). Los inválidos se omiten y se informan. Vista previa y resumen incluyen la fila «Ejercicio».
 - **Implementación.** `ExerciseCard`, `ExerciseDialog` y `ExercisePercentPicker` (`ui/components/ExerciseCard.kt`), `ExerciseStore` / `SqlDelightExerciseStore`, `ExerciseRules` / `NewExercise` / `ExerciseEntry` (`model/Exercise.kt`). `DiaryPresenter` recibe el almacén (opcional) y expone `exercises`, `exerciseBonusKcal` y el `goalKcal` efectivo; `DayStatus.streak` y `buildWeek` admiten el extra por día.
 
+### 2.19 Fibra, sal, azúcares y saturadas del día (implementado)
+
+Tarjeta «OTROS NUTRIENTES» al final de la lista del Diario (`IntakeCard`), solo si el día tiene entradas. Una fila por nutriente: nombre a la izquierda y «12 g · mín. 25 g» a la derecha.
+
+- **Objetivos orientativos** (`IntakeGuidelines`, no son consejo médico, no editables): fibra mínimo 25 g; sal máximo 5 g (OMS); azúcares máximo el 10 % de la energía a 4 kcal/g (50 g con 2 000 kcal) y saturadas máximo el 10 % a 9 kcal/g (~22 g). La energía es el objetivo de kcal de Objetivos o, sin él, 2 000 kcal. Hacerlos editables exigiría columnas nuevas en `DailyGoalEntity`; queda fuera.
+- **Datos ausentes**: un valor `null` nunca se suma como 0 sin avisar. Si alguna entrada no tiene el dato (o está en porciones sin tamaño) la fila añade «· incompleto» y el total es solo lo conocido; si ninguna lo tiene, «sin datos · máx. 5 g». Se pinta en `onSurfaceVariant`. Pasarse de un máximo se pinta en `error`; no llegar a un mínimo no es un fallo.
+- **Datos**: la entrada del Diario copia al registrar saturadas, azúcares, fibra y sal por 100 g (migración 16, 4 columnas nullable; las entradas rápidas tampoco las traen y salen «incompleto»). Las entradas anteriores quedan en `NULL` y salen «incompleto» hasta que se vuelvan a apuntar.
+- **Por comida**: no se desglosa; la tarjeta de cada comida mantiene «kcal · P | H | G».
+- **Micronutrientes (vitaminas y minerales)**: la base USDA embebida (`generic_foods.tsv`) solo tiene las 9 columnas de macros; no se guardan. Añadirlos pide regenerar el TSV, ampliar `ProductEntity` y `DiaryEntryEntity` y subir `DATA_VERSION`, y solo cubriría los alimentos genéricos (Open Food Facts y los propios no los traen de forma fiable). No compensa ahora.
+- **Exportar**: sin cambios de formato; `ExportedNutrients` ya llevaba los 8 campos y ahora van rellenos también en el diario.
+
 ## 3. Componentes compartidos (en `shared/ui`)
 `EasyFoodTheme` · `CalorieRing` · `MacroProgressRow` · `MacroDot` · `SourceAvatar` / `SourceChip` (enum `DataSource { OpenFoodFacts, Generic, Custom }`) · `DoubtfulChip` · `DoubtfulDataBanner` · `MealSection` · `DiaryEntryRow` · `FoodResultRow` · `QuantitySelector` · `NutritionTable` · `EmptyState` · `NumberField` (OutlinedTextField con sufijo de unidad) · `FoodSearch` (buscador de alimentos de «Añadir» y del editor de recetas).
 

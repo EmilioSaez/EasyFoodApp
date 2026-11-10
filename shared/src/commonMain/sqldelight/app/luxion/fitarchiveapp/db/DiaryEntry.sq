@@ -23,7 +23,11 @@ CREATE TABLE DiaryEntryEntity (
     created_at INTEGER NOT NULL,
     -- 1 = entrada rápida (comer fuera): sin alimento en la base; ver 12.sqm. Se guarda como 100 g cuyos
     -- valores «por 100 g» son los totales de la entrada, así totales, progreso y copia funcionan igual.
-    quick INTEGER NOT NULL DEFAULT 0 CHECK (quick IN (0, 1))
+    quick INTEGER NOT NULL DEFAULT 0 CHECK (quick IN (0, 1)),
+    saturated_fat_100g REAL,
+    sugars_100g REAL,
+    fiber_100g REAL,
+    salt_100g REAL
 );
 
 CREATE INDEX diary_entry_date_idx ON DiaryEntryEntity(date, meal);
@@ -52,8 +56,9 @@ SELECT * FROM DiaryEntryEntity WHERE id = ?;
 insert:
 INSERT INTO DiaryEntryEntity(
     date, meal, barcode, name, quantity, unit, serving_size_g,
-    kcal_100g, protein_100g, carbs_100g, fat_100g, created_at, quick
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    kcal_100g, protein_100g, carbs_100g, fat_100g, created_at, quick,
+    saturated_fat_100g, sugars_100g, fiber_100g, salt_100g
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- Última entrada de cada alimento distinto (clave: EAN o, sin él, el nombre), la más reciente primero.
 -- Las entradas rápidas no son alimentos: no salen aquí.

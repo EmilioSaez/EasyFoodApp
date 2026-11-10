@@ -89,11 +89,12 @@ class SqlDelightFavoriteStoreTest {
     fun migrationFromV9CreatesTheTableIdempotentlyAndKeepsData() = runTest {
         // Estado v9: sin tabla de favoritos.
         driver.execute(null, "DROP TABLE FavoriteFoodEntity", 0)
+        for (c in listOf("saturated_fat_100g", "sugars_100g", "fiber_100g", "salt_100g")) driver.execute(null, "ALTER TABLE DiaryEntryEntity DROP COLUMN $c", 0) // 16.sqm
         SqlDelightProductStore(db.productQueries).save(product("2", "Leche"), 1L)
 
         driver.execute(null, "ALTER TABLE DiaryEntryEntity DROP COLUMN quick", 0) // la añade 12.sqm (no es idempotente)
         EasyFoodDatabase.Schema.migrate(driver, 9, EasyFoodDatabase.Schema.version)
-        driver.execute(null, "ALTER TABLE DiaryEntryEntity DROP COLUMN quick", 0)
+        for (c in listOf("quick", "saturated_fat_100g", "sugars_100g", "fiber_100g", "salt_100g")) driver.execute(null, "ALTER TABLE DiaryEntryEntity DROP COLUMN $c", 0) // 12.sqm y 16.sqm
         EasyFoodDatabase.Schema.migrate(driver, 9, EasyFoodDatabase.Schema.version)
 
         assertTrue(EasyFoodDatabase.Schema.version >= 10)

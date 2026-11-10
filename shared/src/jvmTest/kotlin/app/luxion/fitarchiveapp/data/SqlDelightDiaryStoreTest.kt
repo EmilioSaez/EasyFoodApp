@@ -164,4 +164,16 @@ class SqlDelightDiaryStoreTest {
         assertEquals(0.0, summaries[1].kcal, 1e-9) // hay registro aunque no sume kcal
         assertEquals(emptyList(), store.daySummaries("2026-12-01", "2026-12-31"))
     }
+
+    @Test
+    fun extraNutrientsRoundTrip() = runTest {
+        val id = store.add(nutella.copy(nutrients = Nutrients(539.0, 6.3, 57.5, 30.9, 10.6, 56.3, 3.4, 0.1)), 1L)
+        val n = store.find(id)!!.nutrients
+        assertEquals(10.6, n.saturatedFatG)
+        assertEquals(56.3, n.sugarsG)
+        assertEquals(3.4, n.fiberG)
+        assertEquals(0.1, n.saltG)
+        val bare = store.find(store.add(nutella, 2L))!!.nutrients
+        assertNull(bare.fiberG)
+    }
 }

@@ -134,3 +134,4 @@ Cada punto es un PR. Usa la clave de API de Anthropic de cada usuario (sin servi
 - [ ] Sugerencias y consejos a partir del resumen del día (kcal y macros frente a objetivos)
 - [ ] Foto del plato: estimar kcal y macros (modelo configurable, p. ej. `claude-sonnet-5-5`)
 - [ ] Comprobar en un iPhone el Keychain y la reducción de imágenes (ver `docs/ios-pendiente.md`)
+- [x] Totales de fibra, sal, azúcares y saturadas por día en el Diario, con objetivos orientativos y aviso «incompleto» si faltan datos; el diario guarda esos nutrientes al registrar (migración 16). Micronutrientes USDA evaluados y descartados por ahora (`docs/design.md` §2.19)

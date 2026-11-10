@@ -21,6 +21,10 @@ data class MacroTotals(
     val proteinG: Double?,
     val carbsG: Double?,
     val fatG: Double?,
+    val saturatedFatG: Double? = null,
+    val sugarsG: Double? = null,
+    val fiberG: Double? = null,
+    val saltG: Double? = null,
 )
 
 /**
@@ -35,7 +39,7 @@ data class DiaryEntry(
     val name: String,
     val quantity: Quantity,
     val servingSizeG: Double?,
-    /** Valores por 100 g; solo se usan kcal, proteínas, hidratos y grasa. */
+    /** Valores por 100 g (copia al registrar); los campos extra son `null` en las entradas anteriores a la migración 16. */
     val nutrients: Nutrients,
     val createdAtMillis: Long,
     /**
@@ -57,6 +61,10 @@ data class DiaryEntry(
             proteinG = scaled(nutrients.proteinG),
             carbsG = scaled(nutrients.carbsG),
             fatG = scaled(nutrients.fatG),
+            saturatedFatG = scaled(nutrients.saturatedFatG),
+            sugarsG = scaled(nutrients.sugarsG),
+            fiberG = scaled(nutrients.fiberG),
+            saltG = scaled(nutrients.saltG),
         )
 
     private fun scaled(per100g: Double?): Double? {

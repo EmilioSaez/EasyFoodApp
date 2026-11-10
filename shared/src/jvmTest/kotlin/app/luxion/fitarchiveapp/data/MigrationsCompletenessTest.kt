@@ -31,6 +31,8 @@ class MigrationsCompletenessTest {
         }
         migrated.execute(null, "ALTER TABLE DiaryEntryEntity DROP COLUMN quick", 0) // la añade 12.sqm (no es idempotente)
 
+        for (c in listOf("saturated_fat_100g", "sugars_100g", "fiber_100g", "salt_100g")) migrated.execute(null, "ALTER TABLE DiaryEntryEntity DROP COLUMN $c", 0) // 16.sqm
+
         EasyFoodDatabase.Schema.migrate(migrated, 8, EasyFoodDatabase.Schema.version)
 
         assertEquals(tables(fresh), tables(migrated))

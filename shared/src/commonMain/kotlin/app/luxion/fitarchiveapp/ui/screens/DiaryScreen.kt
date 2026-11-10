@@ -222,6 +222,7 @@ fun DiaryScreen(
                                 }
                             }
                         }
+                        if (state.intake.isNotEmpty()) item("intake") { IntakeCard(state.intake) }
                     }
                 }
             }
