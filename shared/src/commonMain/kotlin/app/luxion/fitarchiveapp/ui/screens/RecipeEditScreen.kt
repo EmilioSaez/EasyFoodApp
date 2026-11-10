@@ -60,7 +60,14 @@ private sealed interface EditLoad {
 }
 
 /** Cuadro de cantidad: añade [pick] como ingrediente nuevo o, con [index], cambia los gramos de uno existente. */
-private data class GramsDialog(val name: String, val initial: Double, val pick: FoodPick?, val index: Int?)
+internal data class GramsDialog(
+    val name: String,
+    val initial: Double,
+    val pick: FoodPick?,
+    val index: Int?,
+    /** Unidad que se muestra junto al campo: «g» o «porciones». */
+    val suffix: String = "g",
+)
 
 /**
  * Crear o editar una receta (docs/design.md §2.8). Los ingredientes se buscan con el mismo buscador que
@@ -120,7 +127,7 @@ fun RecipeEditScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EditTopBar(title: String, navigator: Navigator, onBack: () -> Unit = { navigator.pop() }, actions: @Composable () -> Unit = {}) {
+internal fun EditTopBar(title: String, navigator: Navigator, onBack: () -> Unit = { navigator.pop() }, actions: @Composable () -> Unit = {}) {
     CenterAlignedTopAppBar(
         title = { Text(title) },
         navigationIcon = {
@@ -332,7 +339,7 @@ private fun RecipeForm(
 }
 
 @Composable
-private fun GramsDialogContent(dialog: GramsDialog, onDismiss: () -> Unit, onConfirm: (Double) -> Unit) {
+internal fun GramsDialogContent(dialog: GramsDialog, onDismiss: () -> Unit, onConfirm: (Double) -> Unit) {
     var text by remember(dialog) { mutableStateOf(formatGrams(dialog.initial).replace(".", "")) }
     val grams = parseNumber(text)?.takeIf { it > 0 && it.isFinite() }
     AlertDialog(
@@ -344,7 +351,7 @@ private fun GramsDialogContent(dialog: GramsDialog, onDismiss: () -> Unit, onCon
                     value = text,
                     onValueChange = { text = it },
                     label = "Cantidad",
-                    suffix = "g",
+                    suffix = dialog.suffix,
                     isError = grams == null,
                     supportingText = if (grams == null) "Escribe un número mayor que 0" else null,
                     modifier = Modifier.fillMaxWidth(),

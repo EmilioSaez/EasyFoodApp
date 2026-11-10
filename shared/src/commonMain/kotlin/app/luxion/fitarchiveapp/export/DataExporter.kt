@@ -3,6 +3,7 @@ package app.luxion.fitarchiveapp.export
 import app.luxion.fitarchiveapp.data.CachedProduct
 import app.luxion.fitarchiveapp.data.FavoriteKeys
 import app.luxion.fitarchiveapp.data.readAll
+import app.luxion.fitarchiveapp.model.MealTemplate
 import app.luxion.fitarchiveapp.data.toCached
 import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
 import app.luxion.fitarchiveapp.data.toDomain
@@ -11,6 +12,7 @@ import app.luxion.fitarchiveapp.db.DiaryEntryQueries
 import app.luxion.fitarchiveapp.db.FavoriteFoodQueries
 import app.luxion.fitarchiveapp.db.ProductQueries
 import app.luxion.fitarchiveapp.db.SettingsQueries
+import app.luxion.fitarchiveapp.db.MealTemplateQueries
 import app.luxion.fitarchiveapp.db.RecipeQueries
 import app.luxion.fitarchiveapp.db.WaterQueries
 import app.luxion.fitarchiveapp.db.WeightEntryQueries
@@ -34,6 +36,7 @@ interface ExportSource {
     suspend fun water(): List<ExportedWater> = emptyList()
     suspend fun waterGoal(): ExportedWaterGoal? = null
     suspend fun favorites(): List<ExportedFavorite> = emptyList()
+    suspend fun mealTemplates(): List<ExportedMealTemplate> = emptyList()
 }
 
 /** Genera el JSON de exportación a partir de [source]. */
@@ -56,6 +59,7 @@ class DataExporter(
         water = source.water(),
         waterGoal = source.waterGoal(),
         favorites = source.favorites(),
+        mealTemplates = source.mealTemplates(),
     )
 
     suspend fun exportToJson(): String = ExportCodec.encode(buildFile())
@@ -76,6 +80,14 @@ fun Recipe.toExported() = ExportedRecipe(
     id = id, name = name, servings = servings,
     ingredients = ingredients.map {
         ExportedRecipeIngredient(it.barcode, it.name, it.grams, it.nutrients.toExported(), it.servingSizeG)
+    },
+    createdAtMillis = createdAtMillis, updatedAtMillis = updatedAtMillis,
+)
+
+fun MealTemplate.toExported() = ExportedMealTemplate(
+    id = id, name = name,
+    items = items.map {
+        ExportedTemplateItem(it.barcode, it.name, it.quantity.amount, it.quantity.unit, it.servingSizeG, it.nutrients.toExported())
     },
     createdAtMillis = createdAtMillis, updatedAtMillis = updatedAtMillis,
 )
@@ -105,7 +117,12 @@ class SqlDelightExportSource(
     private val favoriteQueries: FavoriteFoodQueries? = null,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val waterQueries: WaterQueries? = null,
+    private val templateQueries: MealTemplateQueries? = null,
 ) : ExportSource {
+    override suspend fun mealTemplates(): List<ExportedMealTemplate> = withContext(dispatcher) {
+        templateQueries?.transactionWithResult { templateQueries.readAll() }.orEmpty().map { it.toExported() }
+    }
+
     override suspend fun water(): List<ExportedWater> = withContext(dispatcher) {
         waterQueries?.selectAll()?.executeAsList().orEmpty().map { ExportedWater(it.date, it.ml.toInt(), it.updated_at) }
     }

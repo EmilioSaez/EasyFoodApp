@@ -29,6 +29,7 @@ import app.luxion.fitarchiveapp.data.SqlDelightCustomFoodStore
 import app.luxion.fitarchiveapp.data.SqlDelightDiaryStore
 import app.luxion.fitarchiveapp.data.SqlDelightFavoriteStore
 import app.luxion.fitarchiveapp.data.SqlDelightGoalStore
+import app.luxion.fitarchiveapp.data.SqlDelightMealTemplateStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductSearchStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductStore
 import app.luxion.fitarchiveapp.data.SqlDelightRecipeStore
@@ -42,6 +43,8 @@ import app.luxion.fitarchiveapp.model.DailyGoals
 import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.model.NewCustomFood
 import app.luxion.fitarchiveapp.model.NewDiaryEntry
+import app.luxion.fitarchiveapp.model.NewMealTemplate
+import app.luxion.fitarchiveapp.model.TemplateItem
 import app.luxion.fitarchiveapp.model.Nutrients
 import app.luxion.fitarchiveapp.model.Product
 import app.luxion.fitarchiveapp.model.Quantity
@@ -96,6 +99,7 @@ class AppFlowsTest {
                 settingsStore = SqlDelightSettingsStore(db.settingsQueries),
                 waterStore = SqlDelightWaterStore(db.waterQueries),
                 favoriteStore = SqlDelightFavoriteStore(db.favoriteFoodQueries),
+                templateStore = SqlDelightMealTemplateStore(db.mealTemplateQueries),
                 importTarget = SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries, db.recipeQueries, db.settingsQueries, db.favoriteFoodQueries),
                 today = { "2026-11-04" },
                 nowMinutes = { nowMinutes },
@@ -934,5 +938,91 @@ class AppFlowsTest {
         onNodeWithText("Favoritos").performClick()
         waitForText("FAVORITOS · 1")
         onNodeWithText("Nutella").assertIsDisplayed()
+    }
+
+    private fun seedBreakfast(db: EasyFoodDatabase) = kotlinx.coroutines.runBlocking {
+        SqlDelightDiaryStore(db.diaryEntryQueries).add(
+            NewDiaryEntry("2026-11-04", MealType.BREAKFAST, "111", "Avena", Quantity(40.0, QuantityUnit.GRAMS), null, Nutrients(380.0, 13.0, 60.0, 7.0)), 1L,
+        )
+    }
+
+    private fun seedTemplate(db: EasyFoodDatabase, name: String = "Mi desayuno") = kotlinx.coroutines.runBlocking {
+        SqlDelightMealTemplateStore(db.mealTemplateQueries).create(
+            NewMealTemplate(
+                name,
+                listOf(
+                    TemplateItem("111", "Avena", Quantity(40.0, QuantityUnit.GRAMS), null, Nutrients(380.0, 13.0, 60.0, 7.0)),
+                    TemplateItem(null, "Yogur", Quantity(2.0, QuantityUnit.SERVINGS), 125.0, Nutrients(60.0, 4.0, 5.0, 3.0)),
+                ),
+            ),
+            1L,
+        )
+    }
+
+    @Test
+    fun saveAMealAsTemplateFromTheDiaryAndAddItFromTheFoodsTab() = runApp(recentWeight = true, seed = ::seedBreakfast) { db ->
+        waitForText("Avena")
+        onNodeWithContentDescription("Guardar Desayuno como plantilla").performClick()
+        waitForText("Guardar Desayuno como plantilla")
+        onNodeWithText("Nombre").performTextReplacement("Mi desayuno")
+        onNodeWithText("Guardar").performClick()
+        waitForText("Plantilla «Mi desayuno» guardada")
+        kotlin.test.assertEquals(listOf("Mi desayuno"), db.mealTemplateQueries.selectAll().executeAsList().map { it.name })
+        kotlin.test.assertEquals(1, db.mealTemplateQueries.selectAllItems().executeAsList().size)
+
+        onNodeWithText("Alimentos").performClick()
+        waitForText("Buscar alimento")
+        onNodeWithText("Plantillas").performClick()
+        waitForText("PLANTILLAS · 1")
+        onNodeWithContentDescription("Añadir Mi desayuno al diario").performClick()
+
+        // Vuelve al Diario con los alimentos de la plantilla añadidos de un toque.
+        waitUntil(timeoutMillis = 20_000) { db.diaryEntryQueries.selectByDate("2026-11-04").executeAsList().size == 2 }
+        waitForText("Merienda")
+    }
+
+    @Test
+    fun tappingATemplateLetsYouPickTheMealAndAddsEveryFoodWithItsQuantity() = runApp(recentWeight = true, seed = { seedTemplate(it) }) { db ->
+        waitForText("Nada apuntado hoy")
+        onNodeWithText("Alimentos").performClick()
+        waitForText("Buscar alimento")
+        onNodeWithText("Plantillas").performClick()
+        waitForText("PLANTILLAS · 1")
+        onNodeWithText("Mi desayuno").performClick()
+        waitForText("Añadir a")
+        onNodeWithText("Desayuno").performClick()
+        onAllNodesWithText("Añadir").onLast().performClick() // el del diálogo, que se compone el último
+
+        waitUntil(timeoutMillis = 20_000) { db.diaryEntryQueries.selectByDate("2026-11-04").executeAsList().size == 2 }
+        val rows = db.diaryEntryQueries.selectByDate("2026-11-04").executeAsList()
+        kotlin.test.assertEquals(listOf("Avena", "Yogur"), rows.map { it.name })
+        kotlin.test.assertEquals(listOf("BREAKFAST", "BREAKFAST"), rows.map { it.meal })
+        kotlin.test.assertEquals(listOf("GRAMS", "SERVINGS"), rows.map { it.unit })
+        kotlin.test.assertEquals(listOf(40.0, 2.0), rows.map { it.quantity })
+    }
+
+    @Test
+    fun renameAndDeleteATemplateFromItsEditScreen() = runApp(recentWeight = true, seed = { seedTemplate(it) }) { db ->
+        waitForText("Nada apuntado hoy")
+        onNodeWithText("Alimentos").performClick()
+        waitForText("Buscar alimento")
+        onNodeWithText("Plantillas").performClick()
+        waitForText("PLANTILLAS · 1")
+        onNodeWithContentDescription("Editar Mi desayuno").performClick()
+        waitForText("Editar plantilla")
+        onNodeWithText("Nombre").performTextReplacement("Desayuno de siempre")
+        onNodeWithText("Guardar cambios").performClick()
+        waitForText("Desayuno de siempre")
+        kotlin.test.assertEquals(listOf("Desayuno de siempre"), db.mealTemplateQueries.selectAll().executeAsList().map { it.name })
+        kotlin.test.assertEquals(2, db.mealTemplateQueries.selectAllItems().executeAsList().size)
+
+        onNodeWithContentDescription("Editar Desayuno de siempre").performClick()
+        waitForText("Editar plantilla")
+        onNodeWithText("Borrar").performClick()
+        waitForText("¿Borrar la plantilla?")
+        onAllNodesWithText("Borrar").onLast().performClick()
+        waitForText("Aún no tienes plantillas")
+        kotlin.test.assertEquals(0, db.mealTemplateQueries.selectAll().executeAsList().size)
+        kotlin.test.assertEquals(0, db.mealTemplateQueries.selectAllItems().executeAsList().size)
     }
 }

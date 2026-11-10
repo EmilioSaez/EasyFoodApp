@@ -2,6 +2,9 @@ package app.luxion.fitarchiveapp.ui.screens
 
 import app.luxion.fitarchiveapp.data.DiaryStore
 import app.luxion.fitarchiveapp.data.GoalStore
+import app.luxion.fitarchiveapp.data.MealTemplateStore
+import app.luxion.fitarchiveapp.model.NewMealTemplate
+import app.luxion.fitarchiveapp.model.TemplateItem
 import app.luxion.fitarchiveapp.data.generic.GenericFoodFormat
 import app.luxion.fitarchiveapp.domain.DayStatus
 import app.luxion.fitarchiveapp.domain.DiaryCopy
@@ -186,6 +189,7 @@ class DiaryPresenter(
     private val today: String,
     private val mealsPerDay: Int? = null,
     private val nowMillis: () -> Long = { kotlin.time.Clock.System.now().toEpochMilliseconds() },
+    private val templates: MealTemplateStore? = null,
 ) {
     private val _state = MutableStateFlow(DiaryUiState(date = today))
     val state: StateFlow<DiaryUiState> = _state.asStateFlow()
@@ -289,6 +293,37 @@ class DiaryPresenter(
         copy(targetDate) { it to null }
     }
 
+    /**
+     * Guarda las entradas de [meal] del día mostrado como plantilla [name] (con sus cantidades y datos nutricionales).
+     * [onResult] recibe `null` si se ha guardado o el motivo del fallo (nombre repetido, comida vacía, error); el
+     * diálogo lo enseña y solo se cierra si todo fue bien.
+     */
+    fun saveMealAsTemplate(meal: MealType, name: String, onResult: (String?) -> Unit) {
+        val store = templates ?: return onResult(TEMPLATE_ERROR)
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return onResult("Escribe un nombre")
+        val date = _state.value.date
+        scope.launch {
+            val error = try {
+                val entries = diary.entriesForDate(date).filter { it.meal == meal }
+                when {
+                    entries.isEmpty() -> TEMPLATE_EMPTY
+                    TemplateRules.nameTaken(trimmed, store.all().map { it.name }) -> TemplateRules.NAME_TAKEN
+                    else -> {
+                        store.create(NewMealTemplate(trimmed, entries.map(TemplateItem::of)), nowMillis())
+                        _state.value = _state.value.copy(message = "Plantilla «$trimmed» guardada")
+                        null
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                TEMPLATE_ERROR
+            }
+            onResult(error)
+        }
+    }
+
     private val activeMeals get() = MealPlan.preset(mealsPerDay)
 
     private fun copy(targetDate: String, select: (List<DiaryEntry>) -> Pair<List<DiaryEntry>, MealType?>) {
@@ -319,6 +354,8 @@ class DiaryPresenter(
     }
 
     companion object {
+        const val TEMPLATE_ERROR = "No se pudo guardar la plantilla. Inténtalo de nuevo."
+        const val TEMPLATE_EMPTY = "No hay nada que guardar en esta comida."
         const val COPY_ERROR = "No se pudo copiar. Inténtalo de nuevo."
         const val COPY_EMPTY = "No hay nada que copiar."
         const val COPY_SAME_ERROR = "Elige otro día u otra comida."

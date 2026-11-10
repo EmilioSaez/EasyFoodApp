@@ -2,10 +2,13 @@ package app.luxion.fitarchiveapp.ui.screens
 
 import app.luxion.fitarchiveapp.data.DiaryStore
 import app.luxion.fitarchiveapp.data.GoalStore
+import app.luxion.fitarchiveapp.data.MealTemplateStore
 import app.luxion.fitarchiveapp.domain.MealPlan
 import app.luxion.fitarchiveapp.model.DailyGoals
 import app.luxion.fitarchiveapp.model.DiaryEntry
+import app.luxion.fitarchiveapp.model.MealTemplate
 import app.luxion.fitarchiveapp.model.MealType
+import app.luxion.fitarchiveapp.model.NewMealTemplate
 import app.luxion.fitarchiveapp.model.NewDiaryEntry
 import app.luxion.fitarchiveapp.model.Nutrients
 import app.luxion.fitarchiveapp.model.Quantity
@@ -412,5 +415,85 @@ class DiaryPresenterTest {
         p.copyDay(prev)
         assertEquals(DiaryPresenter.COPY_ERROR, p.state.value.message)
         assertEquals(1, diary.rows.size)
+    }
+}
+
+private class FakeTemplates : MealTemplateStore {
+    val rows = mutableListOf<MealTemplate>()
+    var failing = false
+    override suspend fun all(): List<MealTemplate> { if (failing) throw IllegalStateException("db"); return rows.toList() }
+    override suspend fun find(id: Long) = rows.firstOrNull { it.id == id }
+    override suspend fun create(template: NewMealTemplate, nowMillis: Long): Long {
+        if (failing) throw IllegalStateException("db")
+        val id = rows.size + 1L
+        rows += MealTemplate(id, template.name.trim(), template.items, nowMillis, nowMillis)
+        return id
+    }
+    override suspend fun update(id: Long, template: NewMealTemplate, nowMillis: Long) = false
+    override suspend fun rename(id: Long, name: String, nowMillis: Long) = false
+    override suspend fun delete(id: Long) = rows.removeAll { it.id == id }
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class DiaryPresenterTemplatesTest {
+    private fun TestScope.presenter(diary: FakeDiary, templates: FakeTemplates?) = DiaryPresenter(
+        diary, FakeGoals(), backgroundScope + UnconfinedTestDispatcher(testScheduler), DAY, nowMillis = { 777L }, templates = templates,
+    )
+
+    private fun DiaryPresenter.save(meal: MealType, name: String): String? {
+        var result: String? = "pending"
+        saveMealAsTemplate(meal, name) { result = it }
+        return result
+    }
+
+    @Test
+    fun savesAMealAsATemplateKeepingQuantitiesUnitsAndOrder() = runTest {
+        val grams = Quantity(35.0, QuantityUnit.GRAMS)
+        val servings = Quantity(2.0, QuantityUnit.SERVINGS)
+        val diary = FakeDiary(
+            listOf(
+                entry(1, MealType.BREAKFAST, quantity = grams),
+                entry(2, MealType.BREAKFAST, quantity = servings, servingSizeG = 30.0, barcode = null),
+                entry(3, MealType.LUNCH),
+            ),
+        )
+        val templates = FakeTemplates()
+        val p = presenter(diary, templates)
+        p.load()
+
+        assertNull(p.save(MealType.BREAKFAST, "  Mi desayuno "))
+
+        val t = templates.rows.single()
+        assertEquals("Mi desayuno", t.name)
+        assertEquals(listOf("Alimento 1", "Alimento 2"), t.items.map { it.name })
+        assertEquals(listOf(grams, servings), t.items.map { it.quantity })
+        assertEquals(30.0, t.items[1].servingSizeG)
+        assertNull(t.items[1].barcode)
+        assertEquals(oats, t.items[0].nutrients)
+        assertEquals(777L, t.createdAtMillis)
+        assertEquals("Plantilla «Mi desayuno» guardada", p.state.value.message)
+        assertEquals(3, diary.rows.size) // el diario no cambia
+    }
+
+    @Test
+    fun refusesRepeatedBlankAndEmptyMealWithoutWritingAnything() = runTest {
+        val templates = FakeTemplates()
+        val p = presenter(FakeDiary(listOf(entry(1, MealType.BREAKFAST))), templates)
+        p.load()
+        assertNull(p.save(MealType.BREAKFAST, "Desayuno"))
+        assertEquals(TemplateRules.NAME_TAKEN, p.save(MealType.BREAKFAST, " desayuno "))
+        assertEquals("Escribe un nombre", p.save(MealType.BREAKFAST, "   "))
+        assertEquals(DiaryPresenter.TEMPLATE_EMPTY, p.save(MealType.LUNCH, "Comida"))
+        assertEquals(1, templates.rows.size)
+    }
+
+    @Test
+    fun reportsAFailureOrMissingStoreAsAnError() = runTest {
+        val templates = FakeTemplates()
+        val p = presenter(FakeDiary(listOf(entry(1, MealType.BREAKFAST))), templates)
+        p.load()
+        templates.failing = true
+        assertEquals(DiaryPresenter.TEMPLATE_ERROR, p.save(MealType.BREAKFAST, "Desayuno"))
+        assertEquals(DiaryPresenter.TEMPLATE_ERROR, presenter(FakeDiary(), null).save(MealType.BREAKFAST, "X"))
     }
 }

@@ -24,6 +24,7 @@ import app.luxion.fitarchiveapp.data.DiaryStore
 import app.luxion.fitarchiveapp.data.GoalStore
 import app.luxion.fitarchiveapp.data.ProductRepository
 import app.luxion.fitarchiveapp.data.ProductSearchStore
+import app.luxion.fitarchiveapp.data.MealTemplateStore
 import app.luxion.fitarchiveapp.data.RecipeStore
 import app.luxion.fitarchiveapp.data.SettingsStore
 import app.luxion.fitarchiveapp.data.WaterStore
@@ -49,6 +50,7 @@ import app.luxion.fitarchiveapp.ui.screens.RecipeDetailScreen
 import app.luxion.fitarchiveapp.ui.screens.RecipeEditScreen
 import app.luxion.fitarchiveapp.ui.screens.RecipesScreen
 import app.luxion.fitarchiveapp.ui.screens.ScannerScreen
+import app.luxion.fitarchiveapp.ui.screens.TemplateEditScreen
 import app.luxion.fitarchiveapp.ui.screens.WeightScreen
 import app.luxion.fitarchiveapp.ui.theme.EasyFoodTheme
 import kotlinx.coroutines.CancellationException
@@ -73,6 +75,7 @@ fun App(
     settingsStore: SettingsStore,
     favoriteStore: FavoriteStore,
     waterStore: WaterStore? = null,
+    templateStore: MealTemplateStore? = null,
     importTarget: ImportTarget,
     today: () -> String,
     nowMinutes: () -> Int,
@@ -101,7 +104,7 @@ fun App(
                         } else if (meals.needsSetup) {
                             MealsSetupScreen(onConfirm = meals::choose, error = meals.error, saving = meals.saving)
                         } else when (val route = navigator.current) {
-                            Route.Diary -> DiaryScreen(navigator, diaryStore, goalStore, weightStore, today(), meals.count, waterStore)
+                            Route.Diary -> DiaryScreen(navigator, diaryStore, goalStore, weightStore, today(), meals.count, waterStore, templateStore)
                             is Route.Add -> AddFoodScreen(
                                 navigator,
                                 route,
@@ -109,6 +112,9 @@ fun App(
                                 customFoods = customFoodStore,
                                 diaryStore = diaryStore,
                                 favoriteStore = favoriteStore,
+                                templateStore = templateStore,
+                                today = today,
+                                mealChoices = mealChoices,
                             )
                             is Route.Scanner -> ScannerScreen(navigator, route, repository)
                             is Route.CustomFood -> CustomFoodScreen(navigator, route, customFoodStore, route.foodId)
@@ -118,6 +124,9 @@ fun App(
                             Route.Recipes -> RecipesScreen(navigator, recipeStore)
                             is Route.RecipeDetail -> RecipeDetailScreen(navigator, route, recipeStore, diaryStore, today, mealChoices)
                             is Route.RecipeEdit -> RecipeEditScreen(navigator, route, recipeStore, searchStore, customFoodStore)
+                            is Route.TemplateEdit -> if (templateStore != null) {
+                                TemplateEditScreen(navigator, route, templateStore, searchStore, customFoodStore)
+                            }
                             Route.Data -> DataScreen(navigator, dataPresenter, today)
                         }
                     }

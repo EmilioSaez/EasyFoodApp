@@ -84,6 +84,23 @@ object RepresentativeUserData {
         "WaterEntity" to mapOf("date" to "2026-11-01", "ml" to 1750, "updated_at" to 20),
         "WaterEntity" to mapOf("date" to "2026-11-02", "ml" to 20000, "updated_at" to 21),
         "WaterGoalEntity" to mapOf("id" to 1, "goal_ml" to 2500, "updated_at" to 22),
+        // Plantillas de comida (11.sqm): gramos y porciones, alimento con EAN, genérico y propio sin barcode.
+        "MealTemplateEntity" to mapOf("id" to 2, "name" to "Mi desayuno de siempre", "created_at" to 30, "updated_at" to 31),
+        "MealTemplateEntity" to mapOf("id" to 7, "name" to "Cena ñoña 🍽 (d'Ana)", "created_at" to 32, "updated_at" to 32),
+        "MealTemplateItemEntity" to mapOf(
+            "id" to 4, "template_id" to 2, "position" to 0, "barcode" to "8410000000017", "name" to "Leche entera",
+            "quantity" to 200.0, "unit" to "GRAMS", "serving_size_g" to 250.0, "kcal_100g" to 64.0,
+            "protein_100g" to 3.1, "carbs_100g" to 4.7, "fat_100g" to 3.6,
+        ),
+        "MealTemplateItemEntity" to mapOf(
+            "id" to 5, "template_id" to 2, "position" to 1, "barcode" to "generic:1", "name" to "Apples, raw, with skin",
+            "quantity" to 1.5, "unit" to "SERVINGS", "serving_size_g" to 182.0, "kcal_100g" to 52.0,
+            "protein_100g" to 0.26, "carbs_100g" to 13.8, "fat_100g" to 0.17,
+        ),
+        "MealTemplateItemEntity" to mapOf(
+            "id" to 9, "template_id" to 7, "position" to 0, "barcode" to null, "name" to "Algo sin nutrientes",
+            "quantity" to 80.0, "unit" to "GRAMS",
+        ),
     )
 
     private fun diary(

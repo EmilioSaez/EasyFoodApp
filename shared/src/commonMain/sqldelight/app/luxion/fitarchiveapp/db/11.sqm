@@ -1,0 +1,24 @@
+-- Migración v11 -> v12: plantillas de comida (ver MealTemplate.sq). Idempotente; no toca ninguna tabla existente.
+CREATE TABLE IF NOT EXISTS MealTemplateEntity (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS MealTemplateItemEntity (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    template_id INTEGER NOT NULL REFERENCES MealTemplateEntity(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL,
+    barcode TEXT,
+    name TEXT NOT NULL,
+    quantity REAL NOT NULL CHECK (quantity > 0),
+    unit TEXT NOT NULL CHECK (unit IN ('GRAMS', 'SERVINGS')),
+    serving_size_g REAL,
+    kcal_100g REAL,
+    protein_100g REAL,
+    carbs_100g REAL,
+    fat_100g REAL
+);
+
+CREATE INDEX IF NOT EXISTS meal_template_item_template_idx ON MealTemplateItemEntity(template_id, position);
