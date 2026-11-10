@@ -1,0 +1,17 @@
+-- Migración v13 -> v14: ejercicio por día y su ajuste (ver Exercise.sq). Idempotente; no toca datos existentes.
+CREATE TABLE IF NOT EXISTS ExerciseEntity (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL CHECK (length(date) = 10),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    kcal INTEGER NOT NULL CHECK (kcal > 0 AND kcal <= 10000),
+    minutes INTEGER CHECK (minutes IS NULL OR (minutes > 0 AND minutes <= 1440)),
+    created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS ExerciseEntity_date ON ExerciseEntity(date);
+
+CREATE TABLE IF NOT EXISTS ExerciseSettingsEntity (
+    id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+    percent INTEGER NOT NULL CHECK (percent >= 0 AND percent <= 100),
+    updated_at INTEGER NOT NULL
+);

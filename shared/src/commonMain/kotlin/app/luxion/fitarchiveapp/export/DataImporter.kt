@@ -10,8 +10,10 @@ import app.luxion.fitarchiveapp.db.MealTemplateQueries
 import app.luxion.fitarchiveapp.db.RecipeQueries
 import app.luxion.fitarchiveapp.db.SettingsQueries
 import app.luxion.fitarchiveapp.domain.MealPlan
+import app.luxion.fitarchiveapp.db.ExerciseQueries
 import app.luxion.fitarchiveapp.db.WaterQueries
 import app.luxion.fitarchiveapp.db.WeightEntryQueries
+import app.luxion.fitarchiveapp.model.ExerciseRules
 import app.luxion.fitarchiveapp.model.WaterRules
 import app.luxion.fitarchiveapp.model.NewWeightEntry
 import app.luxion.fitarchiveapp.model.RecipeIngredient
@@ -137,6 +139,8 @@ class DataImporter(private val target: ImportTarget) {
         val waterGoal = planWaterGoal(file.waterGoal, target.waterGoal(), invalid)
         val favorites = planFavorites(file.favorites, target.favorites(), foods.finalKeys, foods.renamed, invalid)
         val templates = planTemplates(file.mealTemplates, target.mealTemplates(), invalid)
+        val exercises = planExercises(file.exercises, target.exercises(), invalid)
+        val exercisePercent = planExercisePercent(file.exercisePercent, target.exercisePercent(), invalid)
         return ImportPlan(
             changes = ImportChanges(
                 products = products.writes,
@@ -153,10 +157,13 @@ class DataImporter(private val target: ImportTarget) {
                 favoritesToAdd = favorites.adds,
                 templatesToAdd = templates.adds,
                 templatesToUpdate = templates.updates,
+                exercisesToAdd = exercises.adds,
+                exercisePercent = exercisePercent.write,
             ),
             report = ImportReport(
                 products.counts, foods.counts, diary.counts, invalid, weights.counts + goal.counts, recipes.counts,
                 water.counts + waterGoal.counts, favorites.counts, templates.counts,
+                exercise = exercises.counts + exercisePercent.counts,
             ),
         )
     }
@@ -464,6 +471,70 @@ class DataImporter(private val target: ImportTarget) {
         }
     }
 
+    // --- Ejercicio ---
+
+    private class ExercisePlan(val adds: List<ExportedExercise>, val counts: ImportCounts)
+
+    /**
+     * Una actividad no tiene id estable entre dispositivos: se reconoce por fecha, nombre (sin mayúsculas), kcal y
+     * duración. Las idénticas se ignoran; el resto se añade. Dos idénticas en el archivo se añaden las dos si en
+     * local no había ninguna (son dos sesiones iguales el mismo día), pero no se duplican al reimportar.
+     */
+    private fun planExercises(
+        incoming: List<ExportedExercise>,
+        local: List<ExportedExercise>,
+        invalid: MutableList<String>,
+    ): ExercisePlan {
+        fun key(e: ExportedExercise) = listOf(e.date, e.name.trim().lowercase(), e.kcal, e.minutes)
+        // Cuántas hay ya de cada una: al reimportar el mismo archivo, las que ya existen no se vuelven a añadir.
+        val remaining = local.groupingBy(::key).eachCount().toMutableMap()
+        val adds = mutableListOf<ExportedExercise>()
+        var c = ImportCounts()
+        for (e in incoming) {
+            val problem = when {
+                !DATE.matches(e.date) -> "fecha no válida"
+                e.name.isBlank() || e.name.trim().length > ExerciseRules.MAX_NAME_LENGTH -> "nombre no válido"
+                !ExerciseRules.isValidKcal(e.kcal) -> "kcal fuera de rango"
+                !ExerciseRules.isValidMinutes(e.minutes) -> "duración fuera de rango"
+                else -> null
+            }
+            if (problem != null) {
+                invalid += "Ejercicio «${e.name}» del ${e.date}: $problem"
+                c = c.copy(invalid = c.invalid + 1); continue
+            }
+            val k = key(e)
+            val left = remaining[k] ?: 0
+            if (left > 0) {
+                remaining[k] = left - 1
+                c = c.copy(unchanged = c.unchanged + 1)
+            } else {
+                adds += e.copy(name = e.name.trim())
+                c = c.copy(added = c.added + 1)
+            }
+        }
+        return ExercisePlan(adds, c)
+    }
+
+    private class ExercisePercentPlan(val write: ExportedExercisePercent?, val counts: ImportCounts)
+
+    private fun planExercisePercent(
+        incoming: ExportedExercisePercent?,
+        local: ExportedExercisePercent?,
+        invalid: MutableList<String>,
+    ): ExercisePercentPlan {
+        if (incoming == null) return ExercisePercentPlan(null, ImportCounts())
+        if (!ExerciseRules.isValidPercent(incoming.percent)) {
+            invalid += "Porcentaje de ejercicio (${incoming.percent} %): fuera de rango"
+            return ExercisePercentPlan(null, ImportCounts(invalid = 1))
+        }
+        return when {
+            local == null -> ExercisePercentPlan(incoming, ImportCounts(added = 1))
+            local.percent == incoming.percent -> ExercisePercentPlan(null, ImportCounts(unchanged = 1))
+            incoming.updatedAtMillis > local.updatedAtMillis -> ExercisePercentPlan(incoming, ImportCounts(updated = 1))
+            else -> ExercisePercentPlan(null, ImportCounts(keptLocal = 1))
+        }
+    }
+
     // --- Favoritos ---
 
     private class FavoritePlan(val adds: List<ExportedFavorite>, val counts: ImportCounts)
@@ -587,12 +658,17 @@ data class ImportChanges(
     /** Plantillas de comida nuevas; el id lo asigna el almacén. */
     val templatesToAdd: List<ExportedMealTemplate> = emptyList(),
     val templatesToUpdate: List<TemplateUpdate> = emptyList(),
+    /** Actividades de ejercicio nuevas; el id lo asigna el almacén. */
+    val exercisesToAdd: List<ExportedExercise> = emptyList(),
+    /** Porcentaje de ejercicio a fijar, o `null` si no cambia. */
+    val exercisePercent: ExportedExercisePercent? = null,
 ) {
     val isEmpty: Boolean
         get() = products.isEmpty() && customFoodsToAdd.isEmpty() && customFoodsToUpdate.isEmpty() &&
             diaryEntriesToAdd.isEmpty() && weights.isEmpty() && recipesToAdd.isEmpty() && recipesToUpdate.isEmpty() &&
             weightGoal == null && mealsPerDay == null && water.isEmpty() && waterGoal == null && favoritesToAdd.isEmpty() &&
-            templatesToAdd.isEmpty() && templatesToUpdate.isEmpty()
+            templatesToAdd.isEmpty() && templatesToUpdate.isEmpty() &&
+            exercisesToAdd.isEmpty() && exercisePercent == null
 }
 
 /** Sustituye los datos de la receta local [localId] por los de [recipe] (se conservan su id y `createdAtMillis`). */
@@ -663,6 +739,8 @@ data class ImportReport(
     val water: ImportCounts = ImportCounts(),
     val favorites: ImportCounts = ImportCounts(),
     val mealTemplates: ImportCounts = ImportCounts(),
+    /** Actividades de ejercicio y su porcentaje. */
+    val exercise: ImportCounts = ImportCounts(),
 )
 
 /** Almacenes locales sobre los que se importa: lectura (como la exportación) y escritura atómica. */
@@ -683,9 +761,10 @@ class SqlDelightImportTarget(
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val waterQueries: WaterQueries? = null,
     private val templateQueries: MealTemplateQueries? = null,
+    private val exerciseQueries: ExerciseQueries? = null,
 ) : ImportTarget, ExportSource by SqlDelightExportSource(
     productQueries, diaryQueries, customFoodQueries, weightQueries, recipeQueries, settingsQueries, favoriteQueries,
-    dispatcher, waterQueries, templateQueries,
+    dispatcher, waterQueries, templateQueries, exerciseQueries,
 ) {
 
     override suspend fun apply(changes: ImportChanges): Unit = withContext(dispatcher) {
@@ -748,6 +827,12 @@ class SqlDelightImportTarget(
             if (waterQueries != null) {
                 changes.water.forEach { waterQueries.upsert(it.date, it.ml.toLong(), it.updatedAtMillis) }
                 changes.waterGoal?.let { waterQueries.upsertGoal(it.goalMl.toLong(), it.updatedAtMillis) }
+            }
+            if (exerciseQueries != null) {
+                changes.exercisesToAdd.forEach {
+                    exerciseQueries.insert(it.date, it.name, it.kcal.toLong(), it.minutes?.toLong(), it.createdAtMillis)
+                }
+                changes.exercisePercent?.let { exerciseQueries.upsertPercent(it.percent.toLong(), it.updatedAtMillis) }
             }
             if (changes.favoritesToAdd.isNotEmpty()) {
                 // Después de los alimentos propios, para enlazar también los que acaban de entrar.

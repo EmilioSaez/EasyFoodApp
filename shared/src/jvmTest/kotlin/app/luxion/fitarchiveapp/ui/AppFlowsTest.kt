@@ -36,6 +36,7 @@ import app.luxion.fitarchiveapp.data.SqlDelightProductSearchStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductStore
 import app.luxion.fitarchiveapp.data.SqlDelightRecipeStore
 import app.luxion.fitarchiveapp.data.SqlDelightSettingsStore
+import app.luxion.fitarchiveapp.data.SqlDelightExerciseStore
 import app.luxion.fitarchiveapp.data.SqlDelightWaterStore
 import app.luxion.fitarchiveapp.data.SqlDelightWeightStore
 import app.luxion.fitarchiveapp.db.EasyFoodDatabase
@@ -100,6 +101,7 @@ class AppFlowsTest {
                 recipeStore = SqlDelightRecipeStore(db.recipeQueries),
                 settingsStore = SqlDelightSettingsStore(db.settingsQueries),
                 waterStore = SqlDelightWaterStore(db.waterQueries),
+                exerciseStore = SqlDelightExerciseStore(db.exerciseQueries),
                 favoriteStore = SqlDelightFavoriteStore(db.favoriteFoodQueries),
                 templateStore = SqlDelightMealTemplateStore(db.mealTemplateQueries),
                 importTarget = SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries, db.recipeQueries, db.settingsQueries, db.favoriteFoodQueries),
@@ -185,6 +187,47 @@ class AppFlowsTest {
         waitForText("0,25 de 2 L")
         waitGone("Deshacer (−1000 ml)")
         kotlin.test.assertEquals(250, kotlinx.coroutines.runBlocking { water.total("2026-11-04") })
+    }
+
+    @Test
+    fun exerciseIsAddedRaisesTheGoalAndIsRemoved() = runApp(
+        recentWeight = true,
+        seed = { db -> kotlinx.coroutines.runBlocking { SqlDelightGoalStore(db.dailyGoalQueries).save(DailyGoals(kcal = 2000)) } },
+    ) { db ->
+        val exercise = SqlDelightExerciseStore(db.exerciseQueries)
+        waitForText("Suma el 50 % de lo que gastes al objetivo del día.")
+        onNodeWithContentDescription("Añadir ejercicio").performScrollTo().performClick()
+        waitForText("Kcal gastadas")
+        onNodeWithText("Actividad").performTextInput("Correr")
+        onNodeWithText("Kcal gastadas").performTextInput("400")
+        onNodeWithText("Duración (opcional)").performTextInput("40")
+        onNodeWithText("Guardar").performClick()
+        waitForText("+200 kcal al objetivo (50 % de 400)")
+        waitForText("40 min")
+        val saved = kotlinx.coroutines.runBlocking { exercise.entriesForDate("2026-11-04") }
+        kotlin.test.assertEquals(listOf("Correr"), saved.map { it.name })
+        kotlin.test.assertEquals(40, saved.single().minutes)
+
+        onNodeWithContentDescription("Quitar Correr").performScrollTo().performClick()
+        waitForText("Suma el 50 % de lo que gastes al objetivo del día.")
+        kotlin.test.assertEquals(emptyList(), kotlinx.coroutines.runBlocking { exercise.entriesForDate("2026-11-04") })
+    }
+
+    @Test
+    fun exercisePercentIsEditedInGoalsAndUsedByTheDiary() = runApp(recentWeight = true) { db ->
+        waitForText("Suma el 50 % de lo que gastes al objetivo del día.")
+        onNodeWithText("Objetivos").performClick()
+        waitForText("Sumar todo (100 %)")
+        onNodeWithText("Sumar todo (100 %)").performScrollTo().performClick()
+        waitUntil(timeoutMillis = 20_000) {
+            kotlinx.coroutines.runBlocking { SqlDelightExerciseStore(db.exerciseQueries).percent() } == 100
+        }
+        onNodeWithText("No sumar (desactivado)").performScrollTo().performClick()
+        waitUntil(timeoutMillis = 20_000) {
+            kotlinx.coroutines.runBlocking { SqlDelightExerciseStore(db.exerciseQueries).percent() } == 0
+        }
+        onNodeWithText("Diario").performClick()
+        waitForText("Desactivado en Objetivos: no suma al objetivo.")
     }
 
     @Test

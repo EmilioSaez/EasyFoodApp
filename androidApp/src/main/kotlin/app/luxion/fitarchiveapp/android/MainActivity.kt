@@ -20,6 +20,7 @@ import app.luxion.fitarchiveapp.data.SqlDelightProductSearchStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductStore
 import app.luxion.fitarchiveapp.data.SqlDelightRecipeStore
 import app.luxion.fitarchiveapp.data.SqlDelightSettingsStore
+import app.luxion.fitarchiveapp.data.SqlDelightExerciseStore
 import app.luxion.fitarchiveapp.data.SqlDelightWaterStore
 import app.luxion.fitarchiveapp.data.SqlDelightWeightStore
 import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
@@ -46,10 +47,11 @@ class MainActivity : ComponentActivity() {
     private val favoriteStore by lazy { SqlDelightFavoriteStore(database.favoriteFoodQueries) }
     private val templateStore by lazy { SqlDelightMealTemplateStore(database.mealTemplateQueries) }
     private val waterStore by lazy { SqlDelightWaterStore(database.waterQueries) }
+    private val exerciseStore by lazy { SqlDelightExerciseStore(database.exerciseQueries) }
     private val searchStore by lazy { SqlDelightProductSearchStore(database.productSearchQueries) }
     private val customFoodStore by lazy { SqlDelightCustomFoodStore(database.customFoodQueries) }
     private val importTarget by lazy {
-        SqlDelightImportTarget(database.productQueries, database.diaryEntryQueries, database.customFoodQueries, database.weightEntryQueries, database.recipeQueries, database.settingsQueries, database.favoriteFoodQueries, waterQueries = database.waterQueries, templateQueries = database.mealTemplateQueries)
+        SqlDelightImportTarget(database.productQueries, database.diaryEntryQueries, database.customFoodQueries, database.weightEntryQueries, database.recipeQueries, database.settingsQueries, database.favoriteFoodQueries, waterQueries = database.waterQueries, templateQueries = database.mealTemplateQueries, exerciseQueries = database.exerciseQueries)
     }
     private val aiModule by lazy {
         AiModule.create(AndroidKeystoreKeyVault(applicationContext), AndroidAiPreferences(applicationContext), today = { LocalDate.now().toString() })
@@ -73,6 +75,7 @@ class MainActivity : ComponentActivity() {
                     settingsStore = settingsStore,
                     waterStore = waterStore,
                     templateStore = templateStore,
+                    exerciseStore = exerciseStore,
                     favoriteStore = favoriteStore,
                     importTarget = importTarget,
                     today = { LocalDate.now().toString() },

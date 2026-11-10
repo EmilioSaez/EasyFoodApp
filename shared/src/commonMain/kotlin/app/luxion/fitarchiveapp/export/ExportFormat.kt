@@ -38,6 +38,10 @@ data class ExportFile(
     val favorites: List<ExportedFavorite> = emptyList(),
     /** Plantillas de comida. Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como vacío. */
     val mealTemplates: List<ExportedMealTemplate> = emptyList(),
+    /** Ejercicio registrado. Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como vacío. */
+    val exercises: List<ExportedExercise> = emptyList(),
+    /** Porcentaje del ejercicio que se suma al objetivo (0 a 100). Añadido sin subir la versión; ausente = `null`. */
+    val exercisePercent: ExportedExercisePercent? = null,
 )
 
 @Serializable
@@ -59,6 +63,23 @@ data class ExportedTemplateItem(
     val unit: QuantityUnit,
     val servingSizeG: Double? = null,
     val nutrients: ExportedNutrients = ExportedNutrients(),
+)
+
+/** Una actividad de ejercicio. Sin id propio: se reconoce por fecha, nombre, kcal y duración. */
+@Serializable
+data class ExportedExercise(
+    /** Fecha ISO-8601 (`YYYY-MM-DD`). */
+    val date: String,
+    val name: String,
+    val kcal: Int,
+    val minutes: Int? = null,
+    val createdAtMillis: Long = 0,
+)
+
+@Serializable
+data class ExportedExercisePercent(
+    val percent: Int,
+    val updatedAtMillis: Long = 0,
 )
 
 /**
