@@ -1129,4 +1129,22 @@ class AppFlowsTest {
         onNodeWithText("Borrar").performClick()
         waitForText("Nada apuntado hoy")
     }
+
+    /** Espera a que el texto exista sin desplazar listas (el resumen se compone entero arriba del todo). */
+    private fun ComposeUiTest.waitForTextInPlace(text: String) = waitUntil(timeoutMillis = 20_000) {
+        onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty()
+    }
+
+    @Test
+    fun summaryIsOpenedFromTheDiaryAndShowsTheEmptyStateWithoutEntries() = runApp(recentWeight = true) { _ ->
+        waitForText("Nada apuntado hoy")
+        onNodeWithContentDescription("Resumen semanal y mensual").performClick()
+        waitForTextInPlace("Aún no hay registros")
+        onNodeWithText("2–8 nov 2026").assertIsDisplayed()
+
+        onNodeWithText("Mes").performClick()
+        waitForTextInPlace("Noviembre de 2026")
+        onNodeWithContentDescription("Volver").performClick()
+        waitForText("Nada apuntado hoy")
+    }
 }

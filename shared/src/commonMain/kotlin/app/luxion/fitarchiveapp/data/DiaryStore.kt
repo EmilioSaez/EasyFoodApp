@@ -13,6 +13,8 @@ interface DiaryStore {
     suspend fun entriesForDate(date: String): List<DiaryEntry>
     /** Kcal por día de los días con entradas entre [from] y [to] (ambos incluidos), en orden de fecha. */
     suspend fun daySummaries(from: String, to: String): List<DaySummary> = emptyList()
+    /** Entradas de los días entre [from] y [to] (ambos incluidos), en orden de fecha. */
+    suspend fun entriesBetween(from: String, to: String): List<DiaryEntry> = emptyList()
     suspend fun find(id: Long): DiaryEntry?
     /** Última entrada de cada alimento distinto (hasta [limit]), de la más reciente a la más antigua. */
     suspend fun recentFoods(limit: Int): List<DiaryEntry> = emptyList()

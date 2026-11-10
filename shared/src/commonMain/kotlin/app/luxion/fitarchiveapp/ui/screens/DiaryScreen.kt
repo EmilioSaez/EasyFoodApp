@@ -139,6 +139,7 @@ fun DiaryScreen(
                 onPrevious = { presenter.shiftDay(-1) },
                 onNext = { presenter.shiftDay(1) },
                 onPickDate = { pickingDate = true },
+                onSummary = { navigator.push(Route.Summary) },
                 onData = { navigator.push(Route.Data) },
                 modifier = Modifier.padding(horizontal = Spacing.s),
             )

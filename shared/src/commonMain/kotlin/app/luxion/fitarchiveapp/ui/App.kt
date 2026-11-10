@@ -62,6 +62,7 @@ import app.luxion.fitarchiveapp.ui.screens.RemindersScreen
 import app.luxion.fitarchiveapp.ui.screens.RecipesScreen
 import app.luxion.fitarchiveapp.ui.screens.ScannerScreen
 import app.luxion.fitarchiveapp.ui.screens.TemplateEditScreen
+import app.luxion.fitarchiveapp.ui.screens.SummaryScreen
 import app.luxion.fitarchiveapp.ui.screens.WeightScreen
 import app.luxion.fitarchiveapp.ui.theme.EasyFoodTheme
 import kotlinx.coroutines.CancellationException
@@ -181,6 +182,7 @@ fun App(
                                 TemplateEditScreen(navigator, route, templateStore, searchStore, customFoodStore)
                             }
                             Route.Reminders -> RemindersScreen(navigator, settingsStore, reminderScheduler, meals.count) { remindersRevision++ }
+                            Route.Summary -> SummaryScreen(navigator, diaryStore, goalStore, weightStore, today)
                             Route.Data -> DataScreen(navigator, dataPresenter, today)
                             Route.Ai -> AiScreen(navigator, aiModule)
                             Route.AiSettings -> AiSettingsScreen(navigator, aiModule, today)

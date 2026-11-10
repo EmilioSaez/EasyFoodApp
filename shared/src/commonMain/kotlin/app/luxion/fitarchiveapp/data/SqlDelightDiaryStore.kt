@@ -26,6 +26,10 @@ class SqlDelightDiaryStore(
         queries.selectDailyKcal(from, to).executeAsList().map { DaySummary(it.date, it.kcal ?: 0.0) }
     }
 
+    override suspend fun entriesBetween(from: String, to: String): List<DiaryEntry> = withContext(dispatcher) {
+        queries.selectBetween(from, to).executeAsList().map { it.toDomain() }
+    }
+
     override suspend fun find(id: Long): DiaryEntry? = withContext(dispatcher) {
         queries.selectById(id).executeAsOneOrNull()?.toDomain()
     }

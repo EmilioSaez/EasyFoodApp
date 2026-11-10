@@ -59,7 +59,7 @@ private const val MILLIS_PER_DAY = 86_400_000L
 
 /**
  * Fila anclada del Diario (docs/design.md §2.12): «Hoy ▾» (abre el selector de fecha), día anterior/siguiente,
- * racha (llama y nº de días) y acceso a Datos.
+ * racha (llama y nº de días), acceso al Resumen y a Datos.
  */
 @Composable
 fun DiaryTopRow(
@@ -67,6 +67,7 @@ fun DiaryTopRow(
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onPickDate: () -> Unit,
+    onSummary: () -> Unit,
     onData: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -94,6 +95,9 @@ fun DiaryTopRow(
             Text("›", style = MaterialTheme.typography.titleLarge)
         }
         Streak(state.streak)
+        IconButton(onClick = onSummary, modifier = Modifier.semantics { contentDescription = "Resumen semanal y mensual" }) {
+            Text("▥", style = MaterialTheme.typography.titleLarge)
+        }
         IconButton(onClick = onData, modifier = Modifier.semantics { contentDescription = "Datos: exportar e importar" }) {
             Text("⇅", style = MaterialTheme.typography.titleLarge)
         }
