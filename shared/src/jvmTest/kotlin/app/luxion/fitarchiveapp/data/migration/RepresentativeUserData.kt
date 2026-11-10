@@ -103,6 +103,15 @@ object RepresentativeUserData {
         "ExerciseEntity" to mapOf("id" to 6, "date" to "2026-11-01", "name" to "Pesas", "kcal" to 150, "minutes" to null, "created_at" to 41),
         "ExerciseEntity" to mapOf("id" to 10, "date" to "2026-11-02", "name" to "Bici", "kcal" to 10000, "minutes" to 1440, "created_at" to 42),
         "ExerciseSettingsEntity" to mapOf("id" to 1, "percent" to 75, "updated_at" to 43),
+        // Seguimiento del refresco de productos de OFF (14.sqm): con cambio relevante y solo consultado.
+        "ProductRefreshEntity" to mapOf(
+            "barcode" to "8410000000017", "refreshed_at" to 1_700_000_500_000, "checked_at" to 1_700_000_500_000,
+            "changed_at" to 1_700_000_500_000, "change_summary" to "Energía 60 → 64 kcal · Grasas 3 → 3,6 g",
+        ),
+        "ProductRefreshEntity" to mapOf(
+            "barcode" to "5000000000002", "refreshed_at" to null, "checked_at" to 1_700_000_600_000,
+            "changed_at" to null, "change_summary" to null,
+        ),
         // Plantillas de comida (11.sqm): gramos y porciones, alimento con EAN, genérico y propio sin barcode.
         "MealTemplateEntity" to mapOf("id" to 2, "name" to "Mi desayuno de siempre", "created_at" to 30, "updated_at" to 31),
         "MealTemplateEntity" to mapOf("id" to 7, "name" to "Cena ñoña 🍽 (d'Ana)", "created_at" to 32, "updated_at" to 32),

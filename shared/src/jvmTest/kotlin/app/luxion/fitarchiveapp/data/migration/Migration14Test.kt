@@ -1,88 +1,80 @@
 package app.luxion.fitarchiveapp.data.migration
 
-import app.cash.sqldelight.db.QueryResult
-import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import app.luxion.fitarchiveapp.data.ProductRefreshInfo
+import app.luxion.fitarchiveapp.data.SqlDelightProductStore
+import app.luxion.fitarchiveapp.data.migration.MigrationTestKit.use
 import app.luxion.fitarchiveapp.db.EasyFoodDatabase
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
- * Migración 14.sqm (v14 -> v15): tabla `ProductRefreshEntity` de seguimiento del refresco de productos de OFF.
- * TODO: pasar a `MigrationTestKit` cuando entre la convención de tests de migración (PR de migraciones-tests).
+ * 14.sqm crea `ProductRefreshEntity` (seguimiento del refresco de productos de Open Food Facts) y su trigger de
+ * limpieza, y rellena `refreshed_at` con `cached_at` de las filas de OFF existentes. No toca ninguna fila existente
+ * y es idempotente.
  */
 class Migration14Test {
-    private fun JdbcSqliteDriver.rows(sql: String, columns: Int = 1): List<List<String?>> = executeQuery(
-        null, sql,
-        { c ->
-            val out = mutableListOf<List<String?>>()
-            while (c.next().value) out += (0 until columns).map { c.getString(it) }
-            QueryResult.Value(out)
-        }, 0,
-    ).value
+    @Test
+    fun v14HasNoRefreshTableAndMigrationKeepsEveryExistingRow() = MigrationTestKit.legacyDatabase(14).use { d ->
+        assertFalse(MigrationTestKit.hasTable(d, "ProductRefreshEntity"))
+        RepresentativeUserData.seed(d, 14)
+        val before = MigrationTestKit.snapshot(d)
+        assertTrue(before.getValue("ProductEntity").isNotEmpty())
 
-    /** BD en el estado anterior a 14.sqm: esquema actual sin la tabla de seguimiento ni su trigger. */
-    private fun legacy(): JdbcSqliteDriver {
-        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
-        EasyFoodDatabase.Schema.create(driver)
-        driver.execute(null, "DROP TRIGGER product_refresh_delete", 0)
-        driver.execute(null, "DROP TABLE ProductRefreshEntity", 0)
-        return driver
+        MigrationTestKit.migrateToLatest(d, from = 14)
+
+        MigrationTestKit.assertPreserved(before, MigrationTestKit.snapshot(d))
+        MigrationTestKit.assertSameSchemaAsFresh(d)
     }
 
     @Test
-    fun keepsEveryExistingRowAndBackfillsOnlyOffProducts() {
-        val driver = legacy()
-        driver.execute(
-            null,
-            "INSERT INTO ProductEntity(barcode, name, brand, kcal, source, cached_at) VALUES " +
-                "('1', 'Pan', 'Marca', 250, 'OPEN_FOOD_FACTS', 777), ('generic:2', 'Manzana', NULL, 52, 'GENERIC', 5)",
-            0,
-        )
-        driver.execute(
-            null,
-            "INSERT INTO DiaryEntryEntity(date, meal, barcode, name, quantity, unit, kcal_100g, created_at) " +
-                "VALUES ('2026-11-01', 'LUNCH', '1', 'Pan', 100, 'GRAMS', 250, 1)",
-            0,
-        )
-        driver.execute(null, "INSERT INTO FavoriteFoodEntity(key, created_at) VALUES ('1', 1)", 0)
-        val before = driver.rows("SELECT barcode, name, brand, kcal, cached_at FROM ProductEntity ORDER BY barcode", 5)
+    fun backfillsOnlyProductsFromOpenFoodFactsWithTheirDownloadDate() = runTest {
+        MigrationTestKit.legacyDatabase(14).use { d ->
+            RepresentativeUserData.seed(d, 14)
+            MigrationTestKit.migrateToLatest(d, from = 14)
 
-        EasyFoodDatabase.Schema.migrate(driver, 11, EasyFoodDatabase.Schema.version)
-
-        assertEquals(before, driver.rows("SELECT barcode, name, brand, kcal, cached_at FROM ProductEntity ORDER BY barcode", 5))
-        assertEquals(listOf("250.0"), driver.rows("SELECT kcal_100g FROM DiaryEntryEntity").map { it[0] })
-        assertEquals(listOf("1"), driver.rows("SELECT key FROM FavoriteFoodEntity").map { it[0] })
-        assertEquals(
-            listOf(listOf<String?>("1", "777", null, null, null)),
-            driver.rows("SELECT barcode, refreshed_at, checked_at, changed_at, change_summary FROM ProductRefreshEntity", 5),
-        )
-        driver.close()
+            val store = SqlDelightProductStore(EasyFoodDatabase(d).productQueries)
+            assertEquals(ProductRefreshInfo(1_700_000_200_000, null, null), store.refreshInfo("8410000000017"))
+            assertEquals(ProductRefreshInfo(1_700_000_400_000, null, null), store.refreshInfo("5000000000002"))
+            assertNull(store.refreshInfo("generic:1"))
+            assertEquals(2, MigrationTestKit.scalar(d, "SELECT COUNT(*) FROM ProductRefreshEntity").toInt())
+        }
     }
 
     @Test
-    fun isIdempotentAndRecreatesTheCleanupTrigger() {
-        val driver = legacy()
-        driver.execute(null, "INSERT INTO ProductEntity(barcode, name, source, cached_at) VALUES ('1', 'Pan', 'OPEN_FOOD_FACTS', 1)", 0)
+    fun anOlderDatabaseReachesTheRefreshTableToo() = MigrationTestKit.legacyDatabase(11).use { d ->
+        RepresentativeUserData.seed(d, 11)
+        val before = MigrationTestKit.snapshot(d)
 
-        EasyFoodDatabase.Schema.migrate(driver, 11, EasyFoodDatabase.Schema.version)
-        EasyFoodDatabase.Schema.migrate(driver, 11, EasyFoodDatabase.Schema.version)
+        MigrationTestKit.migrateToLatest(d, from = 11)
 
-        assertEquals(1, driver.rows("SELECT barcode FROM ProductRefreshEntity").size)
-        driver.execute(null, "DELETE FROM ProductEntity WHERE barcode = '1'", 0)
-        assertEquals(0, driver.rows("SELECT barcode FROM ProductRefreshEntity").size)
-        driver.close()
+        MigrationTestKit.assertPreserved(before, MigrationTestKit.snapshot(d))
+        MigrationTestKit.assertSameSchemaAsFresh(d)
     }
 
     @Test
-    fun migratedSchemaHasTheSameTablesAsAFreshDatabase() {
-        val fresh = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
-        EasyFoodDatabase.Schema.create(fresh)
-        val migrated = legacy()
-        EasyFoodDatabase.Schema.migrate(migrated, 11, EasyFoodDatabase.Schema.version)
+    fun reapplyingTheMigrationKeepsRefreshData() = MigrationTestKit.legacyDatabase(14).use { d ->
+        MigrationTestKit.migrateToLatest(d, from = 14)
+        RepresentativeUserData.seed(d, MigrationTestKit.latestVersion)
+        val before = MigrationTestKit.snapshot(d)
+        assertEquals(2, before.getValue("ProductRefreshEntity").size)
 
-        val sql = "SELECT name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' AND name NOT LIKE 'ProductFts_%' ORDER BY name"
-        assertEquals(fresh.rows(sql).map { it[0] }, migrated.rows(sql).map { it[0] })
-        fresh.close()
-        migrated.close()
+        MigrationTestKit.migrateToLatest(d, from = 14) // 14.sqm es idempotente
+
+        MigrationTestKit.assertPreserved(before, MigrationTestKit.snapshot(d))
+        MigrationTestKit.assertSameSchemaAsFresh(d)
+    }
+
+    @Test
+    fun theCleanupTriggerDropsTheRefreshRowWhenTheProductIsDeleted() = MigrationTestKit.legacyDatabase(14).use { d ->
+        RepresentativeUserData.seed(d, 14)
+        MigrationTestKit.migrateToLatest(d, from = 14)
+
+        d.execute(null, "DELETE FROM ProductEntity WHERE barcode = '8410000000017'", 0)
+
+        assertEquals(1, MigrationTestKit.scalar(d, "SELECT COUNT(*) FROM ProductRefreshEntity").toInt())
     }
 }
