@@ -38,6 +38,11 @@ data class DiaryEntry(
     /** Valores por 100 g; solo se usan kcal, proteínas, hidratos y grasa. */
     val nutrients: Nutrients,
     val createdAtMillis: Long,
+    /**
+     * Entrada rápida (comer fuera): sin alimento en la base. Se guarda como [QuickEntry.QUANTITY_G] g y [nutrients]
+     * son los totales de la entrada, así [totals], el progreso y la copia funcionan igual que con un alimento.
+     */
+    val quick: Boolean = false,
 ) {
     /** Cantidad en gramos, o `null` si está en porciones y se desconoce el tamaño de la porción. */
     val grams: Double?
@@ -69,4 +74,31 @@ data class NewDiaryEntry(
     val quantity: Quantity,
     val servingSizeG: Double?,
     val nutrients: Nutrients,
+    val quick: Boolean = false,
 )
+
+/** Entrada rápida de kcal y macros sin alimento (docs/design.md §2.16). */
+object QuickEntry {
+    /** Cantidad con la que se guarda: los valores «por 100 g» coinciden con los totales. */
+    const val QUANTITY_G = 100.0
+
+    /** Nombre que se guarda si el usuario no pone ninguno. */
+    const val DEFAULT_NAME = "Entrada rápida"
+
+    fun nutrients(kcal: Double?, proteinG: Double?, carbsG: Double?, fatG: Double?) =
+        Nutrients(kcal, proteinG, carbsG, fatG)
+
+    fun new(
+        date: String, meal: MealType, name: String,
+        kcal: Double?, proteinG: Double?, carbsG: Double?, fatG: Double?,
+    ) = NewDiaryEntry(
+        date = date,
+        meal = meal,
+        barcode = null,
+        name = name.trim().ifEmpty { DEFAULT_NAME },
+        quantity = Quantity(QUANTITY_G, QuantityUnit.GRAMS),
+        servingSizeG = null,
+        nutrients = nutrients(kcal, proteinG, carbsG, fatG),
+        quick = true,
+    )
+}

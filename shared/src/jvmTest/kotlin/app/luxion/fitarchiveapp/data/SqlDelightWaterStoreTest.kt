@@ -90,7 +90,9 @@ class SqlDelightWaterStoreTest {
         assertTrue(EasyFoodDatabase.Schema.version >= 9)
 
         // Idempotente: aplicarla dos veces da el mismo resultado.
+        driver.execute(null, "ALTER TABLE DiaryEntryEntity DROP COLUMN quick", 0) // la añade 12.sqm (no es idempotente)
         EasyFoodDatabase.Schema.migrate(driver, 8, EasyFoodDatabase.Schema.version)
+        driver.execute(null, "ALTER TABLE DiaryEntryEntity DROP COLUMN quick", 0)
         EasyFoodDatabase.Schema.migrate(driver, 8, EasyFoodDatabase.Schema.version)
 
         val migrated = SqlDelightWaterStore(EasyFoodDatabase(driver).waterQueries)

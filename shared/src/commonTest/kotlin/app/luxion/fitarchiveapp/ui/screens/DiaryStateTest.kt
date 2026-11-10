@@ -12,6 +12,7 @@ import app.luxion.fitarchiveapp.model.NewMealTemplate
 import app.luxion.fitarchiveapp.model.NewDiaryEntry
 import app.luxion.fitarchiveapp.model.Nutrients
 import app.luxion.fitarchiveapp.model.Quantity
+import app.luxion.fitarchiveapp.model.QuickEntry
 import app.luxion.fitarchiveapp.model.QuantityUnit
 import app.luxion.fitarchiveapp.ui.components.DataSource
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -51,7 +52,7 @@ private class FakeDiary(initial: List<DiaryEntry> = emptyList()) : DiaryStore {
         val id = nextId++
         rows += DiaryEntry(
             id, entry.date, entry.meal, entry.barcode, entry.name, entry.quantity,
-            entry.servingSizeG, entry.nutrients, createdAtMillis,
+            entry.servingSizeG, entry.nutrients, createdAtMillis, entry.quick,
         )
         return id
     }
@@ -61,6 +62,13 @@ private class FakeDiary(initial: List<DiaryEntry> = emptyList()) : DiaryStore {
         val i = rows.indexOfFirst { it.id == id }
         if (i < 0) return false
         rows[i] = rows[i].copy(meal = meal, quantity = quantity)
+        return true
+    }
+
+    override suspend fun updateQuick(id: Long, meal: MealType, name: String, totals: Nutrients): Boolean {
+        val i = rows.indexOfFirst { it.id == id && it.quick }
+        if (i < 0) return false
+        rows[i] = rows[i].copy(meal = meal, name = name, nutrients = totals)
         return true
     }
 
@@ -495,5 +503,84 @@ class DiaryPresenterTemplatesTest {
         templates.failing = true
         assertEquals(DiaryPresenter.TEMPLATE_ERROR, p.save(MealType.BREAKFAST, "Desayuno"))
         assertEquals(DiaryPresenter.TEMPLATE_ERROR, presenter(FakeDiary(), null).save(MealType.BREAKFAST, "X"))
+    }
+}
+
+/** Entradas rápidas: kcal y macros sin alimento (docs/design.md §2.16). */
+@OptIn(ExperimentalCoroutinesApi::class)
+class QuickEntryDiaryTest {
+    private val lunch = QuickEntry.new(DAY, MealType.LUNCH, "Menú del día", 850.0, 30.0, null, 40.0)
+
+    private fun TestScope.presenter(diary: FakeDiary, goals: FakeGoals = FakeGoals()) =
+        DiaryPresenter(diary, goals, backgroundScope + UnconfinedTestDispatcher(testScheduler), DAY)
+
+    @Test
+    fun aQuickEntryCountsInTheMealTotalsAndProgressAndIsNotDoubtful() = runTest {
+        val diary = FakeDiary(listOf(entry(1, MealType.LUNCH)))
+        diary.add(lunch, 5L)
+        val p = presenter(diary, FakeGoals(DailyGoals(kcal = 2000, proteinG = 100)))
+        p.load()
+        val meal = p.state.value.meals.first { it.meal == MealType.LUNCH }
+        assertEquals(370.0 + 850.0, meal.kcal, 1e-9)
+        assertEquals(13.0 + 30.0, meal.proteinG, 1e-9)
+        assertEquals(60.0, meal.carbsG, 1e-9) // el hidrato no informado no suma
+        assertEquals(1220.0, p.state.value.consumedKcal, 1e-9)
+        val row = meal.entries.first { it.quick }
+        assertEquals("Menú del día", row.name)
+        assertEquals(850.0, row.kcal)
+        assertFalse(row.doubtful) // 850 kcal serían «dudosas» si se leyeran como por 100 g
+        assertEquals("30 P | 40 G", row.macrosText)
+    }
+
+    @Test
+    fun aQuickEntryWithoutNameGetsTheDefaultName() {
+        assertEquals(QuickEntry.DEFAULT_NAME, QuickEntry.new(DAY, MealType.DINNER, "  ", 500.0, null, null, null).name)
+    }
+
+    @Test
+    fun copyingAMealKeepsQuickEntriesQuick() = runTest {
+        val diary = FakeDiary()
+        diary.add(lunch, 5L)
+        val p = presenter(diary)
+        p.load()
+        p.copyMeal(MealType.LUNCH, "2026-11-03", null)
+        val copy = diary.rows.single { it.date == "2026-11-03" }
+        assertTrue(copy.quick)
+        assertEquals(lunch.nutrients, copy.nutrients)
+        assertEquals(850.0, copy.totals.kcal)
+    }
+
+    @Test
+    fun deleteAndUndoKeepTheEntryQuick() = runTest {
+        val diary = FakeDiary()
+        val id = diary.add(lunch, 5L)
+        val p = presenter(diary)
+        p.load()
+        p.delete(id)
+        assertTrue(diary.rows.isEmpty())
+        p.undoDelete()
+        assertTrue(diary.rows.single().quick)
+    }
+
+    @Test
+    fun formNeedsAtLeastOneValueAndRejectsBadNumbers() {
+        assertTrue(validateQuickEntry(QuickEntryFormState()).empty)
+        assertTrue(validateQuickEntry(QuickEntryFormState(name = "Solo nombre")).hasErrors)
+        assertFalse(validateQuickEntry(QuickEntryFormState(kcal = "650")).hasErrors)
+        assertFalse(validateQuickEntry(QuickEntryFormState(protein = "25,5")).hasErrors) // solo un macro basta
+        assertEquals("Número no válido", validateQuickEntry(QuickEntryFormState(kcal = "-5")).kcal)
+        assertEquals("Número no válido", validateQuickEntry(QuickEntryFormState(kcal = "1,2,3")).kcal)
+        assertTrue(validateQuickEntry(QuickEntryFormState(kcal = "20000")).kcal != null)
+        assertTrue(validateQuickEntry(QuickEntryFormState(kcal = "100", fat = "5000")).fat != null)
+    }
+
+    @Test
+    fun formParsesTotalsAndRoundTripsForEditing() {
+        val form = QuickEntryFormState(name = "", kcal = "650", protein = "25,5", carbs = "", fat = "30")
+        val totals = form.toTotals()!!
+        assertEquals(Nutrients(650.0, 25.5, null, 30.0), totals)
+        assertEquals(QuickEntry.DEFAULT_NAME, form.resolvedName())
+        assertEquals(form, quickEntryFormStateOf(QuickEntry.DEFAULT_NAME, totals))
+        assertNull(QuickEntryFormState().toTotals())
     }
 }

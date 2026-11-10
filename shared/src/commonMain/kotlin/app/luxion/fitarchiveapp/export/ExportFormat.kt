@@ -177,6 +177,11 @@ data class ExportedDiaryEntry(
     val servingSizeG: Double? = null,
     val nutrients: ExportedNutrients = ExportedNutrients(),
     val createdAtMillis: Long,
+    /**
+     * Entrada rápida (kcal y macros sin alimento): cantidad 100 g y `nutrients` con los totales. Añadido sin subir la
+     * versión: los archivos anteriores no lo traen y se leen como `false`.
+     */
+    val quick: Boolean = false,
 )
 
 internal fun Nutrients.toExported() =

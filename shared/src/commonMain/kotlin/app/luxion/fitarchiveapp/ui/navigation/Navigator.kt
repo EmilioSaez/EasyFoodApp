@@ -14,8 +14,15 @@ sealed interface Route {
     /**
      * Añadir alimento; [meal] es la comida preseleccionada (`null` desde la pestaña: se elige en la ficha).
      * [templates] indica que se ve la lista de plantillas (así se vuelve a ella tras editar una).
+     * [date] es el día al que se apunta una entrada rápida (`null` = hoy).
      */
-    data class Add(val meal: MealType? = null, val templates: Boolean = false) : Route
+    data class Add(val meal: MealType? = null, val templates: Boolean = false, val date: String? = null) : Route
+
+    /**
+     * Entrada rápida de kcal y macros sin alimento, para [meal] y [date] (`null` = la actual / hoy). Con [entryId]
+     * informado se edita esa entrada rápida del diario.
+     */
+    data class QuickEntry(val meal: MealType? = null, val date: String? = null, val entryId: Long? = null) : Route
 
     /** Escáner de cámara + entrada manual de EAN. */
     data class Scanner(val meal: MealType? = null) : Route

@@ -49,6 +49,7 @@ import app.luxion.fitarchiveapp.ui.screens.GoalsScreen
 import app.luxion.fitarchiveapp.ui.screens.MealChoices
 import app.luxion.fitarchiveapp.ui.screens.MealsSetupScreen
 import app.luxion.fitarchiveapp.ui.screens.ProductDetailScreen
+import app.luxion.fitarchiveapp.ui.screens.QuickEntryScreen
 import app.luxion.fitarchiveapp.ui.screens.RecipeDetailScreen
 import app.luxion.fitarchiveapp.ui.screens.RecipeEditScreen
 import app.luxion.fitarchiveapp.ui.screens.RecipesScreen
@@ -122,6 +123,7 @@ fun App(
                                 today = today,
                                 mealChoices = mealChoices,
                             )
+                            is Route.QuickEntry -> QuickEntryScreen(navigator, route, diaryStore, today, mealChoices)
                             is Route.Scanner -> ScannerScreen(navigator, route, repository)
                             is Route.CustomFood -> CustomFoodScreen(navigator, route, customFoodStore, route.foodId)
                             is Route.ProductDetail -> ProductDetailScreen(navigator, route, repository, diaryStore, customFoodStore, favoriteStore, today, mealChoices)

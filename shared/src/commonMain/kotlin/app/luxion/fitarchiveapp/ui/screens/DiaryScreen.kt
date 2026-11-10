@@ -118,7 +118,7 @@ fun DiaryScreen(
         snackbarHost = { SnackbarHost(snackbar) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = { navigator.push(Route.Add()) },
+                onClick = { navigator.push(Route.Add(date = state.date)) },
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             ) { Text("+ Añadir alimento") }
@@ -181,7 +181,7 @@ fun DiaryScreen(
                             MealSection(
                                 title = meal.meal.label,
                                 summary = mealSummary(meal.kcal, meal.proteinG, meal.carbsG, meal.fatG),
-                                onAdd = { navigator.push(Route.Add(meal.meal)) },
+                                onAdd = { navigator.push(Route.Add(meal.meal, date = state.date)) },
                                 onCopy = if (meal.entries.isEmpty()) null else { { copying = CopyRequest(meal.meal) } },
                                 onSaveTemplate = if (meal.entries.isEmpty() || templateStore == null) null else {
                                     { templateError = null; savingTemplate = meal.meal }
@@ -191,12 +191,17 @@ fun DiaryScreen(
                                 meal.entries.forEach { entry ->
                                     DiaryEntryRow(
                                         name = entry.name,
-                                        quantityText = entry.quantity.format(),
+                                        quantityText = if (entry.quick) entry.macrosText else entry.quantity.format(),
                                         source = entry.source,
                                         kcal = entry.kcal,
                                         doubtful = entry.doubtful,
+                                        showSource = !entry.quick,
                                         onClick = {
-                                            navigator.push(Route.ProductDetail(entry.barcode, meal.meal, entry.id))
+                                            if (entry.quick) {
+                                                navigator.push(Route.QuickEntry(meal.meal, state.date, entry.id))
+                                            } else {
+                                                navigator.push(Route.ProductDetail(entry.barcode, meal.meal, entry.id))
+                                            }
                                         },
                                         onLongClick = { editing = entry },
                                     )
@@ -250,6 +255,10 @@ fun DiaryScreen(
         EntryActionsDialog(
             entry = entry,
             onDismiss = { editing = null },
+            onEditQuick = {
+                editing = null
+                navigator.push(Route.QuickEntry(date = state.date, entryId = entry.id))
+            },
             onSave = { quantity ->
                 editing = null
                 presenter.updateQuantity(entry.id, quantity)
@@ -286,6 +295,7 @@ private fun DiaryFullHeader(
 private fun EntryActionsDialog(
     entry: EntryUi,
     onDismiss: () -> Unit,
+    onEditQuick: () -> Unit,
     onSave: (Quantity) -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -297,7 +307,8 @@ private fun EntryActionsDialog(
         onDismissRequest = onDismiss,
         title = { Text(entry.name, maxLines = 2) },
         text = {
-            QuantitySelector(
+            // Una entrada rápida no tiene cantidad que cambiar: se edita en su pantalla.
+            if (entry.quick) Text(entry.macrosText.ifEmpty { "Entrada rápida" }) else QuantitySelector(
                 unit = unit,
                 onUnitChange = { next ->
                     // Al cambiar de unidad se convierte la cantidad para no reinterpretar «30 g» como 30 porciones.
@@ -314,7 +325,11 @@ private fun EntryActionsDialog(
             )
         },
         confirmButton = {
-            TextButton(onClick = { onSave(Quantity(amount!!, unit)) }, enabled = valid) { Text("Guardar") }
+            if (entry.quick) {
+                TextButton(onClick = onEditQuick) { Text("Editar") }
+            } else {
+                TextButton(onClick = { onSave(Quantity(amount!!, unit)) }, enabled = valid) { Text("Guardar") }
+            }
         },
         dismissButton = {
             Row {

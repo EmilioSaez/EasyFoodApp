@@ -51,6 +51,8 @@ class Migration11Test {
             )
             val after = MigrationTestKit.snapshot(d)
 
+            // 12.sqm (ALTER TABLE ADD COLUMN) no es idempotente: se quita su columna para repetir solo la 11.
+            d.execute(null, "ALTER TABLE DiaryEntryEntity DROP COLUMN quick", 0)
             MigrationTestKit.migrateToLatest(d, from = 11) // idempotente: no vacía ni duplica nada
 
             MigrationTestKit.assertPreserved(after, MigrationTestKit.snapshot(d))

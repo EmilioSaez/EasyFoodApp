@@ -68,7 +68,7 @@ class DataExporter(
 fun DiaryEntry.toExported() = ExportedDiaryEntry(
     id = id, date = date, meal = meal, barcode = barcode, name = name,
     quantity = quantity.amount, unit = quantity.unit, servingSizeG = servingSizeG,
-    nutrients = nutrients.toExported(), createdAtMillis = createdAtMillis,
+    nutrients = nutrients.toExported(), createdAtMillis = createdAtMillis, quick = quick,
 )
 
 fun CustomFood.toExported() = ExportedCustomFood(
@@ -95,7 +95,7 @@ fun MealTemplate.toExported() = ExportedMealTemplate(
 fun ExportedDiaryEntry.toDomain() = DiaryEntry(
     id = id, date = date, meal = meal, barcode = barcode, name = name,
     quantity = quantityOf(quantity, unit), servingSizeG = servingSizeG,
-    nutrients = nutrients.toDomain(), createdAtMillis = createdAtMillis,
+    nutrients = nutrients.toDomain(), createdAtMillis = createdAtMillis, quick = quick,
 )
 
 fun ExportedProduct.toCachedProduct() = CachedProduct(

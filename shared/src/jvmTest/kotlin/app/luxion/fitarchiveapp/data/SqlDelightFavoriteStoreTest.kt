@@ -91,7 +91,9 @@ class SqlDelightFavoriteStoreTest {
         driver.execute(null, "DROP TABLE FavoriteFoodEntity", 0)
         SqlDelightProductStore(db.productQueries).save(product("2", "Leche"), 1L)
 
+        driver.execute(null, "ALTER TABLE DiaryEntryEntity DROP COLUMN quick", 0) // la añade 12.sqm (no es idempotente)
         EasyFoodDatabase.Schema.migrate(driver, 9, EasyFoodDatabase.Schema.version)
+        driver.execute(null, "ALTER TABLE DiaryEntryEntity DROP COLUMN quick", 0)
         EasyFoodDatabase.Schema.migrate(driver, 9, EasyFoodDatabase.Schema.version)
 
         assertTrue(EasyFoodDatabase.Schema.version >= 10)

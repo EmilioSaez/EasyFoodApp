@@ -17,6 +17,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -193,6 +194,7 @@ fun AddFoodScreen(
                     },
                     onScan = { navigator.push(Route.Scanner(route.meal)) },
                     onCustom = { navigator.push(Route.CustomFood(meal = route.meal)) },
+                    onQuick = { navigator.push(Route.QuickEntry(route.meal, route.date ?: today?.invoke())) },
                     modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s),
                 )
             },
@@ -309,6 +311,7 @@ private fun QuickActions(
     onTemplates: () -> Unit,
     onScan: () -> Unit,
     onCustom: () -> Unit,
+    onQuick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val tall = Modifier.height(72.dp)
@@ -333,11 +336,17 @@ private fun QuickActions(
             Text(label, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
         }
     }
-    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-        Tile("Recientes", onRecent, if (mode == QuickMode.Recents) primary else neutral)
-        Tile("Favoritos", onFavorites, if (mode == QuickMode.Favorites) primary else neutral)
-        if (showTemplates) Tile("Plantillas", onTemplates, if (mode == QuickMode.Templates) primary else neutral)
-        Tile("Escáner", onScan, neutral)
-        Tile("Alimento propio", onCustom, neutral)
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
+            Tile("Recientes", onRecent, if (mode == QuickMode.Recents) primary else neutral)
+            Tile("Favoritos", onFavorites, if (mode == QuickMode.Favorites) primary else neutral)
+            if (showTemplates) Tile("Plantillas", onTemplates, if (mode == QuickMode.Templates) primary else neutral)
+            Tile("Escáner", onScan, neutral)
+            Tile("Alimento propio", onCustom, neutral)
+        }
+        // Para comer fuera: kcal y macros sin crear un alimento.
+        OutlinedButton(onClick = onQuick, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium) {
+            Text("Entrada rápida · solo kcal y macros")
+        }
     }
 }

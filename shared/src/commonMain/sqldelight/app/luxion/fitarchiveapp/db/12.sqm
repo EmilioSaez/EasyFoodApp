@@ -1,0 +1,3 @@
+-- Migración v12 -> v13: entradas rápidas del diario (kcal y macros sin alimento; ver DiaryEntry.sq).
+-- Las filas existentes quedan como alimentos normales (quick = 0). La migración 11 la reserva otra rama.
+ALTER TABLE DiaryEntryEntity ADD COLUMN quick INTEGER NOT NULL DEFAULT 0 CHECK (quick IN (0, 1));
