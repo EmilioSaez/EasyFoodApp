@@ -113,3 +113,38 @@ WHERE p.source = 'OPEN_FOOD_FACTS'
     OR EXISTS (SELECT 1 FROM DiaryEntryEntity AS d WHERE d.barcode = p.barcode))
 ORDER BY COALESCE(r.checked_at, r.refreshed_at, p.cached_at), p.barcode
 LIMIT :limit;
+
+-- Correcciones del usuario sobre los valores nutricionales de un producto (OFF o genérico), por 100 g (o 100 ml).
+-- Tabla aparte de ProductEntity a propósito: refrescar, reimportar o resembrar el producto no las toca, y borrar la
+-- corrección devuelve el original. Sin FK: la corrección puede existir (p. ej. importada) antes que el producto.
+CREATE TABLE ProductCorrectionEntity (
+    barcode TEXT NOT NULL PRIMARY KEY CHECK (length(barcode) > 0),
+    kcal REAL,
+    protein_g REAL,
+    carbs_g REAL,
+    sugars_g REAL,
+    fat_g REAL,
+    saturated_fat_g REAL,
+    fiber_g REAL,
+    salt_g REAL,
+    -- Instante de la última edición, en milisegundos epoch.
+    updated_at INTEGER NOT NULL
+);
+
+selectCorrection:
+SELECT * FROM ProductCorrectionEntity WHERE barcode = ?;
+
+selectAllCorrections:
+SELECT * FROM ProductCorrectionEntity ORDER BY barcode;
+
+upsertCorrection:
+INSERT INTO ProductCorrectionEntity(
+    barcode, kcal, protein_g, carbs_g, sugars_g, fat_g, saturated_fat_g, fiber_g, salt_g, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(barcode) DO UPDATE SET
+    kcal = excluded.kcal, protein_g = excluded.protein_g, carbs_g = excluded.carbs_g, sugars_g = excluded.sugars_g,
+    fat_g = excluded.fat_g, saturated_fat_g = excluded.saturated_fat_g, fiber_g = excluded.fiber_g,
+    salt_g = excluded.salt_g, updated_at = excluded.updated_at;
+
+deleteCorrection:
+DELETE FROM ProductCorrectionEntity WHERE barcode = ?;

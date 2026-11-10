@@ -42,6 +42,8 @@ data class ExportFile(
     val exercises: List<ExportedExercise> = emptyList(),
     /** Porcentaje del ejercicio que se suma al objetivo (0 a 100). Añadido sin subir la versión; ausente = `null`. */
     val exercisePercent: ExportedExercisePercent? = null,
+    /** Correcciones del usuario de los valores de productos. Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como vacío. */
+    val productCorrections: List<ExportedProductCorrection> = emptyList(),
 )
 
 @Serializable
@@ -212,3 +214,11 @@ internal fun ExportedNutrients.toDomain() =
     Nutrients(kcal, proteinG, carbsG, fatG, saturatedFatG, sugarsG, fiberG, saltG)
 
 internal fun quantityOf(amount: Double, unit: QuantityUnit) = Quantity(amount, unit)
+
+/** Valores nutricionales por 100 g que el usuario ha puesto en lugar de los de un producto (EAN o `generic:<id>`). */
+@Serializable
+data class ExportedProductCorrection(
+    val barcode: String,
+    val nutrients: ExportedNutrients = ExportedNutrients(),
+    val updatedAtMillis: Long = 0,
+)

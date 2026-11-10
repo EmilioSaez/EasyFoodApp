@@ -86,3 +86,19 @@ fun DoubtfulChip(modifier: Modifier = Modifier) {
         )
     }
 }
+
+/** Chip «Corregido por ti» para productos cuyos valores ha cambiado el usuario. */
+@Composable
+fun CorrectedChip(modifier: Modifier = Modifier) {
+    Box(
+        modifier.background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.small),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            "Corregido por ti",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+        )
+    }
+}

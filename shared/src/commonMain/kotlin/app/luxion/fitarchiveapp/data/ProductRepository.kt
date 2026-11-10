@@ -3,6 +3,7 @@ package app.luxion.fitarchiveapp.data
 import app.luxion.fitarchiveapp.data.generic.GenericFoodFormat
 import app.luxion.fitarchiveapp.domain.ProductChange
 import app.luxion.fitarchiveapp.model.Product
+import app.luxion.fitarchiveapp.model.ProductCorrection
 import kotlinx.coroutines.CancellationException
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
@@ -43,6 +44,17 @@ interface ProductLocalStore {
 
     /** Códigos de productos de OFF usados (diario o favoritos) sin consultar desde antes de [staleBeforeMillis]. */
     suspend fun refreshCandidates(staleBeforeMillis: Long, limit: Int): List<String> = emptyList()
+
+    /** [product] (p. ej. recién descargado) con la corrección del usuario aplicada, si la hay. */
+    suspend fun applyCorrection(product: Product): Product = product
+
+    /** Guarda la corrección del usuario; no la pisan ni el refresco ni la resiembra del producto. */
+    suspend fun saveCorrection(correction: ProductCorrection): Unit =
+        throw UnsupportedOperationException("Este almacén no admite correcciones")
+
+    /** Borra la corrección del producto [barcode]: vuelve a verse el original. */
+    suspend fun clearCorrection(barcode: String): Unit =
+        throw UnsupportedOperationException("Este almacén no admite correcciones")
 }
 
 /** Resultado de [ProductRepository.getByBarcode]. */
@@ -106,7 +118,8 @@ class ProductRepository(
             is ProductLookup.Found ->
                 if (cached == null) {
                     safely { local.save(lookup.product, now) } // un fallo al cachear no invalida el producto
-                    ProductResult.Found(lookup.product, fromCache = false, refreshedAtMillis = now)
+                    // El producto descargado no lleva la corrección del usuario (tabla aparte): se aplica al devolverlo.
+                    ProductResult.Found(applyCorrectionSafely(lookup.product), fromCache = false, refreshedAtMillis = now)
                 } else when (val r = applyRefresh(cached.product, lookup.product, now)) {
                     is RefreshResult.Updated -> ProductResult.Found(
                         r.product, fromCache = false, refreshedAtMillis = now,
@@ -171,13 +184,16 @@ class ProductRepository(
     }
 
     private suspend fun applyRefresh(old: Product, new: Product, now: Long): RefreshResult {
+        // `old` puede traer la corrección del usuario: el cambio y el rechazo se juzgan contra el valor de la fuente,
+        // no contra lo que el usuario puso encima.
+        val oldSource = old.originalNutrients ?: old.nutrients
         // Un dato nuevo sin energía o absurdo no sustituye a uno válido.
-        if (new.nutrients.needsReview && !old.nutrients.needsReview) {
+        if (new.nutrients.needsReview && !oldSource.needsReview) {
             safely { local.markChecked(old.barcode, now) }
             return RefreshResult.Rejected
         }
         val fresh = new.copy(barcode = old.barcode)
-        val change = ProductChange.summary(old.nutrients, fresh.nutrients)
+        val change = ProductChange.summary(oldSource, fresh.nutrients)
         val applied = try {
             local.saveRefreshed(fresh, now, change)
         } catch (e: CancellationException) {
@@ -185,7 +201,8 @@ class ProductRepository(
         } catch (_: Exception) {
             false
         }
-        return if (applied) RefreshResult.Updated(fresh, change) else RefreshResult.Skipped
+        // El refresco solo cambia el dato de la fuente; lo que se muestra sigue llevando la corrección del usuario.
+        return if (applied) RefreshResult.Updated(applyCorrectionSafely(fresh), change) else RefreshResult.Skipped
     }
 
     private suspend inline fun safely(block: () -> Unit) {
@@ -195,6 +212,20 @@ class ProductRepository(
             throw e
         } catch (_: Exception) {
         }
+    }
+
+    /** Guarda la corrección del usuario sobre un producto; lanza si no se puede escribir. */
+    suspend fun correct(correction: ProductCorrection) = local.saveCorrection(correction)
+
+    /** Deshace la corrección del producto [barcode]. */
+    suspend fun revertCorrection(barcode: String) = local.clearCorrection(barcode)
+
+    private suspend fun applyCorrectionSafely(product: Product): Product = try {
+        local.applyCorrection(product)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        product // una BD ilegible no debe impedir mostrar el producto
     }
 
     companion object {

@@ -28,6 +28,7 @@ import app.luxion.fitarchiveapp.model.QuantityUnit
 import app.luxion.fitarchiveapp.model.QuickEntry
 import app.luxion.fitarchiveapp.model.NewCustomFood
 import app.luxion.fitarchiveapp.model.NewRecipe
+import app.luxion.fitarchiveapp.model.ProductCorrection
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -103,6 +104,11 @@ import kotlinx.coroutines.withContext
  *   distinguir mayúsculas ni espacios sobrantes; gana el `updatedAtMillis` más reciente, con empate el local). Los
  *   alimentos viajan dentro de la plantilla con su cantidad y unidad y se comparan en el mismo orden.
  * - Una plantilla sin nombre, sin alimentos o con una cantidad ≤ 0 o nutrientes negativos se omite entera.
+ * **Correcciones de productos** (valores nutricionales que el usuario puso sobre un producto)
+ * - Identidad: el `barcode` (EAN o `generic:<id>`); hay una corrección por producto. Se importan aunque el producto no
+ *   esté aún en local (se aplican cuando aparece). Mismo criterio que los pesos: no existe en local, se añade; mismos
+ *   valores, se ignora; valores distintos, gana el de `updatedAtMillis` más reciente (con empate, el local).
+ *   Valores no válidos (faltan kcal o macros, negativos, fuera de rango) son inválidos.
  *
  * **Elementos inválidos** (cantidad ≤ 0, fecha mal formada, nutrientes negativos, nombre vacío…): se
  * omiten y se listan en el informe; el resto se importa.
@@ -141,6 +147,7 @@ class DataImporter(private val target: ImportTarget) {
         val templates = planTemplates(file.mealTemplates, target.mealTemplates(), invalid)
         val exercises = planExercises(file.exercises, target.exercises(), invalid)
         val exercisePercent = planExercisePercent(file.exercisePercent, target.exercisePercent(), invalid)
+        val corrections = planCorrections(file.productCorrections, target.productCorrections(), invalid)
         return ImportPlan(
             changes = ImportChanges(
                 products = products.writes,
@@ -159,11 +166,13 @@ class DataImporter(private val target: ImportTarget) {
                 templatesToUpdate = templates.updates,
                 exercisesToAdd = exercises.adds,
                 exercisePercent = exercisePercent.write,
+                productCorrections = corrections.writes,
             ),
             report = ImportReport(
                 products.counts, foods.counts, diary.counts, invalid, weights.counts + goal.counts, recipes.counts,
                 water.counts + waterGoal.counts, favorites.counts, templates.counts,
                 exercise = exercises.counts + exercisePercent.counts,
+                productCorrections = corrections.counts,
             ),
         )
     }
@@ -588,6 +597,42 @@ class DataImporter(private val target: ImportTarget) {
         customBrand = customBrand?.trim()?.ifEmpty { null },
     )
 
+    // --- Correcciones de productos ---
+
+    private class CorrectionPlan(val writes: List<ExportedProductCorrection>, val counts: ImportCounts)
+
+    private fun planCorrections(
+        incoming: List<ExportedProductCorrection>,
+        local: List<ExportedProductCorrection>,
+        invalid: MutableList<String>,
+    ): CorrectionPlan {
+        val byBarcode = local.associateByTo(mutableMapOf()) { it.barcode }
+        val writes = linkedMapOf<String, ExportedProductCorrection>()
+        var c = ImportCounts()
+        for (raw in incoming) {
+            val p = raw.copy(barcode = raw.barcode.trim())
+            val problem = try {
+                ProductCorrection(p.barcode, p.nutrients.toDomain()); null
+            } catch (e: IllegalArgumentException) {
+                e.message ?: "datos no válidos"
+            }
+            if (problem != null) {
+                invalid += "Corrección del producto \"${raw.barcode}\": $problem"
+                c = c.copy(invalid = c.invalid + 1); continue
+            }
+            val existing = byBarcode[p.barcode]
+            when {
+                existing == null -> { c = c.copy(added = c.added + 1); byBarcode[p.barcode] = p; writes[p.barcode] = p }
+                existing.nutrients == p.nutrients -> c = c.copy(unchanged = c.unchanged + 1)
+                p.updatedAtMillis > existing.updatedAtMillis -> {
+                    c = c.copy(updated = c.updated + 1); byBarcode[p.barcode] = p; writes[p.barcode] = p
+                }
+                else -> c = c.copy(keptLocal = c.keptLocal + 1)
+            }
+        }
+        return CorrectionPlan(writes.values.toList(), c)
+    }
+
     // --- Diario ---
 
     private class DiaryPlan(val adds: List<ExportedDiaryEntry>, val counts: ImportCounts)
@@ -662,13 +707,15 @@ data class ImportChanges(
     val exercisesToAdd: List<ExportedExercise> = emptyList(),
     /** Porcentaje de ejercicio a fijar, o `null` si no cambia. */
     val exercisePercent: ExportedExercisePercent? = null,
+    /** Correcciones de productos a insertar o reemplazar por código. */
+    val productCorrections: List<ExportedProductCorrection> = emptyList(),
 ) {
     val isEmpty: Boolean
         get() = products.isEmpty() && customFoodsToAdd.isEmpty() && customFoodsToUpdate.isEmpty() &&
             diaryEntriesToAdd.isEmpty() && weights.isEmpty() && recipesToAdd.isEmpty() && recipesToUpdate.isEmpty() &&
             weightGoal == null && mealsPerDay == null && water.isEmpty() && waterGoal == null && favoritesToAdd.isEmpty() &&
             templatesToAdd.isEmpty() && templatesToUpdate.isEmpty() &&
-            exercisesToAdd.isEmpty() && exercisePercent == null
+            exercisesToAdd.isEmpty() && exercisePercent == null && productCorrections.isEmpty()
 }
 
 /** Sustituye los datos de la receta local [localId] por los de [recipe] (se conservan su id y `createdAtMillis`). */
@@ -741,6 +788,8 @@ data class ImportReport(
     val mealTemplates: ImportCounts = ImportCounts(),
     /** Actividades de ejercicio y su porcentaje. */
     val exercise: ImportCounts = ImportCounts(),
+    /** Correcciones de valores de productos. */
+    val productCorrections: ImportCounts = ImportCounts(),
 )
 
 /** Almacenes locales sobre los que se importa: lectura (como la exportación) y escritura atómica. */
@@ -843,6 +892,14 @@ class SqlDelightImportTarget(
                         ?.let(FavoriteKeys::custom)
                     if (key != null) favoriteQueries.insert(key, f.createdAtMillis)
                 }
+            }
+            changes.productCorrections.forEach { c ->
+                productQueries.upsertCorrection(
+                    barcode = c.barcode, kcal = c.nutrients.kcal, protein_g = c.nutrients.proteinG,
+                    carbs_g = c.nutrients.carbsG, sugars_g = c.nutrients.sugarsG, fat_g = c.nutrients.fatG,
+                    saturated_fat_g = c.nutrients.saturatedFatG, fiber_g = c.nutrients.fiberG,
+                    salt_g = c.nutrients.saltG, updated_at = c.updatedAtMillis,
+                )
             }
             changes.diaryEntriesToAdd.forEach { e ->
                 diaryQueries.insert(

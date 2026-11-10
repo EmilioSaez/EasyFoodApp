@@ -32,6 +32,7 @@ fun Product.toFoodResult(): FoodResult {
         brand?.takeIf { it.isNotBlank() },
         servingSizeG?.let { "${formatGrams(it)} g" },
         barcode.takeUnless { isGeneric },
+        "corregido por ti".takeIf { isCorrected },
     )
     return FoodResult(
         key = barcode,

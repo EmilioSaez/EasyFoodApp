@@ -43,6 +43,15 @@ object RepresentativeUserData {
             "barcode" to "5000000000002", "name" to "Producto sin datos", "source" to "OPEN_FOOD_FACTS",
             "cached_at" to 1_700_000_400_000,
         ),
+        // Correcciones del usuario (15.sqm): una sobre un producto de OFF (con opcionales a NULL) y otra sobre un genérico.
+        "ProductCorrectionEntity" to mapOf(
+            "barcode" to "8410000000017", "kcal" to 62.5, "protein_g" to 3.3, "carbs_g" to 4.6, "fat_g" to 3.5,
+            "sugars_g" to null, "saturated_fat_g" to 2.2, "fiber_g" to null, "salt_g" to 0.12, "updated_at" to 1_700_000_500_000,
+        ),
+        "ProductCorrectionEntity" to mapOf(
+            "barcode" to "generic:1", "kcal" to 48.0, "protein_g" to 0.3, "carbs_g" to 12.0, "fat_g" to 0.2,
+            "updated_at" to 1_700_000_600_000,
+        ),
         // Diario: todas las comidas, ambas unidades, nutrientes nulos, alimento genérico y propio.
         diary(2, "2026-11-01", "BREAKFAST", "8410000000017", "Leche entera", 200.0, "GRAMS", 250.0, 64.0, 3.1, 4.7, 3.6),
         diary(5, "2026-11-01", "LUNCH", "generic:1", "Apples, raw, with skin", 1.5, "SERVINGS", 182.0, 52.0, 0.26, 13.8, 0.17),
