@@ -24,6 +24,7 @@ compose.desktop {
         mainClass = "app.luxion.fitarchiveapp.MainKt"
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Dmg, TargetFormat.Deb)
+            modules("java.sql")
             packageName = "EasyFood"
             packageVersion = "1.0.0"
         }
