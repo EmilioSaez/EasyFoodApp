@@ -34,6 +34,16 @@ class AddFoodResultsTest {
     }
 
     @Test
+    fun customFoodToleratesPluralsTyposAndSupermarkets() {
+        val f = CustomFood(8, "Tortillas de patata", "Hacendado", n, null, null, 0, 0)
+        assertEquals(true, f.matches("tortilla"))
+        assertEquals(true, f.matches("patatas"))
+        assertEquals(true, f.matches("tortila patata")) // errata
+        assertEquals(true, f.matches("mercadona tortilla"))
+        assertEquals(false, f.matches("lidl tortilla"))
+    }
+
+    @Test
     fun mergeKeepsAllSourcesWithCustomFirst() {
         val all = mergeResults(
             listOf(CustomFood(1, "Mi pan", null, n, null, null, 0, 0)),
