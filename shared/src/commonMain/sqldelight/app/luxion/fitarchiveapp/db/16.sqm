@@ -1,0 +1,6 @@
+-- Migración v16 -> v17 (no idempotente: SQLite no admite ADD COLUMN IF NOT EXISTS; solo se aplica una vez por base): el Diario guarda también grasas saturadas, azúcares, fibra y sal por 100 g,
+-- para totalizarlos por día. Las entradas existentes quedan en NULL (dato no disponible: el Diario las marca «incompleto»).
+ALTER TABLE DiaryEntryEntity ADD COLUMN saturated_fat_100g REAL;
+ALTER TABLE DiaryEntryEntity ADD COLUMN sugars_100g REAL;
+ALTER TABLE DiaryEntryEntity ADD COLUMN fiber_100g REAL;
+ALTER TABLE DiaryEntryEntity ADD COLUMN salt_100g REAL;

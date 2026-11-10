@@ -83,10 +83,10 @@ class MigrationsKeepUserDataTest {
 
         // Los ids autoincrementales no se reutilizan tras migrar (el diario se reconstruye en 7.sqm).
         val maxDiary = MigrationTestKit.scalar(driver, "SELECT max(id) FROM DiaryEntryEntity")
-        db.diaryEntryQueries.insert("2026-11-10", "LUNCH", null, "Nuevo", 1.0, "GRAMS", null, null, null, null, null, 1, 0)
+        db.diaryEntryQueries.insert("2026-11-10", "LUNCH", null, "Nuevo", 1.0, "GRAMS", null, null, null, null, null, 1, 0, null, null, null, null)
         val newId = db.diaryEntryQueries.lastInsertedId().executeAsOne()
         if (newId <= maxDiary) problems += "diario: el id nuevo $newId no supera el máximo previo $maxDiary"
-        db.diaryEntryQueries.insert("2026-11-10", "LATE_SNACK", null, "Recena", 1.0, "GRAMS", null, null, null, null, null, 2, 0)
+        db.diaryEntryQueries.insert("2026-11-10", "LATE_SNACK", null, "Recena", 1.0, "GRAMS", null, null, null, null, null, 2, 0, null, null, null, null)
         return problems
     }
 }

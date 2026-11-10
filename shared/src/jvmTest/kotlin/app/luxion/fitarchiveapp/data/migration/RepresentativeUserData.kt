@@ -53,8 +53,10 @@ object RepresentativeUserData {
             "updated_at" to 1_700_000_600_000,
         ),
         // Diario: todas las comidas, ambas unidades, nutrientes nulos, alimento genérico y propio.
-        diary(2, "2026-11-01", "BREAKFAST", "8410000000017", "Leche entera", 200.0, "GRAMS", 250.0, 64.0, 3.1, 4.7, 3.6),
-        diary(5, "2026-11-01", "LUNCH", "generic:1", "Apples, raw, with skin", 1.5, "SERVINGS", 182.0, 52.0, 0.26, 13.8, 0.17),
+        diary(2, "2026-11-01", "BREAKFAST", "8410000000017", "Leche entera", 200.0, "GRAMS", 250.0, 64.0, 3.1, 4.7, 3.6,
+            mapOf("saturated_fat_100g" to 2.3, "sugars_100g" to 4.7, "fiber_100g" to 0.0, "salt_100g" to 0.1)),
+        diary(5, "2026-11-01", "LUNCH", "generic:1", "Apples, raw, with skin", 1.5, "SERVINGS", 182.0, 52.0, 0.26, 13.8, 0.17,
+            mapOf("sugars_100g" to 10.4, "fiber_100g" to 2.4)),
         diary(6, "2026-11-01", "SNACK", null, "Tortilla de la abuela ñandú 🍳 (d'Ana)", 1.0, "SERVINGS", 120.0, 190.5, 11.0, 2.5, 14.2),
         diary(9, "2026-11-02", "DINNER", null, "Algo sin nutrientes", 80.0, "GRAMS", null, null, null, null, null),
         diary(11, "2026-11-02", "MID_MORNING", "8410000000017", "Leche entera", 100.0, "GRAMS", 250.0, 64.0, 3.1, 4.7, 3.6),
@@ -143,11 +145,12 @@ object RepresentativeUserData {
     private fun diary(
         id: Int, date: String, meal: String, barcode: String?, name: String, quantity: Double, unit: String,
         servingG: Double?, kcal: Double?, protein: Double?, carbs: Double?, fat: Double?,
+        extras: Map<String, Any?> = emptyMap(),
     ): Pair<String, Map<String, Any?>> = "DiaryEntryEntity" to mapOf(
         "id" to id, "date" to date, "meal" to meal, "barcode" to barcode, "name" to name, "quantity" to quantity,
         "unit" to unit, "serving_size_g" to servingG, "kcal_100g" to kcal, "protein_100g" to protein,
         "carbs_100g" to carbs, "fat_100g" to fat, "created_at" to 1_700_001_000_000L + id,
-    )
+    ) + extras
 
     /** Siembra [driver] (una base en la [version] indicada) con todas las filas que su esquema admite. */
     fun seed(driver: JdbcSqliteDriver, version: Int) {

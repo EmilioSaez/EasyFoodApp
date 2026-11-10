@@ -87,12 +87,13 @@ class SqlDelightWaterStoreTest {
         SqlDelightWeightStore(db.weightEntryQueries).save(NewWeightEntry("2026-11-01", 80.0), 1L)
         driver.execute(null, "DROP TABLE WaterEntity", 0)
         driver.execute(null, "DROP TABLE WaterGoalEntity", 0)
+        for (c in listOf("saturated_fat_100g", "sugars_100g", "fiber_100g", "salt_100g")) driver.execute(null, "ALTER TABLE DiaryEntryEntity DROP COLUMN $c", 0) // 16.sqm
         assertTrue(EasyFoodDatabase.Schema.version >= 9)
 
         // Idempotente: aplicarla dos veces da el mismo resultado.
         driver.execute(null, "ALTER TABLE DiaryEntryEntity DROP COLUMN quick", 0) // la añade 12.sqm (no es idempotente)
         EasyFoodDatabase.Schema.migrate(driver, 8, EasyFoodDatabase.Schema.version)
-        driver.execute(null, "ALTER TABLE DiaryEntryEntity DROP COLUMN quick", 0)
+        for (c in listOf("quick", "saturated_fat_100g", "sugars_100g", "fiber_100g", "salt_100g")) driver.execute(null, "ALTER TABLE DiaryEntryEntity DROP COLUMN $c", 0) // 12.sqm y 16.sqm
         EasyFoodDatabase.Schema.migrate(driver, 8, EasyFoodDatabase.Schema.version)
 
         val migrated = SqlDelightWaterStore(EasyFoodDatabase(driver).waterQueries)
