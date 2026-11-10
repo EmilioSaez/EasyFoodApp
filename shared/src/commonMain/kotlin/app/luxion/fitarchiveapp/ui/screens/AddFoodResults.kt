@@ -1,6 +1,7 @@
 package app.luxion.fitarchiveapp.ui.screens
 
 import app.luxion.fitarchiveapp.data.FavoriteKeys
+import app.luxion.fitarchiveapp.data.SearchText
 import app.luxion.fitarchiveapp.data.generic.GenericFoodFormat
 import app.luxion.fitarchiveapp.model.CustomFood
 import app.luxion.fitarchiveapp.model.Nutrients
@@ -52,25 +53,26 @@ fun CustomFood.toFoodResult(): FoodResult = FoodResult(
     kcalPer100g = nutrients.kcal,
 )
 
-/** Coincidencia simple por prefijo de palabra (sin acentos ni mayúsculas) para los alimentos propios. */
+/**
+ * Coincidencia de un alimento propio con el texto buscado, con la misma tolerancia que el FTS de los productos:
+ * prefijo de palabra sin acentos ni mayúsculas, plurales, erratas y supermercados (por marca).
+ */
 fun CustomFood.matches(text: String): Boolean {
-    val terms = text.normalizedTerms()
+    val terms = SearchText.terms(text)
     if (terms.isEmpty()) return false
-    val words = "$name ${brand.orEmpty()}".normalizedTerms()
-    return terms.all { t -> words.any { it.startsWith(t) } }
-}
-
-private fun String.normalizedTerms(): List<String> =
-    lowercase().map { c ->
-        when (c) {
-            'á', 'à', 'ä', 'â' -> 'a'
-            'é', 'è', 'ë', 'ê' -> 'e'
-            'í', 'ì', 'ï', 'î' -> 'i'
-            'ó', 'ò', 'ö', 'ô' -> 'o'
-            'ú', 'ù', 'ü', 'û' -> 'u'
-            else -> c
+    val nameWords = SearchText.terms(name)
+    val brandWords = SearchText.terms(brand.orEmpty())
+    val brandText = brandWords.joinToString(" ")
+    return terms.all { t ->
+        val supermarket = SearchText.supermarkets[t]
+        if (supermarket != null) {
+            supermarket.any { b -> " $brandText ".contains(" $b ") }
+        } else {
+            val stem = SearchText.stem(t)
+            (nameWords + brandWords).any { it.startsWith(stem) || SearchText.isCloseTo(stem, it) }
         }
-    }.joinToString("").split(Regex("""[^\p{L}\p{N}]+""")).filter { it.isNotEmpty() }
+    }
+}
 
 /** Propios primero (son los más relevantes para el usuario), luego el resto en el orden del FTS. */
 fun mergeResults(custom: List<CustomFood>, products: List<Product>): List<FoodResult> =

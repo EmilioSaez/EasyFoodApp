@@ -109,6 +109,64 @@ class SqlDelightProductSearchStoreTest {
         assertEquals(2, search.search("leche", limit = 2).size)
     }
 
+    private fun diary(barcode: String, name: String, n: Int) = repeat(n) {
+        driver.execute(
+            null,
+            "INSERT INTO DiaryEntryEntity(date, meal, barcode, name, quantity, unit, created_at) " +
+                "VALUES ('2026-01-01', 'LUNCH', '$barcode', '$name', 100, 'GRAMS', $it)",
+            0,
+        )
+    }
+
+    @Test
+    fun toleratesPluralsAndTypos() = runTest {
+        products.save(product("1", "Manzana golden"), 0)
+        products.save(product("2", "Limón"), 0)
+        assertEquals(listOf("Manzana golden"), names("manzanas"))
+        assertEquals(listOf("Limón"), names("limones"))
+        assertEquals(listOf("Manzana golden"), names("mazana")) // letra que falta
+        assertEquals(listOf("Manzana golden"), names("manzna goldne")) // transposición y omisión
+        assertEquals(emptyList(), names("zzzzzz"))
+    }
+
+    @Test
+    fun searchesBySupermarketThroughItsBrands() = runTest {
+        products.save(product("1", "Leche entera", "Hacendado"), 0)
+        products.save(product("2", "Leche entera", "Carrefour"), 0)
+        products.save(product("3", "Leche entera", "Milbona"), 0)
+        products.save(product("4", "Pan de molde", "Hacendado"), 0)
+        assertEquals(listOf("1"), search.search("mercadona leche").map { it.barcode })
+        assertEquals(listOf("2"), search.search("carrefour").map { it.barcode })
+        assertEquals(listOf("3"), search.search("lidl").map { it.barcode })
+        assertEquals(setOf("1", "4"), search.search("hacendado").map { it.barcode }.toSet())
+    }
+
+    @Test
+    fun frequentlyUsedFoodsRankFirst() = runTest {
+        products.save(product("1", "Leche entera"), 0)
+        products.save(product("2", "Leche entera"), 0)
+        diary("2", "Leche entera", 3)
+        assertEquals(listOf("2", "1"), search.search("leche").map { it.barcode })
+    }
+
+    @Test
+    fun onlyMineKeepsConsultedAndFavoritesButNotTheGenericBase() = runTest {
+        products.save(product("8412345678905", "Yogur natural", "Danone"), 0)
+        products.save(product("generic:1", "Yogur griego"), 0)
+        products.save(product("generic:2", "Yogur desnatado"), 0)
+        driver.execute(null, "UPDATE ProductEntity SET source = 'GENERIC' WHERE barcode LIKE 'generic:%'", 0)
+        db.favoriteFoodQueries.insert("generic:2", 0)
+        assertEquals(3, search.search("yogur").size)
+        assertEquals(setOf("8412345678905", "generic:2"), search.search("yogur", onlyMine = true).map { it.barcode }.toSet())
+    }
+
+    @Test
+    fun vocabularyFollowsTheCache() = runTest {
+        assertEquals(emptyList(), names("zanahoria"))
+        products.save(product("1", "Zanahoria"), 0)
+        assertEquals(listOf("Zanahoria"), names("zanahora")) // el vocabulario se rehace al cambiar la caché
+    }
+
     @Test
     fun migrationBackfillsExistingProducts() = runTest {
         val old = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)

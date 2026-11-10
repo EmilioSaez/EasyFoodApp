@@ -34,6 +34,18 @@ class GenericFoodBenchmarkTest {
         val searchMs = measureTimeMillis { repeat(20) { queries.forEach { search.search(it) } } }
         val perSearchMs = searchMs.toDouble() / (20 * queries.size)
 
+        // Las variantes nuevas: erratas (vocabulario), supermercado, solo mis productos y uso frecuente (diario).
+        repeat(300) {
+            driver.execute(null, "INSERT INTO DiaryEntryEntity(date, meal, barcode, name, quantity, unit, created_at) " +
+                "VALUES ('2026-01-01', 'LUNCH', 'generic:${it % 40}', 'x', 100, 'GRAMS', $it)", 0)
+        }
+        val coldMs = measureTimeMillis { SqlDelightProductSearchStore(db.productSearchQueries).search("aple") }
+        val extra = listOf("aple", "chiken brest", "mercadona leche", "apples", "ch")
+        extra.forEach { search.search(it) }
+        val extraMs = measureTimeMillis { repeat(20) { extra.forEach { q -> search.search(q) } } }
+        val onlyMineMs = measureTimeMillis { repeat(20) { search.search("ch", onlyMine = true) } }
+        println("BENCH2 primeraBusquedaConVocabulario=${coldMs}ms variantes=${"%.2f".format(extraMs.toDouble() / (20 * extra.size))}ms/consulta soloMios=${"%.2f".format(onlyMineMs / 20.0)}ms/consulta")
+        assertTrue(extraMs.toDouble() / (20 * extra.size) < 100, "búsqueda tolerante demasiado lenta")
         println("BENCH imported=${result.imported} firstImport=${firstImportMs}ms reimport=${reimportMs}ms search=${"%.2f".format(perSearchMs)}ms/consulta")
         assertTrue(firstImportMs < 30_000, "importación demasiado lenta: ${firstImportMs}ms")
         assertTrue(perSearchMs < 100, "búsqueda demasiado lenta: ${perSearchMs}ms")
