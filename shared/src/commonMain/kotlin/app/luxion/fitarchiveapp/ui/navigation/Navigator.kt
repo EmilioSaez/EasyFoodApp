@@ -30,7 +30,9 @@ sealed interface Route {
     /**
      * Crear alimento propio; [barcode] viene prerrelleno si se abre desde un EAN no encontrado.
      * Con [foodId] informado se edita (y se puede borrar) ese alimento. Con [prefill] el formulario
-     * arranca relleno (copia de un producto) y [brand] se conserva al guardar.
+     * arranca relleno (copia de un producto) y [brand] se conserva al guardar. [unreadFields] distinto de `null`
+     * indica que el formulario viene de la lectura de una etiqueta por IA: marca los campos que no se leyeron
+     * (ver `LabelReading.unreadFields`) y muestra el aviso de datos dudosos.
      */
     data class CustomFood(
         val barcode: String? = null,
@@ -38,7 +40,14 @@ sealed interface Route {
         val foodId: Long? = null,
         val prefill: CustomFoodFormState? = null,
         val brand: String? = null,
+        val unreadFields: Set<String>? = null,
     ) : Route
+
+    /**
+     * Alta por foto de la etiqueta con IA. [barcode] es el EAN que no se encontró (si venía del escáner o de la
+     * entrada manual) y se conserva al guardar el alimento propio.
+     */
+    data class LabelPhoto(val barcode: String? = null, val meal: MealType? = null) : Route
 
     /**
      * Ficha de producto. Alta: [barcode] del producto y [meal] destino. Edición de una entrada

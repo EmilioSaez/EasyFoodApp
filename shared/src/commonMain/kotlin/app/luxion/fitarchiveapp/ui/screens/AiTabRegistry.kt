@@ -54,7 +54,7 @@ class AiTabCard(
 val aiTabActions: List<AiTabAction> = listOf(
     // ia-plato: aiPlateAction,
 
-    // ia-etiqueta: aiLabelAction,
+    aiLabelAction,
 )
 
 /** Tarjetas adicionales, tras «¿Qué como?», «¿Cómo voy?» y la pregunta libre. Misma convención que [aiTabActions]. */

@@ -58,6 +58,7 @@ import app.luxion.fitarchiveapp.ui.screens.GoalsScreen
 import app.luxion.fitarchiveapp.ui.screens.MealChoices
 import app.luxion.fitarchiveapp.ui.screens.MealsSetupScreen
 import app.luxion.fitarchiveapp.ui.screens.ProductDetailScreen
+import app.luxion.fitarchiveapp.ui.screens.LabelPhotoScreen
 import app.luxion.fitarchiveapp.ui.screens.QuickEntryScreen
 import app.luxion.fitarchiveapp.ui.screens.RecipeDetailScreen
 import app.luxion.fitarchiveapp.ui.screens.RecipeEditScreen
@@ -189,6 +190,7 @@ fun App(
                             )
                             is Route.QuickEntry -> QuickEntryScreen(navigator, route, diaryStore, today, mealChoices)
                             is Route.Scanner -> ScannerScreen(navigator, route, repository)
+                            is Route.LabelPhoto -> LabelPhotoScreen(navigator, route, aiModule.service)
                             is Route.CustomFood -> CustomFoodScreen(navigator, route, customFoodStore, route.foodId)
                             is Route.ProductDetail -> ProductDetailScreen(navigator, route, repository, diaryStore, customFoodStore, favoriteStore, today, mealChoices)
                             Route.Goals -> GoalsScreen(navigator, goalStore, today, meals.count, meals::choose, waterStore, exerciseStore)
