@@ -1092,6 +1092,7 @@ class AppFlowsTest {
     @Test
     fun quickEntryIsAddedEditedAndDeletedWithoutCreatingAFood() = runApp(recentWeight = true) { db ->
         waitForText("Nada apuntado hoy")
+        onNode(hasScrollAction()).performScrollToNode(hasContentDescription("Añadir a Comida")) // la tarjeta de ejercicio la empuja fuera de pantalla
         onNodeWithContentDescription("Añadir a Comida").performClick()
         waitForText("Entrada rápida · solo kcal y macros")
         onNodeWithText("Entrada rápida · solo kcal y macros").performClick()
@@ -1113,6 +1114,7 @@ class AppFlowsTest {
         kotlin.test.assertEquals(0, db.productQueries.selectAll().executeAsList().size) // no crea alimento en la base
         kotlin.test.assertEquals(0, db.customFoodQueries.selectAll().executeAsList().size)
 
+        onNode(hasScrollAction()).performScrollToNode(hasText("Menú del día")) // la lista es perezosa: se desplaza hasta la fila
         onNodeWithText("Menú del día").performScrollTo().performClick() // la fila queda bajo la barra inferior
         waitForText("Editar entrada rápida")
         waitForText("Energía") // los campos aparecen al terminar de cargar la entrada
@@ -1121,6 +1123,7 @@ class AppFlowsTest {
         waitForText("1.200")
         kotlin.test.assertEquals(1200.0, db.diaryEntryQueries.selectAll().executeAsList().single().kcal_100g)
 
+        onNode(hasScrollAction()).performScrollToNode(hasText("Menú del día"))
         onNodeWithText("Menú del día").performScrollTo().performTouchInput { longClick() }
         waitForText("Borrar")
         onNodeWithText("Borrar").performClick()
