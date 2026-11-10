@@ -1,7 +1,6 @@
 package app.luxion.fitarchiveapp.ui.screens
 
 import app.luxion.fitarchiveapp.data.DiaryStore
-import app.luxion.fitarchiveapp.data.ExerciseStore
 import app.luxion.fitarchiveapp.data.GoalStore
 import app.luxion.fitarchiveapp.data.MealTemplateStore
 import app.luxion.fitarchiveapp.domain.DayStatus
@@ -9,13 +8,10 @@ import app.luxion.fitarchiveapp.domain.DaySummary
 import app.luxion.fitarchiveapp.domain.MealPlan
 import app.luxion.fitarchiveapp.model.DailyGoals
 import app.luxion.fitarchiveapp.model.DiaryEntry
-import app.luxion.fitarchiveapp.model.ExerciseEntry
-import app.luxion.fitarchiveapp.model.ExerciseRules
 import app.luxion.fitarchiveapp.model.MealTemplate
 import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.model.NewMealTemplate
 import app.luxion.fitarchiveapp.model.NewDiaryEntry
-import app.luxion.fitarchiveapp.model.NewExercise
 import app.luxion.fitarchiveapp.model.Nutrients
 import app.luxion.fitarchiveapp.model.Quantity
 import app.luxion.fitarchiveapp.model.QuickEntry
@@ -588,112 +584,5 @@ class QuickEntryDiaryTest {
         assertEquals(QuickEntry.DEFAULT_NAME, form.resolvedName())
         assertEquals(form, quickEntryFormStateOf(QuickEntry.DEFAULT_NAME, totals))
         assertNull(QuickEntryFormState().toTotals())
-    }
-}
-
-private class FakeExercise(var percent: Int = ExerciseRules.DEFAULT_PERCENT) : ExerciseStore {
-    val rows = mutableListOf<ExerciseEntry>()
-    var failing = false
-    private var nextId = 1L
-
-    override suspend fun entriesForDate(date: String) = rows.filter { it.date == date }
-    override suspend fun add(exercise: NewExercise, nowMillis: Long): Long {
-        if (failing) throw IllegalStateException("db")
-        val id = nextId++
-        rows += ExerciseEntry(id, exercise.date, exercise.name, exercise.kcal, exercise.minutes, nowMillis)
-        return id
-    }
-    override suspend fun delete(id: Long) { rows.removeAll { it.id == id } }
-    override suspend fun dailyKcal(from: String, to: String) =
-        rows.filter { it.date in from..to }.groupBy { it.date }.mapValues { (_, v) -> v.sumOf { it.kcal } }
-    override suspend fun percent() = percent
-    override suspend fun setPercent(percent: Int, nowMillis: Long) { this.percent = percent }
-}
-
-@OptIn(ExperimentalCoroutinesApi::class)
-class ExercisePresenterTest {
-    private fun TestScope.presenter(exercise: FakeExercise?, goals: FakeGoals = FakeGoals(DailyGoals(kcal = 2000))) =
-        DiaryPresenter(FakeDiary(), goals, backgroundScope + UnconfinedTestDispatcher(testScheduler), DAY, exercise = exercise)
-
-    @Test
-    fun withoutAnExerciseStoreTheGoalIsUnchanged() = runTest {
-        val p = presenter(null)
-        p.load()
-        assertEquals(2000, p.state.value.goalKcal)
-        assertEquals(0, p.state.value.exerciseBonusKcal)
-        p.addExercise("Correr", 400, 40) // sin almacén no hace nada
-        assertEquals(emptyList(), p.state.value.exercises)
-    }
-
-    @Test
-    fun addingExerciseRaisesTheEffectiveGoalByThePercent() = runTest {
-        val store = FakeExercise(percent = 50)
-        val p = presenter(store)
-        p.load()
-        p.addExercise("Correr", 400, 40)
-        p.addExercise("Pesas", 150, null)
-        val s = p.state.value
-        assertEquals(550, s.exerciseKcal)
-        assertEquals(275, s.exerciseBonusKcal)
-        assertEquals(2275, s.goalKcal)
-        assertEquals(listOf("Correr", "Pesas"), s.exercises.map { it.name })
-    }
-
-    @Test
-    fun percentZeroDisablesTheBonusButKeepsTheActivities() = runTest {
-        val store = FakeExercise(percent = 0)
-        val p = presenter(store)
-        p.load()
-        p.addExercise("Correr", 400, 40)
-        assertEquals(2000, p.state.value.goalKcal)
-        assertEquals(0, p.state.value.exerciseBonusKcal)
-        assertEquals(400, p.state.value.exerciseKcal)
-        assertEquals(1, p.state.value.exercises.size)
-    }
-
-    @Test
-    fun deletingAnActivityRemovesItsBonus() = runTest {
-        val store = FakeExercise(percent = 100)
-        val p = presenter(store)
-        p.load()
-        p.addExercise("Correr", 400, 40)
-        assertEquals(2400, p.state.value.goalKcal)
-        p.deleteExercise(p.state.value.exercises.single().id)
-        assertEquals(2000, p.state.value.goalKcal)
-    }
-
-    @Test
-    fun exerciseDoesNotRaiseAMissingGoal() = runTest {
-        val p = presenter(FakeExercise(100), FakeGoals())
-        p.load()
-        p.addExercise("Correr", 400, null)
-        assertNull(p.state.value.goalKcal)
-        assertEquals(400, p.state.value.exerciseKcal)
-    }
-
-    @Test
-    fun aFailedSaveShowsAMessage() = runTest {
-        val store = FakeExercise().apply { failing = true }
-        val p = presenter(store)
-        p.load()
-        p.addExercise("Correr", 400, null)
-        assertEquals(DiaryPresenter.EXERCISE_SAVE_ERROR, p.state.value.message)
-    }
-
-    @Test
-    fun theWeekStripAndStreakUseTheEffectiveGoalOfEachDay() {
-        // Meta 2000 (margen 1800 a 2200). Ayer: 2400 kcal; solo cumple si el ejercicio de ayer sube la meta.
-        val yesterday = "2026-11-03"
-        val summaries = listOf(DaySummary(yesterday, 2400.0), DaySummary(DAY, 2000.0))
-        fun state(exerciseByDate: Map<String, Int>) = buildDiaryUiState(
-            DAY, emptyList(), DailyGoals(kcal = 2000), today = DAY, summaries = summaries,
-            exercisePercent = 50, exerciseKcalByDate = exerciseByDate,
-        )
-        val without = state(emptyMap())
-        assertEquals(DayStatus.MISSED, without.week.first { it.date == yesterday }.status)
-        assertEquals(1, without.streak)
-        val with = state(mapOf(yesterday to 400)) // +200 -> meta 2200 (1980 a 2420)
-        assertEquals(DayStatus.COMPLETED, with.week.first { it.date == yesterday }.status)
-        assertEquals(2, with.streak)
     }
 }

@@ -23,7 +23,6 @@ import app.luxion.fitarchiveapp.data.ProductRemoteSource
 import app.luxion.fitarchiveapp.data.ProductRepository
 import app.luxion.fitarchiveapp.data.SqlDelightCustomFoodStore
 import app.luxion.fitarchiveapp.data.SqlDelightDiaryStore
-import app.luxion.fitarchiveapp.data.SqlDelightExerciseStore
 import app.luxion.fitarchiveapp.data.SqlDelightFavoriteStore
 import app.luxion.fitarchiveapp.data.SqlDelightGoalStore
 import app.luxion.fitarchiveapp.data.SqlDelightMealTemplateStore
@@ -95,7 +94,6 @@ class AiTabFlowsTest {
                 recipeStore = SqlDelightRecipeStore(db.recipeQueries),
                 settingsStore = SqlDelightSettingsStore(db.settingsQueries),
                 waterStore = SqlDelightWaterStore(db.waterQueries),
-                exerciseStore = SqlDelightExerciseStore(db.exerciseQueries),
                 favoriteStore = SqlDelightFavoriteStore(db.favoriteFoodQueries),
                 templateStore = SqlDelightMealTemplateStore(db.mealTemplateQueries),
                 importTarget = SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries, db.recipeQueries, db.settingsQueries, db.favoriteFoodQueries),

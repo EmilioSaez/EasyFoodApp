@@ -9,6 +9,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -20,7 +21,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import app.luxion.fitarchiveapp.domain.ActivityLevel
 import app.luxion.fitarchiveapp.domain.StepsActivity
+import app.luxion.fitarchiveapp.domain.StepsSuggestion
 import app.luxion.fitarchiveapp.steps.DailySteps
 import app.luxion.fitarchiveapp.steps.StepsAccess
 import app.luxion.fitarchiveapp.steps.StepsProvider
@@ -76,11 +79,12 @@ fun rememberStepsState(provider: StepsProvider, today: () -> String): StepsState
     return state
 }
 
-/** Pasos del día, estado del permiso y la media (pasos, días) con la que se calcula el gasto. */
+/** Pasos del día, estado del permiso y la sugerencia de nivel de actividad. */
 @Composable
 fun StepsSection(
     state: StepsState,
-    average: Pair<Int, Int>?,
+    suggestion: StepsSuggestion?,
+    onApply: (ActivityLevel) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // En escritorio (y sin Health Connect) no hay nada que mostrar.
@@ -108,15 +112,16 @@ fun StepsSection(
                         state.todaySteps?.let { "Hoy: ${formatKcal(it.toDouble())} pasos" } ?: "Hoy: sin datos",
                         style = MaterialTheme.typography.titleMedium,
                     )
-                    Text(
-                        average?.let { (steps, days) ->
-                            "Tu gasto se calcula con la media de ${formatKcal(steps.toDouble())} pasos al día ($days días). " +
-                                "Los pasos no recogen ciclismo, pesas ni natación; es una estimación."
-                        } ?: "Con pasos de al menos ${StepsActivity.MIN_DAYS} de los últimos ${StepsActivity.WINDOW_DAYS} días " +
-                            "el gasto se ajusta a tu actividad real; mientras, se usa un gasto base sedentario.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    if (suggestion == null) {
+                        Text(
+                            "Se necesitan pasos de al menos ${StepsActivity.MIN_DAYS} de los últimos ${StepsActivity.WINDOW_DAYS} días " +
+                                "y rellenar tus datos para sugerir un nivel de actividad.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        SuggestionContent(suggestion, onApply)
+                    }
                 }
                 if (state.failed) {
                     Text(
@@ -128,4 +133,35 @@ fun StepsSection(
             }
         }
     }
+}
+
+@Composable
+private fun SuggestionContent(suggestion: StepsSuggestion, onApply: (ActivityLevel) -> Unit) {
+    Text(
+        "Media de ${formatKcal(suggestion.averageSteps.toDouble())} pasos al día (${suggestion.daysUsed} días). " +
+            "Gasto estimado por pasos: ${formatKcal(suggestion.stepsTdeeKcal.toDouble())} kcal; " +
+            "con tu nivel actual: ${formatKcal(suggestion.currentTdeeKcal.toDouble())} kcal.",
+        style = MaterialTheme.typography.bodyMedium,
+    )
+    if (!suggestion.changesLevel) {
+        Text(
+            "Tu nivel de actividad (${suggestion.currentLevel.title}) encaja con tus pasos.",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    } else {
+        Text(
+            "Tus pasos apuntan a actividad ${suggestion.suggestedLevel.title.lowercase()} " +
+                "en lugar de ${suggestion.currentLevel.title.lowercase()}.",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        OutlinedButton(
+            onClick = { onApply(suggestion.suggestedLevel) },
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+        ) { Text("Usar actividad ${suggestion.suggestedLevel.title.lowercase()}") }
+    }
+    Text(
+        "Los pasos no recogen ciclismo, pesas ni natación; es una estimación.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }

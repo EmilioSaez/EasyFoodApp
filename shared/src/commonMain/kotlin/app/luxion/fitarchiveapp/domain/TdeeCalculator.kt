@@ -4,6 +4,14 @@ import kotlin.math.roundToInt
 
 enum class Sex { MALE, FEMALE }
 
+enum class ActivityLevel(val factor: Double) {
+    SEDENTARY(1.2),
+    LIGHT(1.375),
+    MODERATE(1.55),
+    ACTIVE(1.725),
+    VERY_ACTIVE(1.9),
+}
+
 enum class Goal(val kcalFactor: Double, val proteinGramsPerKg: Double) {
     LOSE(0.8, 2.0),
     MAINTAIN(1.0, 1.6),
@@ -15,6 +23,7 @@ data class UserProfile(
     val sex: Sex,
     val weightKg: Double,
     val heightCm: Double,
+    val activity: ActivityLevel,
     val goal: Goal,
 ) {
     init {
@@ -40,22 +49,15 @@ object TdeeCalculator {
     private const val KCAL_PER_G_CARBS = 4.0
     private const val KCAL_PER_G_FAT = 9.0
 
-    /** TDEE sin pasos: TMB × 1,2 (gasto digestivo y actividad cotidiana mínima). */
-    const val BASE_ACTIVITY_FACTOR = 1.2
-
     /** Metabolismo basal (Mifflin-St Jeor). */
     fun bmr(profile: UserProfile): Double {
         val base = 10 * profile.weightKg + 6.25 * profile.heightCm - 5 * profile.ageYears
         return base + if (profile.sex == Sex.MALE) 5 else -161
     }
 
-    /** Gasto total: TMB × [BASE_ACTIVITY_FACTOR] y, si hay media de pasos, lo que suman sobre el umbral. */
-    fun tdee(profile: UserProfile, averageSteps: Int? = null): Double =
-        if (averageSteps == null) bmr(profile) * BASE_ACTIVITY_FACTOR else StepsActivity.stepsTdee(profile, averageSteps)
-
-    fun calculate(profile: UserProfile, averageSteps: Int? = null): NutritionTargets {
+    fun calculate(profile: UserProfile): NutritionTargets {
         val bmr = bmr(profile)
-        val tdee = tdee(profile, averageSteps)
+        val tdee = bmr * profile.activity.factor
         val target = maxOf((tdee * profile.goal.kcalFactor).roundToInt(), MIN_TARGET_KCAL)
 
         val protein = profile.weightKg * profile.goal.proteinGramsPerKg
