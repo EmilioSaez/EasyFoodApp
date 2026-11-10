@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilterChip
+import app.luxion.fitarchiveapp.ui.components.EasyFoodFilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -49,9 +49,9 @@ fun CopyDialog(
                 DateStepperRow(date, onDateChange = { date = it; error = null })
                 if (request.meal != null) {
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                        FilterChip(selected = meal == null, onClick = { meal = null; error = null }, label = { Text("La misma") })
+                        EasyFoodFilterChip(selected = meal == null, onClick = { meal = null; error = null }, label = { Text("La misma") })
                         MealPlan.preset(mealsPerDay).forEach { m ->
-                            FilterChip(selected = meal == m, onClick = { meal = m; error = null }, label = { Text(m.label) })
+                            EasyFoodFilterChip(selected = meal == m, onClick = { meal = m; error = null }, label = { Text(m.label) })
                         }
                     }
                 } else {

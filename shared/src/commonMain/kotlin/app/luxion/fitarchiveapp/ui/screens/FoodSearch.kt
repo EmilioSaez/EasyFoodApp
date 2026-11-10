@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.FilterChip
+import app.luxion.fitarchiveapp.ui.components.EasyFoodFilterChip
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -181,7 +181,7 @@ private fun ResultsHeader(count: Int?, onlyMine: Boolean, onChange: (Boolean) ->
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
         )
-        FilterChip(
+        EasyFoodFilterChip(
             selected = onlyMine,
             onClick = { onChange(!onlyMine) },
             label = { Text("Solo mis productos") },
