@@ -1,6 +1,5 @@
 package app.luxion.fitarchiveapp.ui.screens
 
-import app.luxion.fitarchiveapp.domain.ActivityLevel
 import app.luxion.fitarchiveapp.domain.Goal
 import app.luxion.fitarchiveapp.domain.Sex
 import app.luxion.fitarchiveapp.domain.UserProfile
@@ -11,31 +10,32 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class GoalsPlannerTest {
-    private fun profile(goal: Goal, sex: Sex = Sex.MALE, weight: Double = 80.0, activity: ActivityLevel = ActivityLevel.MODERATE) =
-        UserProfile(30, sex, weight, 180.0, activity, goal)
+    private fun profile(goal: Goal, sex: Sex = Sex.MALE, weight: Double = 80.0) =
+        UserProfile(30, sex, weight, 180.0, goal)
 
     @Test
     fun maintainEqualsTdee() {
         val plan = GoalsPlanner.plan(profile(Goal.MAINTAIN), GoalsPlanner.DEFAULT_PACE_INDEX)
-        // TMB = 800 + 1125 - 150 + 5 = 1780 · ×1,55 = 2759
+        // TMB = 800 + 1125 - 150 + 5 = 1780 · ×1,2 = 2136
         assertEquals(1780, plan.bmrKcal)
-        assertEquals(2759, plan.tdeeKcal)
-        assertEquals(2759, plan.targetKcal)
+        assertEquals(2136, plan.tdeeKcal)
+        assertEquals(2136, plan.targetKcal)
         assertFalse(plan.limited)
     }
 
     @Test
     fun paceAdjustsTargetByGoal() {
-        // 0,5 kg/sem = 550 kcal/día
-        assertEquals(2759 - 550, GoalsPlanner.plan(profile(Goal.LOSE), 1).targetKcal)
-        assertEquals(2759 + 550, GoalsPlanner.plan(profile(Goal.GAIN), 1).targetKcal)
-        // 2759 − 1100 = 1659 < TMB (1780): se limita al TMB
-        assertEquals(1780, GoalsPlanner.plan(profile(Goal.LOSE), 3).targetKcal)
+        // 15 000 pasos de media: 2136 + (15 000 − 3 000) × 0,0005 × 80 = 2616 · 0,5 kg/sem = 550 kcal/día
+        fun plan(goal: Goal, pace: Int) = GoalsPlanner.plan(profile(goal), pace, averageSteps = 15_000)
+        assertEquals(2616 - 550, plan(Goal.LOSE, 1).targetKcal)
+        assertEquals(2616 + 550, plan(Goal.GAIN, 1).targetKcal)
+        // 2616 − 1100 = 1516 < TMB (1780): se limita al TMB
+        assertEquals(1780, plan(Goal.LOSE, 3).targetKcal)
     }
 
     @Test
     fun targetNeverBelowBmrAndFlagsIt() {
-        val p = profile(Goal.LOSE, sex = Sex.FEMALE, weight = 50.0, activity = ActivityLevel.SEDENTARY)
+        val p = profile(Goal.LOSE, sex = Sex.FEMALE, weight = 50.0)
         val plan = GoalsPlanner.plan(p, 3)
         assertTrue(plan.limited)
         assertEquals(maxOf(plan.bmrKcal, 1200), plan.targetKcal)
@@ -72,23 +72,11 @@ class GoalsPlannerTest {
     }
 
     @Test
-    fun fixedGoalsIgnoreTheCalculator() {
-        val p = profile(Goal.MAINTAIN)
-        val plan = GoalsPlanner.plan(p, GoalsPlanner.DEFAULT_PACE_INDEX)
-        val saved = DailyGoals(kcal = 1800, proteinG = 100, carbsG = 200, fatG = 60, fixed = true)
-
-        assertEquals(saved, GoalsPlanner.resolve(plan, p, saved, null, null, null, null, fixed = true))
-        // Los ajustes manuales siguen mandando; unas kcal a mano reparten los macros según el perfil.
-        val manual = GoalsPlanner.resolve(plan, p, saved, null, 150, null, null, fixed = true)
-        assertEquals(DailyGoals(1800, 150, 200, 60, fixed = true), manual)
-        val kcal = GoalsPlanner.resolve(plan, p, saved, 2000, null, null, null, fixed = true)
-        assertEquals(2000, kcal.kcal)
-        assertEquals(GoalsPlanner.macros(2000, 80.0, Goal.MAINTAIN).proteinG, kcal.proteinG)
-        assertTrue(kcal.fixed)
-    }
-
-    @Test
-    fun notFixedByDefault() {
-        assertFalse(GoalsPlanner.resolve(null, null, DailyGoals(), null, null, null, null).fixed)
+    fun stepsRaiseTheTdee() {
+        val base = GoalsPlanner.plan(profile(Goal.MAINTAIN), GoalsPlanner.DEFAULT_PACE_INDEX)
+        val walker = GoalsPlanner.plan(profile(Goal.MAINTAIN), GoalsPlanner.DEFAULT_PACE_INDEX, averageSteps = 13_000)
+        // (13 000 − 3 000) × 0,0005 × 80 kg = 400 kcal
+        assertEquals(base.tdeeKcal + 400, walker.tdeeKcal)
+        assertEquals(base.tdeeKcal, GoalsPlanner.plan(profile(Goal.MAINTAIN), GoalsPlanner.DEFAULT_PACE_INDEX, averageSteps = 2_000).tdeeKcal)
     }
 }
