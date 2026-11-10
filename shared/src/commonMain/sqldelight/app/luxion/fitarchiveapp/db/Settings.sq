@@ -1,8 +1,10 @@
 -- Ajustes del usuario: una única fila (id = 1).
 -- meals_per_day: comidas al día (3 a 6); NULL = aún sin elegir (dispara la pantalla de primera vez).
+-- reminders: JSON con los recordatorios locales (ver ReminderSettings); NULL = sin configurar (todo apagado).
 CREATE TABLE SettingsEntity (
     id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
-    meals_per_day INTEGER CHECK (meals_per_day IS NULL OR (meals_per_day >= 3 AND meals_per_day <= 6))
+    meals_per_day INTEGER CHECK (meals_per_day IS NULL OR (meals_per_day >= 3 AND meals_per_day <= 6)),
+    reminders TEXT
 );
 
 selectMealsPerDay:
@@ -11,3 +13,10 @@ SELECT meals_per_day FROM SettingsEntity WHERE id = 1;
 upsertMealsPerDay:
 INSERT INTO SettingsEntity(id, meals_per_day) VALUES (1, ?)
 ON CONFLICT(id) DO UPDATE SET meals_per_day = excluded.meals_per_day;
+
+selectReminders:
+SELECT reminders FROM SettingsEntity WHERE id = 1;
+
+upsertReminders:
+INSERT INTO SettingsEntity(id, reminders) VALUES (1, ?)
+ON CONFLICT(id) DO UPDATE SET reminders = excluded.reminders;

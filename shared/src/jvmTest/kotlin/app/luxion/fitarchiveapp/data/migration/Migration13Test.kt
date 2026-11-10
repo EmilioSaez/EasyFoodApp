@@ -60,12 +60,10 @@ class Migration13Test {
     fun reapplyingTheMigrationKeepsExerciseData() = MigrationTestKit.legacyDatabase(13).use { d ->
         MigrationTestKit.migrateToLatest(d, from = 13)
         RepresentativeUserData.seed(d, MigrationTestKit.latestVersion)
-        // 16.sqm (ALTER TABLE ADD COLUMN) no es idempotente: se quitan sus columnas para repetir solo esta migración.
-        for (c in listOf("saturated_fat_100g", "sugars_100g", "fiber_100g", "salt_100g")) d.execute(null, "ALTER TABLE DiaryEntryEntity DROP COLUMN $c", 0)
         val before = MigrationTestKit.snapshot(d)
         assertEquals(3, before.getValue("ExerciseEntity").size)
 
-        MigrationTestKit.migrateToLatest(d, from = 13) // 13.sqm es idempotente
+        EasyFoodDatabase.Schema.migrate(d, 13, 14) // solo la 13, que es idempotente
 
         MigrationTestKit.assertPreserved(before, MigrationTestKit.snapshot(d))
         MigrationTestKit.assertSameSchemaAsFresh(d)

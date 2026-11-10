@@ -51,11 +51,8 @@ class Migration11Test {
             )
             val after = MigrationTestKit.snapshot(d)
 
-            // 12.sqm (ALTER TABLE ADD COLUMN) no es idempotente: se quita su columna para repetir solo la 11.
-            d.execute(null, "ALTER TABLE DiaryEntryEntity DROP COLUMN quick", 0)
-            // 16.sqm (ALTER TABLE ADD COLUMN) no es idempotente: se quitan sus columnas para repetir solo esta migración.
-            for (c in listOf("saturated_fat_100g", "sugars_100g", "fiber_100g", "salt_100g")) d.execute(null, "ALTER TABLE DiaryEntryEntity DROP COLUMN $c", 0)
-            MigrationTestKit.migrateToLatest(d, from = 11) // idempotente: no vacía ni duplica nada
+            // Se repite solo la 11 (las posteriores pueden no ser idempotentes, p. ej. 12.sqm con ADD COLUMN).
+            EasyFoodDatabase.Schema.migrate(d, 11, 12) // idempotente: no vacía ni duplica nada
 
             MigrationTestKit.assertPreserved(after, MigrationTestKit.snapshot(d))
             assertEquals(listOf("Leche entera"), store.find(id)!!.items.map { it.name })

@@ -9,6 +9,7 @@ import app.luxion.fitarchiveapp.db.ProductQueries
 import app.luxion.fitarchiveapp.db.MealTemplateQueries
 import app.luxion.fitarchiveapp.db.RecipeQueries
 import app.luxion.fitarchiveapp.db.SettingsQueries
+import app.luxion.fitarchiveapp.domain.ReminderSettings
 import app.luxion.fitarchiveapp.domain.MealPlan
 import app.luxion.fitarchiveapp.db.ExerciseQueries
 import app.luxion.fitarchiveapp.db.WaterQueries
@@ -72,6 +73,8 @@ import kotlinx.coroutines.withContext
  *   distinto, gana el de `updatedAtMillis` más reciente (con empate, el local). Fuera de rango es inválido.
  * - Las **comidas al día** (`mealsPerDay`, opcional) solo se toman si este dispositivo aún no ha elegido; si ya hay
  *   ajuste local se conserva. Un archivo sin el campo no cambia nada; fuera de 3 a 6 es inválido.
+ * - Los **recordatorios** (`reminders`, opcional) siguen la misma política: solo se toman si este dispositivo aún no los
+ *   ha configurado; se sanean (días 1 a 7, horas 0 a 1439).
  *
  * **Agua**
  * - Identidad: la fecha (`date`); hay un total por día. Misma política que los pesos: no existe en local, se añade;
@@ -141,6 +144,7 @@ class DataImporter(private val target: ImportTarget) {
         val recipes = planRecipes(file.recipes, target.recipes(), invalid)
         val goal = planWeightGoal(file.weightGoal, target.weightGoal(), invalid)
         val meals = planMealsPerDay(file.mealsPerDay, target.mealsPerDay(), invalid)
+        val reminders = if (target.reminders() == null) file.reminders?.sanitized() else null
         val water = planWater(file.water, target.water(), invalid)
         val waterGoal = planWaterGoal(file.waterGoal, target.waterGoal(), invalid)
         val favorites = planFavorites(file.favorites, target.favorites(), foods.finalKeys, foods.renamed, invalid)
@@ -159,6 +163,7 @@ class DataImporter(private val target: ImportTarget) {
                 recipesToUpdate = recipes.updates,
                 weightGoal = goal.write,
                 mealsPerDay = meals,
+                reminders = reminders,
                 water = water.writes,
                 waterGoal = waterGoal.write,
                 favoritesToAdd = favorites.adds,
@@ -694,6 +699,8 @@ data class ImportChanges(
     val weightGoal: ExportedWeightGoal? = null,
     /** Comidas al día a fijar, o `null` si no cambia. */
     val mealsPerDay: Int? = null,
+    /** Recordatorios a fijar, o `null` si no cambian. */
+    val reminders: ReminderSettings? = null,
     /** Totales de agua a insertar o reemplazar por fecha. */
     val water: List<ExportedWater> = emptyList(),
     /** Objetivo de agua a fijar, o `null` si no cambia. */
@@ -713,7 +720,7 @@ data class ImportChanges(
     val isEmpty: Boolean
         get() = products.isEmpty() && customFoodsToAdd.isEmpty() && customFoodsToUpdate.isEmpty() &&
             diaryEntriesToAdd.isEmpty() && weights.isEmpty() && recipesToAdd.isEmpty() && recipesToUpdate.isEmpty() &&
-            weightGoal == null && mealsPerDay == null && water.isEmpty() && waterGoal == null && favoritesToAdd.isEmpty() &&
+            weightGoal == null && mealsPerDay == null && reminders == null && water.isEmpty() && waterGoal == null && favoritesToAdd.isEmpty() &&
             templatesToAdd.isEmpty() && templatesToUpdate.isEmpty() &&
             exercisesToAdd.isEmpty() && exercisePercent == null && productCorrections.isEmpty()
 }
@@ -873,6 +880,7 @@ class SqlDelightImportTarget(
             }
             changes.weightGoal?.let { weightQueries.upsertGoal(it.targetKg, it.updatedAtMillis) }
             changes.mealsPerDay?.let { settingsQueries.upsertMealsPerDay(it.toLong()) }
+            changes.reminders?.let { settingsQueries.upsertReminders(it.toJson()) }
             if (waterQueries != null) {
                 changes.water.forEach { waterQueries.upsert(it.date, it.ml.toLong(), it.updatedAtMillis) }
                 changes.waterGoal?.let { waterQueries.upsertGoal(it.goalMl.toLong(), it.updatedAtMillis) }

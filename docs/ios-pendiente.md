@@ -62,6 +62,18 @@ Sin probar en iOS (ni en el simulador ni en iPhone): servidor/cliente Ktor sobre
 - [ ] Comportamiento al pasar la app a segundo plano durante la transferencia.
 - [ ] Origen del código de emparejamiento aleatorio (`SecureRandom.ios.kt`): comprobar que usa una fuente segura en dispositivo.
 
+## Recordatorios (notificaciones locales)
+
+Implementación: `shared/src/iosMain/.../reminders/ReminderScheduler.ios.kt` (`UNUserNotificationCenter`, `UNCalendarNotificationTrigger` de un solo disparo). Solo se ha comprobado el tipado en Windows (`compileKotlinIosSimulatorArm64` y `compileKotlinIosArm64`).
+
+- [ ] Al activar «Recordatorios» en Objetivos aparece el diálogo de permiso de notificaciones; denegarlo muestra el aviso y «Abrir ajustes» abre los ajustes de la app.
+- [ ] Las notificaciones llegan a la hora elegida con la app cerrada (hora local del dispositivo, también tras cambiar de zona horaria u hora de verano).
+- [ ] Con la app en primer plano no salen (no hay `UNUserNotificationCenterDelegate`): decidir si se quiere mostrarlas con banner.
+- [ ] Registrar una comida o el peso y volver a la pantalla anterior retira el aviso de hoy (reprograma con `removeAllPendingNotificationRequests`).
+- [ ] Límite de 64 notificaciones pendientes: el plan de 7 días con 6 comidas, peso y agua suma 56 como máximo.
+- [ ] Tocar la notificación abre la app (sin navegar a una pantalla concreta).
+- [ ] Las propiedades de `NSDateComponents` (`year`, `month`, `day`, `hour`, `minute`) como `Long` compilan en el CI de macOS.
+
 ## Aplicación y proyecto Xcode
 
 - [ ] La app arranca en el simulador y en un iPhone (nunca se ha ejecutado, solo compilado en CI).

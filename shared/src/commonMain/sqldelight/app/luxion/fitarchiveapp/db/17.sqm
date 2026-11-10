@@ -1,0 +1,16 @@
+-- Migración v17 -> v18: recordatorios locales en los ajustes (columna JSON `reminders`, ver Settings.sq y ReminderSettings).
+-- SQLite no tiene ADD COLUMN IF NOT EXISTS y varios tests de migración repiten los .sqm sobre bases ya actualizadas,
+-- así que se reconstruye la tabla conservando la fila existente (`meals_per_day`): es idempotente. Una base que ya
+-- tuviera `reminders` y se volviera a migrar (nunca ocurre en la app, solo en tests) la dejaría en NULL.
+DROP TABLE IF EXISTS SettingsEntity_new;
+CREATE TABLE SettingsEntity_new (
+    id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+    meals_per_day INTEGER CHECK (meals_per_day IS NULL OR (meals_per_day >= 3 AND meals_per_day <= 6)),
+    reminders TEXT
+);
+
+INSERT INTO SettingsEntity_new(id, meals_per_day)
+SELECT id, meals_per_day FROM SettingsEntity;
+
+DROP TABLE SettingsEntity;
+ALTER TABLE SettingsEntity_new RENAME TO SettingsEntity;

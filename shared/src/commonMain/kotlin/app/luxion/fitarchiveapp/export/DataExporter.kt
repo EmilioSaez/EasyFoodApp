@@ -14,6 +14,7 @@ import app.luxion.fitarchiveapp.db.FavoriteFoodQueries
 import app.luxion.fitarchiveapp.db.ProductQueries
 import app.luxion.fitarchiveapp.db.SettingsQueries
 import app.luxion.fitarchiveapp.db.MealTemplateQueries
+import app.luxion.fitarchiveapp.domain.ReminderSettings
 import app.luxion.fitarchiveapp.db.RecipeQueries
 import app.luxion.fitarchiveapp.db.WaterQueries
 import app.luxion.fitarchiveapp.db.WeightEntryQueries
@@ -41,6 +42,7 @@ interface ExportSource {
     suspend fun exercises(): List<ExportedExercise> = emptyList()
     suspend fun exercisePercent(): ExportedExercisePercent? = null
     suspend fun productCorrections(): List<ExportedProductCorrection> = emptyList()
+    suspend fun reminders(): ReminderSettings? = null
 }
 
 /** Genera el JSON de exportación a partir de [source]. */
@@ -67,6 +69,7 @@ class DataExporter(
         exercises = source.exercises(),
         exercisePercent = source.exercisePercent(),
         productCorrections = source.productCorrections(),
+        reminders = source.reminders(),
     )
 
     suspend fun exportToJson(): String = ExportCodec.encode(buildFile())
@@ -174,6 +177,10 @@ class SqlDelightExportSource(
 
     override suspend fun mealsPerDay(): Int? = withContext(dispatcher) {
         settingsQueries?.selectMealsPerDay()?.executeAsOneOrNull()?.meals_per_day?.toInt()
+    }
+
+    override suspend fun reminders(): ReminderSettings? = withContext(dispatcher) {
+        ReminderSettings.fromJson(settingsQueries?.selectReminders()?.executeAsOneOrNull()?.reminders)
     }
 
     override suspend fun recipes(): List<ExportedRecipe> = withContext(dispatcher) {

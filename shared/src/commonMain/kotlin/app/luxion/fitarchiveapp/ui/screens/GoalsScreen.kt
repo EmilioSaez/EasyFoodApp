@@ -142,6 +142,10 @@ fun GoalsScreen(
                 title = { Text("Objetivos") },
                 actions = {
                     IconButton(
+                        onClick = { navigator.push(Route.Reminders) },
+                        modifier = Modifier.semantics { contentDescription = "Recordatorios" },
+                    ) { Text("🔔", style = MaterialTheme.typography.titleMedium) }
+                    IconButton(
                         onClick = { navigator.push(Route.Data) },
                         modifier = Modifier.semantics { contentDescription = "Datos: exportar e importar" },
                     ) { Text("⇅", style = MaterialTheme.typography.titleLarge) }

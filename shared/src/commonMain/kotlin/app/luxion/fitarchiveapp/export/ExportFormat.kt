@@ -1,5 +1,6 @@
 package app.luxion.fitarchiveapp.export
 
+import app.luxion.fitarchiveapp.domain.ReminderSettings
 import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.model.Nutrients
 import app.luxion.fitarchiveapp.model.Quantity
@@ -44,6 +45,8 @@ data class ExportFile(
     val exercisePercent: ExportedExercisePercent? = null,
     /** Correcciones del usuario de los valores de productos. Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como vacío. */
     val productCorrections: List<ExportedProductCorrection> = emptyList(),
+    /** Recordatorios locales. Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como `null`. */
+    val reminders: ReminderSettings? = null,
 )
 
 @Serializable
