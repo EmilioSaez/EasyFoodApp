@@ -82,6 +82,7 @@ class MainActivity : ComponentActivity() {
                     nowMinutes = { LocalTime.now().let { it.hour * 60 + it.minute } },
                     genericSeeder = genericSeeder,
                     ai = aiModule,
+                    backgroundRefresh = true,
                 )
             }
         }

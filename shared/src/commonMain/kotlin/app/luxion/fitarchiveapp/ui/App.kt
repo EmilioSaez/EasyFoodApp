@@ -24,6 +24,7 @@ import app.luxion.fitarchiveapp.data.ExerciseStore
 import app.luxion.fitarchiveapp.data.FavoriteStore
 import app.luxion.fitarchiveapp.data.DiaryStore
 import app.luxion.fitarchiveapp.data.GoalStore
+import app.luxion.fitarchiveapp.data.ProductRefresher
 import app.luxion.fitarchiveapp.data.ProductRepository
 import app.luxion.fitarchiveapp.data.ProductSearchStore
 import app.luxion.fitarchiveapp.data.MealTemplateStore
@@ -60,6 +61,8 @@ import app.luxion.fitarchiveapp.ui.screens.WeightScreen
 import app.luxion.fitarchiveapp.ui.theme.EasyFoodTheme
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.launch
 
 /**
@@ -68,6 +71,7 @@ import kotlinx.coroutines.launch
  * [nowMinutes] devuelve la hora local actual en minutos desde medianoche (para preseleccionar la comida).
  * [genericSeeder], si se indica, carga la base genérica en segundo plano al arrancar y muestra su progreso.
  * [ai] agrupa la clave y los ajustes de la IA (guardados fuera de la BD exportable); sin él, la IA queda sin clave.
+ * [backgroundRefresh] activa el refresco oportunista de los productos de Open Food Facts usados (ver [ProductRefresher]).
  */
 @Composable
 fun App(
@@ -88,6 +92,7 @@ fun App(
     nowMinutes: () -> Int,
     genericSeeder: GenericFoodSeeder? = null,
     ai: AiModule? = null,
+    backgroundRefresh: Boolean = false,
 ) {
     EasyFoodTheme {
         Surface(Modifier.fillMaxSize()) {
@@ -98,6 +103,18 @@ fun App(
                     exporter = DataExporter(importTarget) { kotlin.time.Clock.System.now().toEpochMilliseconds() },
                     importer = DataImporter(importTarget),
                 )
+            }
+            if (backgroundRefresh) {
+                LaunchedEffect(repository) {
+                    delay(STARTUP_REFRESH_DELAY_MS) // tras el arranque y la carga de la base genérica
+                    try {
+                        ProductRefresher(repository, pause = 500.milliseconds).run()
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        // el refresco es solo una mejora: sin red o con la BD ocupada, la app sigue igual
+                    }
+                }
             }
             PlatformBackHandler(enabled = navigator.canGoBack) { navigator.pop() }
             val meals = rememberMealsSetting(settingsStore, navigator.current)
@@ -147,6 +164,8 @@ fun App(
         }
     }
 }
+
+private const val STARTUP_REFRESH_DELAY_MS = 15_000L
 
 /** Lanza la carga inicial de la base genérica (fuera del hilo de UI) y pinta su avance. */
 @Composable

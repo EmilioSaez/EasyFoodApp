@@ -75,6 +75,7 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
             },
             today = ::todayIso,
             nowMinutes = ::nowMinutes,
+            backgroundRefresh = true,
             genericSeeder = remember(db) {
                 GenericFoodSeeder(
                     GenericFoodImporter(db.productQueries),

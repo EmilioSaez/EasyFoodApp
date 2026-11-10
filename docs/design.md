@@ -195,6 +195,7 @@ LazyColumn (16, spacedBy 16)
 │  └─ grid 3 col: punto de color + Proteína / Hidratos / Grasa (titleMedium)
 ├─ NutritionTable «Por 100 g»: Energía, Grasas, ↳ saturadas, Hidratos, ↳ azúcares, Fibra, Proteína, Sal
 │    filas hijas con sangría de 16 y onSurfaceVariant; valor ausente = «Sin dato» en warning
+├─ Tarjeta de refresco (solo productos de Open Food Facts, no en edición de una entrada): «Datos de Open Food Facts actualizado hace 3 días» · último cambio relevante («Cambió hace 2 días: Energía 250 → 230 kcal. Tus entradas anteriores del diario conservan los valores…») · mensaje del último refresco · OutlinedButton «Actualizar datos». Ver `docs/refrescar-productos.md`.
 └─ «Fuente: Open Food Facts · actualizado hace 3 días» (bodySmall)
 BottomBar (surfaceContainer, padding 16): Button «Añadir a Snacks» (48 dp, icono +). En modo edición: «Guardar cambios» + IconButton borrar.
 ```

@@ -61,3 +61,55 @@ SELECT data_version FROM GenericFoodsMetaEntity WHERE id = 1;
 upsertGenericDataVersion:
 INSERT INTO GenericFoodsMetaEntity(id, data_version) VALUES (1, ?)
 ON CONFLICT(id) DO UPDATE SET data_version = excluded.data_version;
+
+-- Seguimiento del refresco de productos de Open Food Facts (ver 14.sqm). Tabla aparte de ProductEntity: no altera la
+-- caché ni choca con otras migraciones. Sin fila = nunca refrescado.
+--  refreshed_at   última vez que OFF confirmó o actualizó el producto (ms epoch).
+--  checked_at     última vez que respondió (también si ya no existe o se rechazó el dato nuevo).
+--  changed_at / change_summary   último cambio nutricional relevante y su resumen legible.
+CREATE TABLE ProductRefreshEntity (
+    barcode TEXT NOT NULL PRIMARY KEY,
+    refreshed_at INTEGER,
+    checked_at INTEGER,
+    changed_at INTEGER,
+    change_summary TEXT
+);
+
+CREATE TRIGGER product_refresh_delete AFTER DELETE ON ProductEntity BEGIN
+    DELETE FROM ProductRefreshEntity WHERE barcode = old.barcode;
+END;
+
+selectRefreshInfo:
+SELECT refreshed_at, changed_at, change_summary FROM ProductRefreshEntity WHERE barcode = ?;
+
+-- Refresco de un producto de Open Food Facts: solo toca filas de ese origen (nunca genéricos ni propios) y deja
+-- intacto el diario, que guarda su propia copia de los valores. Conserva el rowid (índice ProductFts).
+updateRefreshed:
+UPDATE ProductEntity SET
+    name = :name, brand = :brand, image_url = :imageUrl, kcal = :kcal, protein_g = :proteinG, carbs_g = :carbsG,
+    sugars_g = :sugarsG, fat_g = :fatG, saturated_fat_g = :saturatedFatG, fiber_g = :fiberG, salt_g = :saltG,
+    serving_size_g = :servingSizeG, serving_label = :servingLabel, cached_at = :now
+WHERE barcode = :barcode AND source = 'OPEN_FOOD_FACTS';
+
+-- Anota una respuesta de OFF. `refreshed` = se aplicó el dato; `summary` = cambio relevante (NULL = ninguno, se
+-- conserva el último registrado).
+recordRefresh:
+INSERT INTO ProductRefreshEntity(barcode, refreshed_at, checked_at, changed_at, change_summary)
+VALUES (:barcode, :refreshedAt, :now, CASE WHEN :summary IS NULL THEN NULL ELSE :now END, :summary)
+ON CONFLICT(barcode) DO UPDATE SET
+    refreshed_at = COALESCE(excluded.refreshed_at, refreshed_at),
+    checked_at = excluded.checked_at,
+    changed_at = CASE WHEN excluded.change_summary IS NULL THEN changed_at ELSE excluded.changed_at END,
+    change_summary = COALESCE(excluded.change_summary, change_summary);
+
+-- Productos de Open Food Facts usados (en el diario o como favoritos) cuya última consulta es anterior a :staleBefore,
+-- los más antiguos primero.
+selectRefreshCandidates:
+SELECT p.barcode FROM ProductEntity AS p
+LEFT JOIN ProductRefreshEntity AS r ON r.barcode = p.barcode
+WHERE p.source = 'OPEN_FOOD_FACTS'
+  AND COALESCE(r.checked_at, r.refreshed_at, p.cached_at) < :staleBefore
+  AND (EXISTS (SELECT 1 FROM FavoriteFoodEntity AS f WHERE f.key = p.barcode)
+    OR EXISTS (SELECT 1 FROM DiaryEntryEntity AS d WHERE d.barcode = p.barcode))
+ORDER BY COALESCE(r.checked_at, r.refreshed_at, p.cached_at), p.barcode
+LIMIT :limit;

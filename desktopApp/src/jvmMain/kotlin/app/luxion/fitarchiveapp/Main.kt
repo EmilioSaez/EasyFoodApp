@@ -87,6 +87,7 @@ fun main() = application {
             },
             today = { LocalDate.now().toString() },
             nowMinutes = { LocalTime.now().let { it.hour * 60 + it.minute } },
+            backgroundRefresh = true,
             genericSeeder = remember(db) {
                 GenericFoodSeeder(GenericFoodImporter(db.productQueries), nowMillis = System::currentTimeMillis)
             },
