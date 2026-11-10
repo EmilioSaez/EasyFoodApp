@@ -38,6 +38,57 @@ class SqlDelightProductStore(
         )
     }
 
+    override suspend fun saveRefreshed(product: Product, nowMillis: Long, changeSummary: String?): Boolean =
+        withContext(dispatcher) {
+            queries.transactionWithResult {
+                val existing = queries.selectByBarcode(product.barcode).executeAsOneOrNull()
+                if (existing == null || existing.source != SOURCE_OPEN_FOOD_FACTS) {
+                    false // genéricos y propios no se refrescan
+                } else {
+                    queries.updateRefreshed(
+                        name = product.name,
+                        brand = product.brand,
+                        imageUrl = product.imageUrl,
+                        kcal = product.nutrients.kcal,
+                        proteinG = product.nutrients.proteinG,
+                        carbsG = product.nutrients.carbsG,
+                        sugarsG = product.nutrients.sugarsG,
+                        fatG = product.nutrients.fatG,
+                        saturatedFatG = product.nutrients.saturatedFatG,
+                        fiberG = product.nutrients.fiberG,
+                        saltG = product.nutrients.saltG,
+                        servingSizeG = product.servingSizeG,
+                        servingLabel = product.servingLabel,
+                        now = nowMillis,
+                        barcode = product.barcode,
+                    )
+                    queries.recordRefresh(
+                        barcode = product.barcode, refreshedAt = nowMillis, now = nowMillis, summary = changeSummary,
+                    )
+                    true
+                }
+            }
+        }
+
+    override suspend fun markChecked(barcode: String, nowMillis: Long): Unit = withContext(dispatcher) {
+        queries.transaction {
+            val existing = queries.selectByBarcode(barcode).executeAsOneOrNull()
+            if (existing?.source == SOURCE_OPEN_FOOD_FACTS) {
+                queries.recordRefresh(barcode = barcode, refreshedAt = null, now = nowMillis, summary = null)
+            }
+        }
+    }
+
+    override suspend fun refreshInfo(barcode: String): ProductRefreshInfo? = withContext(dispatcher) {
+        queries.selectRefreshInfo(barcode).executeAsOneOrNull()?.let {
+            ProductRefreshInfo(it.refreshed_at, it.changed_at, it.change_summary)
+        }
+    }
+
+    override suspend fun refreshCandidates(staleBeforeMillis: Long, limit: Int): List<String> = withContext(dispatcher) {
+        queries.selectRefreshCandidates(staleBefore = staleBeforeMillis, limit = limit.toLong()).executeAsList()
+    }
+
     private companion object {
         const val SOURCE_OPEN_FOOD_FACTS = "OPEN_FOOD_FACTS"
     }

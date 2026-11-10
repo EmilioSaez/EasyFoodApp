@@ -1,0 +1,20 @@
+-- Migración v14 -> v15: seguimiento del refresco de productos de Open Food Facts. Idempotente; no modifica
+-- ProductEntity y conserva todos los datos existentes.
+--  refreshed_at   última vez que Open Food Facts confirmó o actualizó el producto (ms epoch).
+--  checked_at     última vez que se le preguntó y respondió (también si ya no existe o se rechazó el dato nuevo).
+--  changed_at / change_summary   último cambio nutricional relevante y su resumen legible.
+CREATE TABLE IF NOT EXISTS ProductRefreshEntity (
+    barcode TEXT NOT NULL PRIMARY KEY,
+    refreshed_at INTEGER,
+    checked_at INTEGER,
+    changed_at INTEGER,
+    change_summary TEXT
+);
+
+CREATE TRIGGER IF NOT EXISTS product_refresh_delete AFTER DELETE ON ProductEntity BEGIN
+    DELETE FROM ProductRefreshEntity WHERE barcode = old.barcode;
+END;
+
+-- La última descarga (cached_at) es la última confirmación de las filas que vienen de Open Food Facts.
+INSERT OR IGNORE INTO ProductRefreshEntity(barcode, refreshed_at)
+SELECT barcode, cached_at FROM ProductEntity WHERE source = 'OPEN_FOOD_FACTS';
