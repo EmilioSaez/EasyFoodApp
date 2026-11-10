@@ -166,10 +166,10 @@ fun AddFoodScreen(
             onQueryChange = { query = it },
             searchStore = searchStore,
             customFoods = customFoods,
-            onPick = { navigator.push(Route.ProductDetail(barcode = it.result.key, meal = route.meal)) },
+            onPick = { navigator.push(route.toProductDetail(it.result.key)) },
             modifier = Modifier.padding(padding),
             emptyPrimary = EmptyStateAction("Crear alimento propio") { navigator.push(Route.CustomFood(meal = route.meal)) },
-            emptySecondary = EmptyStateAction("Escanear código") { navigator.push(Route.Scanner(route.meal)) },
+            emptySecondary = EmptyStateAction("Escanear código") { navigator.push(route.toScanner()) },
             emptyTertiary = EmptyStateAction("Fotografiar etiqueta") { navigator.push(Route.LabelPhoto(meal = route.meal)) },
             header = {
                 Column(Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s)) {
@@ -193,7 +193,7 @@ fun AddFoodScreen(
                         query = ""; templateError = null; mode = QuickMode.Templates
                         if (!route.templates) navigator.replace(route.copy(templates = true))
                     },
-                    onScan = { navigator.push(Route.Scanner(route.meal)) },
+                    onScan = { navigator.push(route.toScanner()) },
                     onCustom = { navigator.push(Route.CustomFood(meal = route.meal)) },
                     onQuick = { navigator.push(Route.QuickEntry(route.meal, route.date ?: today?.invoke())) },
                     onPlate = { navigator.push(Route.PlatePhoto(route.meal, route.date)) },
@@ -201,11 +201,11 @@ fun AddFoodScreen(
                 )
             },
             idleContent = {
-                val onPick = { r: FoodResult -> navigator.push(Route.ProductDetail(barcode = r.key, meal = route.meal)) }
+                val onPick = { r: FoodResult -> navigator.push(route.toProductDetail(r.key)) }
                 if (mode == QuickMode.Templates && templatesEnabled) {
                     TemplateListSection(
                         templates = templates,
-                        onAdd = { t -> templateError = null; addTemplate(t, today!!(), route.meal ?: mealChoices!!.defaultMeal()) },
+                        onAdd = { t -> templateError = null; addTemplate(t, route.date ?: today!!(), route.meal ?: mealChoices!!.defaultMeal()) },
                         onChoose = { t -> templateError = null; addingTemplate = t },
                         onEdit = { t -> navigator.push(Route.TemplateEdit(t.id)) },
                         onNew = { navigator.push(Route.TemplateEdit()) },
@@ -243,7 +243,7 @@ fun AddFoodScreen(
     addingTemplate?.let { t ->
         AddTemplateDialog(
             template = t,
-            today = today!!(),
+            today = route.date ?: today!!(),
             initialMeal = route.meal ?: mealChoices!!.defaultMeal(),
             mealChoices = mealChoices!!,
             error = templateError,
@@ -359,3 +359,9 @@ private fun QuickActions(
         }
     }
 }
+
+/** Ficha de producto para dar de alta [barcode] en la comida y el día con los que se abrió la pantalla de añadir. */
+internal fun Route.Add.toProductDetail(barcode: String) = Route.ProductDetail(barcode = barcode, meal = meal, date = date)
+
+/** Escáner que conserva la comida y el día con los que se abrió la pantalla de añadir. */
+internal fun Route.Add.toScanner() = Route.Scanner(meal, date)

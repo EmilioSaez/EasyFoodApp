@@ -25,7 +25,7 @@ sealed interface Route {
     data class QuickEntry(val meal: MealType? = null, val date: String? = null, val entryId: Long? = null) : Route
 
     /** Escáner de cámara + entrada manual de EAN. */
-    data class Scanner(val meal: MealType? = null) : Route
+    data class Scanner(val meal: MealType? = null, val date: String? = null) : Route
 
     /**
      * Crear alimento propio; [barcode] viene prerrelleno si se abre desde un EAN no encontrado.
@@ -51,12 +51,13 @@ sealed interface Route {
 
     /**
      * Ficha de producto. Alta: [barcode] del producto y [meal] destino. Edición de una entrada
-     * del diario: [entryId] informado.
+     * del diario: [entryId] informado. [date] es el día al que se apunta el alta (`null` = hoy).
      */
     data class ProductDetail(
         val barcode: String? = null,
         val meal: MealType? = null,
         val entryId: Long? = null,
+        val date: String? = null,
     ) : Route
 
     /** Lista de recetas. */
