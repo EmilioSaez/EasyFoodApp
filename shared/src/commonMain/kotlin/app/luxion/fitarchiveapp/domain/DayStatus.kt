@@ -52,10 +52,17 @@ enum class DayStatus {
         /**
          * Días completados consecutivos que terminan hoy. Si hoy aún no está completado se cuenta hasta ayer
          * (la racha no se rompe hasta que acaba el día). Sin objetivo, 0.
+         * [bonusKcal] son las kcal que el ejercicio suma al objetivo de cada día (docs/design.md §2.14).
          */
-        fun streak(today: String, goalKcal: Int?, summaries: Map<String, DaySummary>): Int {
+        fun streak(
+            today: String,
+            goalKcal: Int?,
+            summaries: Map<String, DaySummary>,
+            bonusKcal: Map<String, Int> = emptyMap(),
+        ): Int {
             if (goalKcal == null) return 0
-            fun completed(date: String) = of(date, today, goalKcal, summaries[date]) == COMPLETED
+            fun completed(date: String) =
+                of(date, today, goalKcal + (bonusKcal[date] ?: 0), summaries[date]) == COMPLETED
             var day = isoDateToEpochDay(today) ?: return 0
             if (!completed(today)) day--
             var count = 0

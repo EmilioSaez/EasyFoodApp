@@ -26,11 +26,30 @@ CREATE TRIGGER product_fts_delete AFTER DELETE ON ProductEntity BEGIN
     DELETE FROM ProductFts WHERE rowid = old.rowid;
 END;
 
--- `query` debe ser una expresión FTS5 ya saneada (ver ProductSearchQuery); mejores coincidencias primero.
+-- `query` debe ser una expresión FTS5 ya saneada (ver ProductSearchQuery). Orden: relevancia (bm25, nombre pesa más que
+-- marca) menos un bonus por uso frecuente = nº de veces que el alimento está en el diario (tope 10, hasta 8 puntos).
+-- Se agrega el diario una sola vez (sin índice nuevo ni cambio de esquema). `onlyMine` = 1 deja solo lo del usuario:
+-- productos consultados (cualquier origen salvo la base genérica) y favoritos; los alimentos propios no pasan por
+-- aquí (viven en CustomFoodEntity).
 search:
 SELECT p.*
 FROM ProductFts
 JOIN ProductEntity AS p ON p.barcode = ProductFts.barcode
-WHERE ProductFts MATCH ?
-ORDER BY bm25(ProductFts, 10.0, 3.0), p.name
-LIMIT ?;
+LEFT JOIN (
+    SELECT barcode, count(*) AS uses FROM DiaryEntryEntity WHERE barcode IS NOT NULL GROUP BY barcode
+) AS u ON u.barcode = p.barcode
+WHERE ProductFts MATCH :query
+  AND (:onlyMine = 0 OR p.source <> 'GENERIC' OR p.barcode IN (SELECT key FROM FavoriteFoodEntity))
+ORDER BY bm25(ProductFts, 10.0, 3.0) - MIN(COALESCE(u.uses, 0), 10) * 0.8, p.name
+LIMIT :limit;
+
+-- Para el vocabulario de la corrección de erratas (se cachea en memoria; `searchVocabularyStamp` detecta cambios).
+searchVocabulary:
+SELECT name, brand FROM ProductEntity;
+
+searchVocabularyStamp:
+SELECT count(*) AS n, COALESCE(max(rowid), 0) AS max_rowid, COALESCE(sum(cached_at), 0) AS cached_sum FROM ProductEntity;
+
+-- Correcciones del usuario de los códigos dados (para aplicarlas a los resultados de `search`).
+correctionsFor:
+SELECT * FROM ProductCorrectionEntity WHERE barcode IN ?;

@@ -6,20 +6,30 @@ import app.luxion.fitarchiveapp.db.CustomFoodQueries
 import app.luxion.fitarchiveapp.db.DiaryEntryQueries
 import app.luxion.fitarchiveapp.db.FavoriteFoodQueries
 import app.luxion.fitarchiveapp.db.ProductQueries
+import app.luxion.fitarchiveapp.db.MealTemplateQueries
 import app.luxion.fitarchiveapp.db.RecipeQueries
 import app.luxion.fitarchiveapp.db.SettingsQueries
+import app.luxion.fitarchiveapp.domain.ReminderSettings
 import app.luxion.fitarchiveapp.domain.MealPlan
+import app.luxion.fitarchiveapp.db.ExerciseQueries
 import app.luxion.fitarchiveapp.db.WaterQueries
 import app.luxion.fitarchiveapp.db.WeightEntryQueries
+import app.luxion.fitarchiveapp.model.ExerciseRules
 import app.luxion.fitarchiveapp.model.WaterRules
 import app.luxion.fitarchiveapp.model.NewWeightEntry
 import app.luxion.fitarchiveapp.model.RecipeIngredient
 import app.luxion.fitarchiveapp.data.writeIngredients
+import app.luxion.fitarchiveapp.data.writeItems
+import app.luxion.fitarchiveapp.model.NewMealTemplate
+import app.luxion.fitarchiveapp.model.TemplateItem
 import app.luxion.fitarchiveapp.model.WeightRules
 
 import app.luxion.fitarchiveapp.model.DiaryEntry
+import app.luxion.fitarchiveapp.model.QuantityUnit
+import app.luxion.fitarchiveapp.model.QuickEntry
 import app.luxion.fitarchiveapp.model.NewCustomFood
 import app.luxion.fitarchiveapp.model.NewRecipe
+import app.luxion.fitarchiveapp.model.ProductCorrection
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -63,6 +73,8 @@ import kotlinx.coroutines.withContext
  *   distinto, gana el de `updatedAtMillis` más reciente (con empate, el local). Fuera de rango es inválido.
  * - Las **comidas al día** (`mealsPerDay`, opcional) solo se toman si este dispositivo aún no ha elegido; si ya hay
  *   ajuste local se conserva. Un archivo sin el campo no cambia nada; fuera de 3 a 6 es inválido.
+ * - Los **recordatorios** (`reminders`, opcional) siguen la misma política: solo se toman si este dispositivo aún no los
+ *   ha configurado; se sanean (días 1 a 7, horas 0 a 1439).
  *
  * **Agua**
  * - Identidad: la fecha (`date`); hay un total por día. Misma política que los pesos: no existe en local, se añade;
@@ -89,6 +101,17 @@ import kotlinx.coroutines.withContext
  *   que pueda diferir, así que no hay conflictos). Nunca se desmarca nada local.
  * - Un favorito propio solo se admite si ese alimento existe en local o llega en el mismo archivo; si no, es
  *   inválido. Uno sin `barcode` ni nombre, o con ambos, también.
+ *
+ * **Plantillas de comida** (`mealTemplates`, colección opcional)
+ * - Identidad y política: las mismas que las recetas (`(id, createdAtMillis)` y, si no hay coincidencia, el nombre sin
+ *   distinguir mayúsculas ni espacios sobrantes; gana el `updatedAtMillis` más reciente, con empate el local). Los
+ *   alimentos viajan dentro de la plantilla con su cantidad y unidad y se comparan en el mismo orden.
+ * - Una plantilla sin nombre, sin alimentos o con una cantidad ≤ 0 o nutrientes negativos se omite entera.
+ * **Correcciones de productos** (valores nutricionales que el usuario puso sobre un producto)
+ * - Identidad: el `barcode` (EAN o `generic:<id>`); hay una corrección por producto. Se importan aunque el producto no
+ *   esté aún en local (se aplican cuando aparece). Mismo criterio que los pesos: no existe en local, se añade; mismos
+ *   valores, se ignora; valores distintos, gana el de `updatedAtMillis` más reciente (con empate, el local).
+ *   Valores no válidos (faltan kcal o macros, negativos, fuera de rango) son inválidos.
  *
  * **Elementos inválidos** (cantidad ≤ 0, fecha mal formada, nutrientes negativos, nombre vacío…): se
  * omiten y se listan en el informe; el resto se importa.
@@ -121,9 +144,14 @@ class DataImporter(private val target: ImportTarget) {
         val recipes = planRecipes(file.recipes, target.recipes(), invalid)
         val goal = planWeightGoal(file.weightGoal, target.weightGoal(), invalid)
         val meals = planMealsPerDay(file.mealsPerDay, target.mealsPerDay(), invalid)
+        val reminders = if (target.reminders() == null) file.reminders?.sanitized() else null
         val water = planWater(file.water, target.water(), invalid)
         val waterGoal = planWaterGoal(file.waterGoal, target.waterGoal(), invalid)
         val favorites = planFavorites(file.favorites, target.favorites(), foods.finalKeys, foods.renamed, invalid)
+        val templates = planTemplates(file.mealTemplates, target.mealTemplates(), invalid)
+        val exercises = planExercises(file.exercises, target.exercises(), invalid)
+        val exercisePercent = planExercisePercent(file.exercisePercent, target.exercisePercent(), invalid)
+        val corrections = planCorrections(file.productCorrections, target.productCorrections(), invalid)
         return ImportPlan(
             changes = ImportChanges(
                 products = products.writes,
@@ -135,13 +163,21 @@ class DataImporter(private val target: ImportTarget) {
                 recipesToUpdate = recipes.updates,
                 weightGoal = goal.write,
                 mealsPerDay = meals,
+                reminders = reminders,
                 water = water.writes,
                 waterGoal = waterGoal.write,
                 favoritesToAdd = favorites.adds,
+                templatesToAdd = templates.adds,
+                templatesToUpdate = templates.updates,
+                exercisesToAdd = exercises.adds,
+                exercisePercent = exercisePercent.write,
+                productCorrections = corrections.writes,
             ),
             report = ImportReport(
                 products.counts, foods.counts, diary.counts, invalid, weights.counts + goal.counts, recipes.counts,
-                water.counts + waterGoal.counts, favorites.counts,
+                water.counts + waterGoal.counts, favorites.counts, templates.counts,
+                exercise = exercises.counts + exercisePercent.counts,
+                productCorrections = corrections.counts,
             ),
         )
     }
@@ -294,6 +330,50 @@ class DataImporter(private val target: ImportTarget) {
     private fun ExportedRecipe.sameContent(o: ExportedRecipe) =
         name.lowercase() == o.name.lowercase() && servings == o.servings && ingredients == o.ingredients
 
+    // --- Plantillas de comida ---
+
+    private class TemplatePlan(
+        val adds: List<ExportedMealTemplate>,
+        val updates: List<TemplateUpdate>,
+        val counts: ImportCounts,
+    )
+
+    /** Plantilla local o ya añadida en esta importación (`localId == null`). */
+    private class KnownTemplate(val localId: Long?, var template: ExportedMealTemplate)
+
+    private fun planTemplates(
+        incoming: List<ExportedMealTemplate>,
+        local: List<ExportedMealTemplate>,
+        invalid: MutableList<String>,
+    ): TemplatePlan {
+        val known = local.mapTo(mutableListOf()) { KnownTemplate(it.id, it) }
+        val adds = mutableListOf<ExportedMealTemplate>()
+        val updates = linkedMapOf<Long, TemplateUpdate>()
+        var c = ImportCounts()
+        for (raw in incoming) {
+            val t = raw.copy(name = raw.name.trim())
+            val problem = try { t.toNewTemplate(); null } catch (e: IllegalArgumentException) { e.message ?: "datos no válidos" }
+            if (problem != null) {
+                invalid += "Plantilla \"${raw.name}\": $problem"; c = c.copy(invalid = c.invalid + 1); continue
+            }
+            val match = known.firstOrNull { it.template.id == t.id && it.template.createdAtMillis == t.createdAtMillis }
+                ?: known.firstOrNull { it.template.name.lowercase() == t.name.lowercase() }
+            when {
+                match == null -> { c = c.copy(added = c.added + 1); adds += t; known += KnownTemplate(null, t) }
+                match.template.name.lowercase() == t.name.lowercase() && match.template.items == t.items ->
+                    c = c.copy(unchanged = c.unchanged + 1)
+                // Las añadidas en esta misma importación no se reescriben: se queda la primera.
+                match.localId != null && t.updatedAtMillis > match.template.updatedAtMillis -> {
+                    c = c.copy(updated = c.updated + 1)
+                    updates[match.localId] = TemplateUpdate(match.localId, t)
+                    match.template = t.copy(id = match.template.id, createdAtMillis = match.template.createdAtMillis)
+                }
+                else -> c = c.copy(keptLocal = c.keptLocal + 1)
+            }
+        }
+        return TemplatePlan(adds, updates.values.toList(), c)
+    }
+
     // --- Pesos ---
 
     private class WeightPlan(val writes: List<ExportedWeight>, val counts: ImportCounts)
@@ -405,6 +485,70 @@ class DataImporter(private val target: ImportTarget) {
         }
     }
 
+    // --- Ejercicio ---
+
+    private class ExercisePlan(val adds: List<ExportedExercise>, val counts: ImportCounts)
+
+    /**
+     * Una actividad no tiene id estable entre dispositivos: se reconoce por fecha, nombre (sin mayúsculas), kcal y
+     * duración. Las idénticas se ignoran; el resto se añade. Dos idénticas en el archivo se añaden las dos si en
+     * local no había ninguna (son dos sesiones iguales el mismo día), pero no se duplican al reimportar.
+     */
+    private fun planExercises(
+        incoming: List<ExportedExercise>,
+        local: List<ExportedExercise>,
+        invalid: MutableList<String>,
+    ): ExercisePlan {
+        fun key(e: ExportedExercise) = listOf(e.date, e.name.trim().lowercase(), e.kcal, e.minutes)
+        // Cuántas hay ya de cada una: al reimportar el mismo archivo, las que ya existen no se vuelven a añadir.
+        val remaining = local.groupingBy(::key).eachCount().toMutableMap()
+        val adds = mutableListOf<ExportedExercise>()
+        var c = ImportCounts()
+        for (e in incoming) {
+            val problem = when {
+                !DATE.matches(e.date) -> "fecha no válida"
+                e.name.isBlank() || e.name.trim().length > ExerciseRules.MAX_NAME_LENGTH -> "nombre no válido"
+                !ExerciseRules.isValidKcal(e.kcal) -> "kcal fuera de rango"
+                !ExerciseRules.isValidMinutes(e.minutes) -> "duración fuera de rango"
+                else -> null
+            }
+            if (problem != null) {
+                invalid += "Ejercicio «${e.name}» del ${e.date}: $problem"
+                c = c.copy(invalid = c.invalid + 1); continue
+            }
+            val k = key(e)
+            val left = remaining[k] ?: 0
+            if (left > 0) {
+                remaining[k] = left - 1
+                c = c.copy(unchanged = c.unchanged + 1)
+            } else {
+                adds += e.copy(name = e.name.trim())
+                c = c.copy(added = c.added + 1)
+            }
+        }
+        return ExercisePlan(adds, c)
+    }
+
+    private class ExercisePercentPlan(val write: ExportedExercisePercent?, val counts: ImportCounts)
+
+    private fun planExercisePercent(
+        incoming: ExportedExercisePercent?,
+        local: ExportedExercisePercent?,
+        invalid: MutableList<String>,
+    ): ExercisePercentPlan {
+        if (incoming == null) return ExercisePercentPlan(null, ImportCounts())
+        if (!ExerciseRules.isValidPercent(incoming.percent)) {
+            invalid += "Porcentaje de ejercicio (${incoming.percent} %): fuera de rango"
+            return ExercisePercentPlan(null, ImportCounts(invalid = 1))
+        }
+        return when {
+            local == null -> ExercisePercentPlan(incoming, ImportCounts(added = 1))
+            local.percent == incoming.percent -> ExercisePercentPlan(null, ImportCounts(unchanged = 1))
+            incoming.updatedAtMillis > local.updatedAtMillis -> ExercisePercentPlan(incoming, ImportCounts(updated = 1))
+            else -> ExercisePercentPlan(null, ImportCounts(keptLocal = 1))
+        }
+    }
+
     // --- Favoritos ---
 
     private class FavoritePlan(val adds: List<ExportedFavorite>, val counts: ImportCounts)
@@ -458,6 +602,42 @@ class DataImporter(private val target: ImportTarget) {
         customBrand = customBrand?.trim()?.ifEmpty { null },
     )
 
+    // --- Correcciones de productos ---
+
+    private class CorrectionPlan(val writes: List<ExportedProductCorrection>, val counts: ImportCounts)
+
+    private fun planCorrections(
+        incoming: List<ExportedProductCorrection>,
+        local: List<ExportedProductCorrection>,
+        invalid: MutableList<String>,
+    ): CorrectionPlan {
+        val byBarcode = local.associateByTo(mutableMapOf()) { it.barcode }
+        val writes = linkedMapOf<String, ExportedProductCorrection>()
+        var c = ImportCounts()
+        for (raw in incoming) {
+            val p = raw.copy(barcode = raw.barcode.trim())
+            val problem = try {
+                ProductCorrection(p.barcode, p.nutrients.toDomain()); null
+            } catch (e: IllegalArgumentException) {
+                e.message ?: "datos no válidos"
+            }
+            if (problem != null) {
+                invalid += "Corrección del producto \"${raw.barcode}\": $problem"
+                c = c.copy(invalid = c.invalid + 1); continue
+            }
+            val existing = byBarcode[p.barcode]
+            when {
+                existing == null -> { c = c.copy(added = c.added + 1); byBarcode[p.barcode] = p; writes[p.barcode] = p }
+                existing.nutrients == p.nutrients -> c = c.copy(unchanged = c.unchanged + 1)
+                p.updatedAtMillis > existing.updatedAtMillis -> {
+                    c = c.copy(updated = c.updated + 1); byBarcode[p.barcode] = p; writes[p.barcode] = p
+                }
+                else -> c = c.copy(keptLocal = c.keptLocal + 1)
+            }
+        }
+        return CorrectionPlan(writes.values.toList(), c)
+    }
+
     // --- Diario ---
 
     private class DiaryPlan(val adds: List<ExportedDiaryEntry>, val counts: ImportCounts)
@@ -478,6 +658,9 @@ class DataImporter(private val target: ImportTarget) {
             val domain = try {
                 require(DATE.matches(e.date)) { "fecha no válida" }
                 require(e.name.isNotBlank()) { "nombre vacío" }
+                require(!e.quick || (e.quantity == QuickEntry.QUANTITY_G && e.unit == QuantityUnit.GRAMS)) {
+                    "entrada rápida con cantidad no válida"
+                }
                 e.toDomain()
             } catch (ex: IllegalArgumentException) {
                 invalid += "Entrada del diario \"${e.name}\" (${e.date}): ${ex.message}"
@@ -516,21 +699,49 @@ data class ImportChanges(
     val weightGoal: ExportedWeightGoal? = null,
     /** Comidas al día a fijar, o `null` si no cambia. */
     val mealsPerDay: Int? = null,
+    /** Recordatorios a fijar, o `null` si no cambian. */
+    val reminders: ReminderSettings? = null,
     /** Totales de agua a insertar o reemplazar por fecha. */
     val water: List<ExportedWater> = emptyList(),
     /** Objetivo de agua a fijar, o `null` si no cambia. */
     val waterGoal: ExportedWaterGoal? = null,
     /** Favoritos nuevos; los propios se enlazan por nombre y marca con el alimento local. */
     val favoritesToAdd: List<ExportedFavorite> = emptyList(),
+    /** Plantillas de comida nuevas; el id lo asigna el almacén. */
+    val templatesToAdd: List<ExportedMealTemplate> = emptyList(),
+    val templatesToUpdate: List<TemplateUpdate> = emptyList(),
+    /** Actividades de ejercicio nuevas; el id lo asigna el almacén. */
+    val exercisesToAdd: List<ExportedExercise> = emptyList(),
+    /** Porcentaje de ejercicio a fijar, o `null` si no cambia. */
+    val exercisePercent: ExportedExercisePercent? = null,
+    /** Correcciones de productos a insertar o reemplazar por código. */
+    val productCorrections: List<ExportedProductCorrection> = emptyList(),
 ) {
     val isEmpty: Boolean
         get() = products.isEmpty() && customFoodsToAdd.isEmpty() && customFoodsToUpdate.isEmpty() &&
             diaryEntriesToAdd.isEmpty() && weights.isEmpty() && recipesToAdd.isEmpty() && recipesToUpdate.isEmpty() &&
-            weightGoal == null && mealsPerDay == null && water.isEmpty() && waterGoal == null && favoritesToAdd.isEmpty()
+            weightGoal == null && mealsPerDay == null && reminders == null && water.isEmpty() && waterGoal == null && favoritesToAdd.isEmpty() &&
+            templatesToAdd.isEmpty() && templatesToUpdate.isEmpty() &&
+            exercisesToAdd.isEmpty() && exercisePercent == null && productCorrections.isEmpty()
 }
 
 /** Sustituye los datos de la receta local [localId] por los de [recipe] (se conservan su id y `createdAtMillis`). */
 data class RecipeUpdate(val localId: Long, val recipe: ExportedRecipe)
+
+/** Sustituye los datos de la plantilla local [localId] por los de [template] (se conservan su id y `createdAtMillis`). */
+data class TemplateUpdate(val localId: Long, val template: ExportedMealTemplate)
+
+/** Plantilla de un archivo de exportación como datos de dominio; lanza [IllegalArgumentException] si no es válida. */
+fun ExportedMealTemplate.toNewTemplate() = NewMealTemplate(
+    name = name,
+    items = items.map {
+        require(it.nutrients.presentValues().all { v -> v.isFinite() && v >= 0 }) {
+            "los nutrientes de «${it.name}» no pueden ser negativos"
+        }
+        require(it.quantity > 0 && it.quantity.isFinite()) { "la cantidad de «${it.name}» debe ser mayor que 0" }
+        TemplateItem(it.barcode, it.name, quantityOf(it.quantity, it.unit), it.servingSizeG, it.nutrients.toDomain())
+    },
+)
 
 /** Receta de un archivo de exportación como datos de dominio; lanza [IllegalArgumentException] si no es válida. */
 fun ExportedRecipe.toNewRecipe() = NewRecipe(
@@ -581,6 +792,11 @@ data class ImportReport(
     /** Totales de agua y su objetivo. */
     val water: ImportCounts = ImportCounts(),
     val favorites: ImportCounts = ImportCounts(),
+    val mealTemplates: ImportCounts = ImportCounts(),
+    /** Actividades de ejercicio y su porcentaje. */
+    val exercise: ImportCounts = ImportCounts(),
+    /** Correcciones de valores de productos. */
+    val productCorrections: ImportCounts = ImportCounts(),
 )
 
 /** Almacenes locales sobre los que se importa: lectura (como la exportación) y escritura atómica. */
@@ -600,9 +816,11 @@ class SqlDelightImportTarget(
     private val favoriteQueries: FavoriteFoodQueries,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val waterQueries: WaterQueries? = null,
+    private val templateQueries: MealTemplateQueries? = null,
+    private val exerciseQueries: ExerciseQueries? = null,
 ) : ImportTarget, ExportSource by SqlDelightExportSource(
     productQueries, diaryQueries, customFoodQueries, weightQueries, recipeQueries, settingsQueries, favoriteQueries,
-    dispatcher, waterQueries,
+    dispatcher, waterQueries, templateQueries, exerciseQueries,
 ) {
 
     override suspend fun apply(changes: ImportChanges): Unit = withContext(dispatcher) {
@@ -649,11 +867,29 @@ class SqlDelightImportTarget(
                 recipeQueries.deleteIngredients(id)
                 recipeQueries.writeIngredients(id, r.toNewRecipe().ingredients)
             }
+            if (templateQueries != null) {
+                changes.templatesToAdd.forEach { t ->
+                    templateQueries.insert(t.name, t.createdAtMillis, t.updatedAtMillis)
+                    templateQueries.writeItems(templateQueries.lastInsertedId().executeAsOne(), t.toNewTemplate().items)
+                }
+                changes.templatesToUpdate.forEach { (id, t) ->
+                    templateQueries.update(t.name, t.updatedAtMillis, id)
+                    templateQueries.deleteItems(id)
+                    templateQueries.writeItems(id, t.toNewTemplate().items)
+                }
+            }
             changes.weightGoal?.let { weightQueries.upsertGoal(it.targetKg, it.updatedAtMillis) }
             changes.mealsPerDay?.let { settingsQueries.upsertMealsPerDay(it.toLong()) }
+            changes.reminders?.let { settingsQueries.upsertReminders(it.toJson()) }
             if (waterQueries != null) {
                 changes.water.forEach { waterQueries.upsert(it.date, it.ml.toLong(), it.updatedAtMillis) }
                 changes.waterGoal?.let { waterQueries.upsertGoal(it.goalMl.toLong(), it.updatedAtMillis) }
+            }
+            if (exerciseQueries != null) {
+                changes.exercisesToAdd.forEach {
+                    exerciseQueries.insert(it.date, it.name, it.kcal.toLong(), it.minutes?.toLong(), it.createdAtMillis)
+                }
+                changes.exercisePercent?.let { exerciseQueries.upsertPercent(it.percent.toLong(), it.updatedAtMillis) }
             }
             if (changes.favoritesToAdd.isNotEmpty()) {
                 // Después de los alimentos propios, para enlazar también los que acaban de entrar.
@@ -665,12 +901,22 @@ class SqlDelightImportTarget(
                     if (key != null) favoriteQueries.insert(key, f.createdAtMillis)
                 }
             }
+            changes.productCorrections.forEach { c ->
+                productQueries.upsertCorrection(
+                    barcode = c.barcode, kcal = c.nutrients.kcal, protein_g = c.nutrients.proteinG,
+                    carbs_g = c.nutrients.carbsG, sugars_g = c.nutrients.sugarsG, fat_g = c.nutrients.fatG,
+                    saturated_fat_g = c.nutrients.saturatedFatG, fiber_g = c.nutrients.fiberG,
+                    salt_g = c.nutrients.saltG, updated_at = c.updatedAtMillis,
+                )
+            }
             changes.diaryEntriesToAdd.forEach { e ->
                 diaryQueries.insert(
                     date = e.date, meal = e.meal.name, barcode = e.barcode, name = e.name, quantity = e.quantity,
                     unit = e.unit.name, serving_size_g = e.servingSizeG, kcal_100g = e.nutrients.kcal,
                     protein_100g = e.nutrients.proteinG, carbs_100g = e.nutrients.carbsG,
-                    fat_100g = e.nutrients.fatG, created_at = e.createdAtMillis,
+                    fat_100g = e.nutrients.fatG, created_at = e.createdAtMillis, quick = if (e.quick) 1L else 0L,
+                    saturated_fat_100g = e.nutrients.saturatedFatG, sugars_100g = e.nutrients.sugarsG,
+                    fiber_100g = e.nutrients.fiberG, salt_100g = e.nutrients.saltG,
                 )
             }
         }

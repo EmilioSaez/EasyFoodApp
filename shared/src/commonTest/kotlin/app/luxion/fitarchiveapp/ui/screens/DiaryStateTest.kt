@@ -1,14 +1,24 @@
 package app.luxion.fitarchiveapp.ui.screens
 
 import app.luxion.fitarchiveapp.data.DiaryStore
+import app.luxion.fitarchiveapp.data.ExerciseStore
 import app.luxion.fitarchiveapp.data.GoalStore
+import app.luxion.fitarchiveapp.data.MealTemplateStore
+import app.luxion.fitarchiveapp.domain.DayStatus
+import app.luxion.fitarchiveapp.domain.DaySummary
 import app.luxion.fitarchiveapp.domain.MealPlan
 import app.luxion.fitarchiveapp.model.DailyGoals
 import app.luxion.fitarchiveapp.model.DiaryEntry
+import app.luxion.fitarchiveapp.model.ExerciseEntry
+import app.luxion.fitarchiveapp.model.ExerciseRules
+import app.luxion.fitarchiveapp.model.MealTemplate
 import app.luxion.fitarchiveapp.model.MealType
+import app.luxion.fitarchiveapp.model.NewMealTemplate
 import app.luxion.fitarchiveapp.model.NewDiaryEntry
+import app.luxion.fitarchiveapp.model.NewExercise
 import app.luxion.fitarchiveapp.model.Nutrients
 import app.luxion.fitarchiveapp.model.Quantity
+import app.luxion.fitarchiveapp.model.QuickEntry
 import app.luxion.fitarchiveapp.model.QuantityUnit
 import app.luxion.fitarchiveapp.ui.components.DataSource
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -48,7 +58,7 @@ private class FakeDiary(initial: List<DiaryEntry> = emptyList()) : DiaryStore {
         val id = nextId++
         rows += DiaryEntry(
             id, entry.date, entry.meal, entry.barcode, entry.name, entry.quantity,
-            entry.servingSizeG, entry.nutrients, createdAtMillis,
+            entry.servingSizeG, entry.nutrients, createdAtMillis, entry.quick,
         )
         return id
     }
@@ -58,6 +68,13 @@ private class FakeDiary(initial: List<DiaryEntry> = emptyList()) : DiaryStore {
         val i = rows.indexOfFirst { it.id == id }
         if (i < 0) return false
         rows[i] = rows[i].copy(meal = meal, quantity = quantity)
+        return true
+    }
+
+    override suspend fun updateQuick(id: Long, meal: MealType, name: String, totals: Nutrients): Boolean {
+        val i = rows.indexOfFirst { it.id == id && it.quick }
+        if (i < 0) return false
+        rows[i] = rows[i].copy(meal = meal, name = name, nutrients = totals)
         return true
     }
 
@@ -412,5 +429,271 @@ class DiaryPresenterTest {
         p.copyDay(prev)
         assertEquals(DiaryPresenter.COPY_ERROR, p.state.value.message)
         assertEquals(1, diary.rows.size)
+    }
+}
+
+private class FakeTemplates : MealTemplateStore {
+    val rows = mutableListOf<MealTemplate>()
+    var failing = false
+    override suspend fun all(): List<MealTemplate> { if (failing) throw IllegalStateException("db"); return rows.toList() }
+    override suspend fun find(id: Long) = rows.firstOrNull { it.id == id }
+    override suspend fun create(template: NewMealTemplate, nowMillis: Long): Long {
+        if (failing) throw IllegalStateException("db")
+        val id = rows.size + 1L
+        rows += MealTemplate(id, template.name.trim(), template.items, nowMillis, nowMillis)
+        return id
+    }
+    override suspend fun update(id: Long, template: NewMealTemplate, nowMillis: Long) = false
+    override suspend fun rename(id: Long, name: String, nowMillis: Long) = false
+    override suspend fun delete(id: Long) = rows.removeAll { it.id == id }
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class DiaryPresenterTemplatesTest {
+    private fun TestScope.presenter(diary: FakeDiary, templates: FakeTemplates?) = DiaryPresenter(
+        diary, FakeGoals(), backgroundScope + UnconfinedTestDispatcher(testScheduler), DAY, nowMillis = { 777L }, templates = templates,
+    )
+
+    private fun DiaryPresenter.save(meal: MealType, name: String): String? {
+        var result: String? = "pending"
+        saveMealAsTemplate(meal, name) { result = it }
+        return result
+    }
+
+    @Test
+    fun savesAMealAsATemplateKeepingQuantitiesUnitsAndOrder() = runTest {
+        val grams = Quantity(35.0, QuantityUnit.GRAMS)
+        val servings = Quantity(2.0, QuantityUnit.SERVINGS)
+        val diary = FakeDiary(
+            listOf(
+                entry(1, MealType.BREAKFAST, quantity = grams),
+                entry(2, MealType.BREAKFAST, quantity = servings, servingSizeG = 30.0, barcode = null),
+                entry(3, MealType.LUNCH),
+            ),
+        )
+        val templates = FakeTemplates()
+        val p = presenter(diary, templates)
+        p.load()
+
+        assertNull(p.save(MealType.BREAKFAST, "  Mi desayuno "))
+
+        val t = templates.rows.single()
+        assertEquals("Mi desayuno", t.name)
+        assertEquals(listOf("Alimento 1", "Alimento 2"), t.items.map { it.name })
+        assertEquals(listOf(grams, servings), t.items.map { it.quantity })
+        assertEquals(30.0, t.items[1].servingSizeG)
+        assertNull(t.items[1].barcode)
+        assertEquals(oats, t.items[0].nutrients)
+        assertEquals(777L, t.createdAtMillis)
+        assertEquals("Plantilla «Mi desayuno» guardada", p.state.value.message)
+        assertEquals(3, diary.rows.size) // el diario no cambia
+    }
+
+    @Test
+    fun refusesRepeatedBlankAndEmptyMealWithoutWritingAnything() = runTest {
+        val templates = FakeTemplates()
+        val p = presenter(FakeDiary(listOf(entry(1, MealType.BREAKFAST))), templates)
+        p.load()
+        assertNull(p.save(MealType.BREAKFAST, "Desayuno"))
+        assertEquals(TemplateRules.NAME_TAKEN, p.save(MealType.BREAKFAST, " desayuno "))
+        assertEquals("Escribe un nombre", p.save(MealType.BREAKFAST, "   "))
+        assertEquals(DiaryPresenter.TEMPLATE_EMPTY, p.save(MealType.LUNCH, "Comida"))
+        assertEquals(1, templates.rows.size)
+    }
+
+    @Test
+    fun reportsAFailureOrMissingStoreAsAnError() = runTest {
+        val templates = FakeTemplates()
+        val p = presenter(FakeDiary(listOf(entry(1, MealType.BREAKFAST))), templates)
+        p.load()
+        templates.failing = true
+        assertEquals(DiaryPresenter.TEMPLATE_ERROR, p.save(MealType.BREAKFAST, "Desayuno"))
+        assertEquals(DiaryPresenter.TEMPLATE_ERROR, presenter(FakeDiary(), null).save(MealType.BREAKFAST, "X"))
+    }
+}
+
+/** Entradas rápidas: kcal y macros sin alimento (docs/design.md §2.16). */
+@OptIn(ExperimentalCoroutinesApi::class)
+class QuickEntryDiaryTest {
+    private val lunch = QuickEntry.new(DAY, MealType.LUNCH, "Menú del día", 850.0, 30.0, null, 40.0)
+
+    private fun TestScope.presenter(diary: FakeDiary, goals: FakeGoals = FakeGoals()) =
+        DiaryPresenter(diary, goals, backgroundScope + UnconfinedTestDispatcher(testScheduler), DAY)
+
+    @Test
+    fun aQuickEntryCountsInTheMealTotalsAndProgressAndIsNotDoubtful() = runTest {
+        val diary = FakeDiary(listOf(entry(1, MealType.LUNCH)))
+        diary.add(lunch, 5L)
+        val p = presenter(diary, FakeGoals(DailyGoals(kcal = 2000, proteinG = 100)))
+        p.load()
+        val meal = p.state.value.meals.first { it.meal == MealType.LUNCH }
+        assertEquals(370.0 + 850.0, meal.kcal, 1e-9)
+        assertEquals(13.0 + 30.0, meal.proteinG, 1e-9)
+        assertEquals(60.0, meal.carbsG, 1e-9) // el hidrato no informado no suma
+        assertEquals(1220.0, p.state.value.consumedKcal, 1e-9)
+        val row = meal.entries.first { it.quick }
+        assertEquals("Menú del día", row.name)
+        assertEquals(850.0, row.kcal)
+        assertFalse(row.doubtful) // 850 kcal serían «dudosas» si se leyeran como por 100 g
+        assertEquals("30 P | 40 G", row.macrosText)
+    }
+
+    @Test
+    fun aQuickEntryWithoutNameGetsTheDefaultName() {
+        assertEquals(QuickEntry.DEFAULT_NAME, QuickEntry.new(DAY, MealType.DINNER, "  ", 500.0, null, null, null).name)
+    }
+
+    @Test
+    fun copyingAMealKeepsQuickEntriesQuick() = runTest {
+        val diary = FakeDiary()
+        diary.add(lunch, 5L)
+        val p = presenter(diary)
+        p.load()
+        p.copyMeal(MealType.LUNCH, "2026-11-03", null)
+        val copy = diary.rows.single { it.date == "2026-11-03" }
+        assertTrue(copy.quick)
+        assertEquals(lunch.nutrients, copy.nutrients)
+        assertEquals(850.0, copy.totals.kcal)
+    }
+
+    @Test
+    fun deleteAndUndoKeepTheEntryQuick() = runTest {
+        val diary = FakeDiary()
+        val id = diary.add(lunch, 5L)
+        val p = presenter(diary)
+        p.load()
+        p.delete(id)
+        assertTrue(diary.rows.isEmpty())
+        p.undoDelete()
+        assertTrue(diary.rows.single().quick)
+    }
+
+    @Test
+    fun formNeedsAtLeastOneValueAndRejectsBadNumbers() {
+        assertTrue(validateQuickEntry(QuickEntryFormState()).empty)
+        assertTrue(validateQuickEntry(QuickEntryFormState(name = "Solo nombre")).hasErrors)
+        assertFalse(validateQuickEntry(QuickEntryFormState(kcal = "650")).hasErrors)
+        assertFalse(validateQuickEntry(QuickEntryFormState(protein = "25,5")).hasErrors) // solo un macro basta
+        assertEquals("Número no válido", validateQuickEntry(QuickEntryFormState(kcal = "-5")).kcal)
+        assertEquals("Número no válido", validateQuickEntry(QuickEntryFormState(kcal = "1,2,3")).kcal)
+        assertTrue(validateQuickEntry(QuickEntryFormState(kcal = "20000")).kcal != null)
+        assertTrue(validateQuickEntry(QuickEntryFormState(kcal = "100", fat = "5000")).fat != null)
+    }
+
+    @Test
+    fun formParsesTotalsAndRoundTripsForEditing() {
+        val form = QuickEntryFormState(name = "", kcal = "650", protein = "25,5", carbs = "", fat = "30")
+        val totals = form.toTotals()!!
+        assertEquals(Nutrients(650.0, 25.5, null, 30.0), totals)
+        assertEquals(QuickEntry.DEFAULT_NAME, form.resolvedName())
+        assertEquals(form, quickEntryFormStateOf(QuickEntry.DEFAULT_NAME, totals))
+        assertNull(QuickEntryFormState().toTotals())
+    }
+}
+
+private class FakeExercise(var percent: Int = ExerciseRules.DEFAULT_PERCENT) : ExerciseStore {
+    val rows = mutableListOf<ExerciseEntry>()
+    var failing = false
+    private var nextId = 1L
+
+    override suspend fun entriesForDate(date: String) = rows.filter { it.date == date }
+    override suspend fun add(exercise: NewExercise, nowMillis: Long): Long {
+        if (failing) throw IllegalStateException("db")
+        val id = nextId++
+        rows += ExerciseEntry(id, exercise.date, exercise.name, exercise.kcal, exercise.minutes, nowMillis)
+        return id
+    }
+    override suspend fun delete(id: Long) { rows.removeAll { it.id == id } }
+    override suspend fun dailyKcal(from: String, to: String) =
+        rows.filter { it.date in from..to }.groupBy { it.date }.mapValues { (_, v) -> v.sumOf { it.kcal } }
+    override suspend fun percent() = percent
+    override suspend fun setPercent(percent: Int, nowMillis: Long) { this.percent = percent }
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class ExercisePresenterTest {
+    private fun TestScope.presenter(exercise: FakeExercise?, goals: FakeGoals = FakeGoals(DailyGoals(kcal = 2000))) =
+        DiaryPresenter(FakeDiary(), goals, backgroundScope + UnconfinedTestDispatcher(testScheduler), DAY, exercise = exercise)
+
+    @Test
+    fun withoutAnExerciseStoreTheGoalIsUnchanged() = runTest {
+        val p = presenter(null)
+        p.load()
+        assertEquals(2000, p.state.value.goalKcal)
+        assertEquals(0, p.state.value.exerciseBonusKcal)
+        p.addExercise("Correr", 400, 40) // sin almacén no hace nada
+        assertEquals(emptyList(), p.state.value.exercises)
+    }
+
+    @Test
+    fun addingExerciseRaisesTheEffectiveGoalByThePercent() = runTest {
+        val store = FakeExercise(percent = 50)
+        val p = presenter(store)
+        p.load()
+        p.addExercise("Correr", 400, 40)
+        p.addExercise("Pesas", 150, null)
+        val s = p.state.value
+        assertEquals(550, s.exerciseKcal)
+        assertEquals(275, s.exerciseBonusKcal)
+        assertEquals(2275, s.goalKcal)
+        assertEquals(listOf("Correr", "Pesas"), s.exercises.map { it.name })
+    }
+
+    @Test
+    fun percentZeroDisablesTheBonusButKeepsTheActivities() = runTest {
+        val store = FakeExercise(percent = 0)
+        val p = presenter(store)
+        p.load()
+        p.addExercise("Correr", 400, 40)
+        assertEquals(2000, p.state.value.goalKcal)
+        assertEquals(0, p.state.value.exerciseBonusKcal)
+        assertEquals(400, p.state.value.exerciseKcal)
+        assertEquals(1, p.state.value.exercises.size)
+    }
+
+    @Test
+    fun deletingAnActivityRemovesItsBonus() = runTest {
+        val store = FakeExercise(percent = 100)
+        val p = presenter(store)
+        p.load()
+        p.addExercise("Correr", 400, 40)
+        assertEquals(2400, p.state.value.goalKcal)
+        p.deleteExercise(p.state.value.exercises.single().id)
+        assertEquals(2000, p.state.value.goalKcal)
+    }
+
+    @Test
+    fun exerciseDoesNotRaiseAMissingGoal() = runTest {
+        val p = presenter(FakeExercise(100), FakeGoals())
+        p.load()
+        p.addExercise("Correr", 400, null)
+        assertNull(p.state.value.goalKcal)
+        assertEquals(400, p.state.value.exerciseKcal)
+    }
+
+    @Test
+    fun aFailedSaveShowsAMessage() = runTest {
+        val store = FakeExercise().apply { failing = true }
+        val p = presenter(store)
+        p.load()
+        p.addExercise("Correr", 400, null)
+        assertEquals(DiaryPresenter.EXERCISE_SAVE_ERROR, p.state.value.message)
+    }
+
+    @Test
+    fun theWeekStripAndStreakUseTheEffectiveGoalOfEachDay() {
+        // Meta 2000 (margen 1800 a 2200). Ayer: 2400 kcal; solo cumple si el ejercicio de ayer sube la meta.
+        val yesterday = "2026-11-03"
+        val summaries = listOf(DaySummary(yesterday, 2400.0), DaySummary(DAY, 2000.0))
+        fun state(exerciseByDate: Map<String, Int>) = buildDiaryUiState(
+            DAY, emptyList(), DailyGoals(kcal = 2000), today = DAY, summaries = summaries,
+            exercisePercent = 50, exerciseKcalByDate = exerciseByDate,
+        )
+        val without = state(emptyMap())
+        assertEquals(DayStatus.MISSED, without.week.first { it.date == yesterday }.status)
+        assertEquals(1, without.streak)
+        val with = state(mapOf(yesterday to 400)) // +200 -> meta 2200 (1980 a 2420)
+        assertEquals(DayStatus.COMPLETED, with.week.first { it.date == yesterday }.status)
+        assertEquals(2, with.streak)
     }
 }

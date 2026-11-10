@@ -1,5 +1,6 @@
 package app.luxion.fitarchiveapp.export
 
+import app.luxion.fitarchiveapp.domain.ReminderSettings
 import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.model.Nutrients
 import app.luxion.fitarchiveapp.model.Quantity
@@ -36,6 +37,54 @@ data class ExportFile(
     val waterGoal: ExportedWaterGoal? = null,
     /** Alimentos favoritos. Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como vacío. */
     val favorites: List<ExportedFavorite> = emptyList(),
+    /** Plantillas de comida. Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como vacío. */
+    val mealTemplates: List<ExportedMealTemplate> = emptyList(),
+    /** Ejercicio registrado. Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como vacío. */
+    val exercises: List<ExportedExercise> = emptyList(),
+    /** Porcentaje del ejercicio que se suma al objetivo (0 a 100). Añadido sin subir la versión; ausente = `null`. */
+    val exercisePercent: ExportedExercisePercent? = null,
+    /** Correcciones del usuario de los valores de productos. Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como vacío. */
+    val productCorrections: List<ExportedProductCorrection> = emptyList(),
+    /** Recordatorios locales. Añadido sin subir la versión: los archivos anteriores no lo traen y se leen como `null`. */
+    val reminders: ReminderSettings? = null,
+)
+
+@Serializable
+data class ExportedMealTemplate(
+    /** Id local del dispositivo de origen; solo sirve para reconocer la misma plantilla al reimportar. */
+    val id: Long,
+    val name: String,
+    val items: List<ExportedTemplateItem> = emptyList(),
+    val createdAtMillis: Long = 0,
+    val updatedAtMillis: Long = 0,
+)
+
+@Serializable
+data class ExportedTemplateItem(
+    /** EAN o `generic:<id>`; `null` en un alimento propio. */
+    val barcode: String? = null,
+    val name: String,
+    val quantity: Double,
+    val unit: QuantityUnit,
+    val servingSizeG: Double? = null,
+    val nutrients: ExportedNutrients = ExportedNutrients(),
+)
+
+/** Una actividad de ejercicio. Sin id propio: se reconoce por fecha, nombre, kcal y duración. */
+@Serializable
+data class ExportedExercise(
+    /** Fecha ISO-8601 (`YYYY-MM-DD`). */
+    val date: String,
+    val name: String,
+    val kcal: Int,
+    val minutes: Int? = null,
+    val createdAtMillis: Long = 0,
+)
+
+@Serializable
+data class ExportedExercisePercent(
+    val percent: Int,
+    val updatedAtMillis: Long = 0,
 )
 
 /**
@@ -154,6 +203,11 @@ data class ExportedDiaryEntry(
     val servingSizeG: Double? = null,
     val nutrients: ExportedNutrients = ExportedNutrients(),
     val createdAtMillis: Long,
+    /**
+     * Entrada rápida (kcal y macros sin alimento): cantidad 100 g y `nutrients` con los totales. Añadido sin subir la
+     * versión: los archivos anteriores no lo traen y se leen como `false`.
+     */
+    val quick: Boolean = false,
 )
 
 internal fun Nutrients.toExported() =
@@ -163,3 +217,11 @@ internal fun ExportedNutrients.toDomain() =
     Nutrients(kcal, proteinG, carbsG, fatG, saturatedFatG, sugarsG, fiberG, saltG)
 
 internal fun quantityOf(amount: Double, unit: QuantityUnit) = Quantity(amount, unit)
+
+/** Valores nutricionales por 100 g que el usuario ha puesto en lugar de los de un producto (EAN o `generic:<id>`). */
+@Serializable
+data class ExportedProductCorrection(
+    val barcode: String,
+    val nutrients: ExportedNutrients = ExportedNutrients(),
+    val updatedAtMillis: Long = 0,
+)

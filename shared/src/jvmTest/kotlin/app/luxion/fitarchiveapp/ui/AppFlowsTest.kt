@@ -20,6 +20,8 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.runComposeUiTest
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import app.luxion.fitarchiveapp.data.ProductLookup
@@ -29,10 +31,12 @@ import app.luxion.fitarchiveapp.data.SqlDelightCustomFoodStore
 import app.luxion.fitarchiveapp.data.SqlDelightDiaryStore
 import app.luxion.fitarchiveapp.data.SqlDelightFavoriteStore
 import app.luxion.fitarchiveapp.data.SqlDelightGoalStore
+import app.luxion.fitarchiveapp.data.SqlDelightMealTemplateStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductSearchStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductStore
 import app.luxion.fitarchiveapp.data.SqlDelightRecipeStore
 import app.luxion.fitarchiveapp.data.SqlDelightSettingsStore
+import app.luxion.fitarchiveapp.data.SqlDelightExerciseStore
 import app.luxion.fitarchiveapp.data.SqlDelightWaterStore
 import app.luxion.fitarchiveapp.data.SqlDelightWeightStore
 import app.luxion.fitarchiveapp.db.EasyFoodDatabase
@@ -42,6 +46,8 @@ import app.luxion.fitarchiveapp.model.DailyGoals
 import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.model.NewCustomFood
 import app.luxion.fitarchiveapp.model.NewDiaryEntry
+import app.luxion.fitarchiveapp.model.NewMealTemplate
+import app.luxion.fitarchiveapp.model.TemplateItem
 import app.luxion.fitarchiveapp.model.Nutrients
 import app.luxion.fitarchiveapp.model.Product
 import app.luxion.fitarchiveapp.model.Quantity
@@ -95,7 +101,9 @@ class AppFlowsTest {
                 recipeStore = SqlDelightRecipeStore(db.recipeQueries),
                 settingsStore = SqlDelightSettingsStore(db.settingsQueries),
                 waterStore = SqlDelightWaterStore(db.waterQueries),
+                exerciseStore = SqlDelightExerciseStore(db.exerciseQueries),
                 favoriteStore = SqlDelightFavoriteStore(db.favoriteFoodQueries),
+                templateStore = SqlDelightMealTemplateStore(db.mealTemplateQueries),
                 importTarget = SqlDelightImportTarget(db.productQueries, db.diaryEntryQueries, db.customFoodQueries, db.weightEntryQueries, db.recipeQueries, db.settingsQueries, db.favoriteFoodQueries),
                 today = { "2026-11-04" },
                 nowMinutes = { nowMinutes },
@@ -179,6 +187,47 @@ class AppFlowsTest {
         waitForText("0,25 de 2 L")
         waitGone("Deshacer (−1000 ml)")
         kotlin.test.assertEquals(250, kotlinx.coroutines.runBlocking { water.total("2026-11-04") })
+    }
+
+    @Test
+    fun exerciseIsAddedRaisesTheGoalAndIsRemoved() = runApp(
+        recentWeight = true,
+        seed = { db -> kotlinx.coroutines.runBlocking { SqlDelightGoalStore(db.dailyGoalQueries).save(DailyGoals(kcal = 2000)) } },
+    ) { db ->
+        val exercise = SqlDelightExerciseStore(db.exerciseQueries)
+        waitForText("Suma el 50 % de lo que gastes al objetivo del día.")
+        onNodeWithContentDescription("Añadir ejercicio").performScrollTo().performClick()
+        waitForText("Kcal gastadas")
+        onNodeWithText("Actividad").performTextInput("Correr")
+        onNodeWithText("Kcal gastadas").performTextInput("400")
+        onNodeWithText("Duración (opcional)").performTextInput("40")
+        onNodeWithText("Guardar").performClick()
+        waitForText("+200 kcal al objetivo (50 % de 400)")
+        waitForText("40 min")
+        val saved = kotlinx.coroutines.runBlocking { exercise.entriesForDate("2026-11-04") }
+        kotlin.test.assertEquals(listOf("Correr"), saved.map { it.name })
+        kotlin.test.assertEquals(40, saved.single().minutes)
+
+        onNodeWithContentDescription("Quitar Correr").performScrollTo().performClick()
+        waitForText("Suma el 50 % de lo que gastes al objetivo del día.")
+        kotlin.test.assertEquals(emptyList(), kotlinx.coroutines.runBlocking { exercise.entriesForDate("2026-11-04") })
+    }
+
+    @Test
+    fun exercisePercentIsEditedInGoalsAndUsedByTheDiary() = runApp(recentWeight = true) { db ->
+        waitForText("Suma el 50 % de lo que gastes al objetivo del día.")
+        onNodeWithText("Objetivos").performClick()
+        waitForText("Sumar todo (100 %)")
+        onNodeWithText("Sumar todo (100 %)").performScrollTo().performClick()
+        waitUntil(timeoutMillis = 20_000) {
+            kotlinx.coroutines.runBlocking { SqlDelightExerciseStore(db.exerciseQueries).percent() } == 100
+        }
+        onNodeWithText("No sumar (desactivado)").performScrollTo().performClick()
+        waitUntil(timeoutMillis = 20_000) {
+            kotlinx.coroutines.runBlocking { SqlDelightExerciseStore(db.exerciseQueries).percent() } == 0
+        }
+        onNodeWithText("Diario").performClick()
+        waitForText("Desactivado en Objetivos: no suma al objetivo.")
     }
 
     @Test
@@ -934,5 +983,168 @@ class AppFlowsTest {
         onNodeWithText("Favoritos").performClick()
         waitForText("FAVORITOS · 1")
         onNodeWithText("Nutella").assertIsDisplayed()
+    }
+
+    private fun seedBreakfast(db: EasyFoodDatabase) = kotlinx.coroutines.runBlocking {
+        SqlDelightDiaryStore(db.diaryEntryQueries).add(
+            NewDiaryEntry("2026-11-04", MealType.BREAKFAST, "111", "Avena", Quantity(40.0, QuantityUnit.GRAMS), null, Nutrients(380.0, 13.0, 60.0, 7.0)), 1L,
+        )
+    }
+
+    private fun seedTemplate(db: EasyFoodDatabase, name: String = "Mi desayuno") = kotlinx.coroutines.runBlocking {
+        SqlDelightMealTemplateStore(db.mealTemplateQueries).create(
+            NewMealTemplate(
+                name,
+                listOf(
+                    TemplateItem("111", "Avena", Quantity(40.0, QuantityUnit.GRAMS), null, Nutrients(380.0, 13.0, 60.0, 7.0)),
+                    TemplateItem(null, "Yogur", Quantity(2.0, QuantityUnit.SERVINGS), 125.0, Nutrients(60.0, 4.0, 5.0, 3.0)),
+                ),
+            ),
+            1L,
+        )
+    }
+
+    @Test
+    fun saveAMealAsTemplateFromTheDiaryAndAddItFromTheFoodsTab() = runApp(recentWeight = true, seed = ::seedBreakfast) { db ->
+        waitForText("Avena")
+        onNodeWithContentDescription("Guardar Desayuno como plantilla").performClick()
+        waitForText("Guardar Desayuno como plantilla")
+        onNodeWithText("Nombre").performTextReplacement("Mi desayuno")
+        onNodeWithText("Guardar").performClick()
+        waitForText("Plantilla «Mi desayuno» guardada")
+        kotlin.test.assertEquals(listOf("Mi desayuno"), db.mealTemplateQueries.selectAll().executeAsList().map { it.name })
+        kotlin.test.assertEquals(1, db.mealTemplateQueries.selectAllItems().executeAsList().size)
+
+        onNodeWithText("Alimentos").performClick()
+        waitForText("Buscar alimento")
+        onNodeWithText("Plantillas").performClick()
+        waitForText("PLANTILLAS · 1")
+        onNodeWithContentDescription("Añadir Mi desayuno al diario").performClick()
+
+        // Vuelve al Diario con los alimentos de la plantilla añadidos de un toque.
+        waitUntil(timeoutMillis = 20_000) { db.diaryEntryQueries.selectByDate("2026-11-04").executeAsList().size == 2 }
+        waitForText("Merienda")
+    }
+
+    @Test
+    fun tappingATemplateLetsYouPickTheMealAndAddsEveryFoodWithItsQuantity() = runApp(recentWeight = true, seed = { seedTemplate(it) }) { db ->
+        waitForText("Nada apuntado hoy")
+        onNodeWithText("Alimentos").performClick()
+        waitForText("Buscar alimento")
+        onNodeWithText("Plantillas").performClick()
+        waitForText("PLANTILLAS · 1")
+        onNodeWithText("Mi desayuno").performClick()
+        waitForText("Añadir a")
+        onNodeWithText("Desayuno").performClick()
+        onAllNodesWithText("Añadir").onLast().performClick() // el del diálogo, que se compone el último
+
+        waitUntil(timeoutMillis = 20_000) { db.diaryEntryQueries.selectByDate("2026-11-04").executeAsList().size == 2 }
+        val rows = db.diaryEntryQueries.selectByDate("2026-11-04").executeAsList()
+        kotlin.test.assertEquals(listOf("Avena", "Yogur"), rows.map { it.name })
+        kotlin.test.assertEquals(listOf("BREAKFAST", "BREAKFAST"), rows.map { it.meal })
+        kotlin.test.assertEquals(listOf("GRAMS", "SERVINGS"), rows.map { it.unit })
+        kotlin.test.assertEquals(listOf(40.0, 2.0), rows.map { it.quantity })
+    }
+
+    @Test
+    fun renameAndDeleteATemplateFromItsEditScreen() = runApp(recentWeight = true, seed = { seedTemplate(it) }) { db ->
+        waitForText("Nada apuntado hoy")
+        onNodeWithText("Alimentos").performClick()
+        waitForText("Buscar alimento")
+        onNodeWithText("Plantillas").performClick()
+        waitForText("PLANTILLAS · 1")
+        onNodeWithContentDescription("Editar Mi desayuno").performClick()
+        waitForText("Editar plantilla")
+        onNodeWithText("Nombre").performTextReplacement("Desayuno de siempre")
+        onNodeWithText("Guardar cambios").performClick()
+        waitForText("Desayuno de siempre")
+        kotlin.test.assertEquals(listOf("Desayuno de siempre"), db.mealTemplateQueries.selectAll().executeAsList().map { it.name })
+        kotlin.test.assertEquals(2, db.mealTemplateQueries.selectAllItems().executeAsList().size)
+
+        onNodeWithContentDescription("Editar Desayuno de siempre").performClick()
+        waitForText("Editar plantilla")
+        onNodeWithText("Borrar").performClick()
+        waitForText("¿Borrar la plantilla?")
+        onAllNodesWithText("Borrar").onLast().performClick()
+        waitForText("Aún no tienes plantillas")
+        kotlin.test.assertEquals(0, db.mealTemplateQueries.selectAll().executeAsList().size)
+        kotlin.test.assertEquals(0, db.mealTemplateQueries.selectAllItems().executeAsList().size)
+    }
+
+    @Test
+    fun aiTabShowsConfigureKeyAndOpensSettingsWithoutTouchingTheRestOfTheApp() = runApp(recentWeight = true) { _ ->
+        waitForText("Nada apuntado hoy")
+        onAllNodesWithText("IA").onLast().performClick()
+        waitForText("Configura tu clave")
+
+        onNodeWithText("Ajustes de IA").performClick()
+        waitForText("Clave de API de Anthropic")
+        onNodeWithText("Pega aquí tu clave (sk-ant-…)").performTextInput("no-es-una-clave")
+        onNodeWithText("Guardar y probar").performClick()
+        waitForText("Esa clave no parece válida: debe empezar por «sk-ant-» y no llevar espacios.")
+
+        onNodeWithContentDescription("Atrás").performClick()
+        waitForText("Configura tu clave")
+        onNodeWithText("Diario").performClick()
+        waitForText("Nada apuntado hoy")
+    }
+
+    @Test
+    fun quickEntryIsAddedEditedAndDeletedWithoutCreatingAFood() = runApp(recentWeight = true) { db ->
+        waitForText("Nada apuntado hoy")
+        onNode(hasScrollAction()).performScrollToNode(hasContentDescription("Añadir a Comida")) // la tarjeta de ejercicio la empuja fuera de pantalla
+        onNodeWithContentDescription("Añadir a Comida").performClick()
+        waitForText("Entrada rápida · solo kcal y macros")
+        onNodeWithText("Entrada rápida · solo kcal y macros").performClick()
+        waitForText("Nombre (opcional)")
+        onNodeWithText("Añadir al diario").performClick() // sin ningún valor: no guarda y avisa
+        waitForText("Indica al menos las kcal o algún macro.")
+        onNodeWithText("Nombre (opcional)").performTextInput("Menú del día")
+        onNodeWithText("Energía").performTextInput("850")
+        onNodeWithText("Proteínas (opcional)").performTextInput("30")
+        onNodeWithText("Añadir al diario").performClick()
+
+        waitForText("Menú del día")
+        waitForText("850")
+        waitGone("Nada apuntado hoy")
+        val saved = db.diaryEntryQueries.selectAll().executeAsList().single()
+        kotlin.test.assertEquals(1L, saved.quick)
+        kotlin.test.assertEquals("LUNCH", saved.meal)
+        kotlin.test.assertEquals("2026-11-04", saved.date)
+        kotlin.test.assertEquals(0, db.productQueries.selectAll().executeAsList().size) // no crea alimento en la base
+        kotlin.test.assertEquals(0, db.customFoodQueries.selectAll().executeAsList().size)
+
+        onNode(hasScrollAction()).performScrollToNode(hasText("Menú del día")) // la lista es perezosa: se desplaza hasta la fila
+        onNodeWithText("Menú del día").performScrollTo().performClick() // la fila queda bajo la barra inferior
+        waitForText("Editar entrada rápida")
+        waitForText("Energía") // los campos aparecen al terminar de cargar la entrada
+        onNodeWithText("Energía").performTextReplacement("1200")
+        onNodeWithText("Guardar cambios").performClick()
+        waitForText("1.200")
+        kotlin.test.assertEquals(1200.0, db.diaryEntryQueries.selectAll().executeAsList().single().kcal_100g)
+
+        onNode(hasScrollAction()).performScrollToNode(hasText("Menú del día"))
+        onNodeWithText("Menú del día").performScrollTo().performTouchInput { longClick() }
+        waitForText("Borrar")
+        onNodeWithText("Borrar").performClick()
+        waitForText("Nada apuntado hoy")
+    }
+
+    /** Espera a que el texto exista sin desplazar listas (el resumen se compone entero arriba del todo). */
+    private fun ComposeUiTest.waitForTextInPlace(text: String) = waitUntil(timeoutMillis = 20_000) {
+        onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty()
+    }
+
+    @Test
+    fun summaryIsOpenedFromTheDiaryAndShowsTheEmptyStateWithoutEntries() = runApp(recentWeight = true) { _ ->
+        waitForText("Nada apuntado hoy")
+        onNodeWithContentDescription("Resumen semanal y mensual").performClick()
+        waitForTextInPlace("Aún no hay registros")
+        onNodeWithText("2–8 nov 2026").assertIsDisplayed()
+
+        onNodeWithText("Mes").performClick()
+        waitForTextInPlace("Noviembre de 2026")
+        onNodeWithContentDescription("Volver").performClick()
+        waitForText("Nada apuntado hoy")
     }
 }

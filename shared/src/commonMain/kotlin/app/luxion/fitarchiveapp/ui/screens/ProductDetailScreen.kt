@@ -42,13 +42,16 @@ import app.luxion.fitarchiveapp.data.CustomFoodStore
 import app.luxion.fitarchiveapp.data.ProductRepository
 import app.luxion.fitarchiveapp.data.generic.GenericFoodFormat
 import app.luxion.fitarchiveapp.data.ProductResult
+import app.luxion.fitarchiveapp.data.RefreshResult
 import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.model.NewDiaryEntry
 import app.luxion.fitarchiveapp.model.Nutrients
 import app.luxion.fitarchiveapp.model.Product
+import app.luxion.fitarchiveapp.model.ProductCorrection
 import app.luxion.fitarchiveapp.model.QuantityUnit
 import app.luxion.fitarchiveapp.model.dataWarnings
 import app.luxion.fitarchiveapp.ui.components.DataSource
+import app.luxion.fitarchiveapp.ui.components.CorrectedChip
 import app.luxion.fitarchiveapp.ui.components.DoubtfulChip
 import app.luxion.fitarchiveapp.ui.components.DoubtfulDataBanner
 import app.luxion.fitarchiveapp.ui.components.StackedMacroBar
@@ -86,6 +89,10 @@ private data class FoodDetail(
     val product: Product?,
     /** Id del alimento propio, si la ficha es de uno (permite editarlo). */
     val customFoodId: Long? = null,
+    /** Seguimiento del refresco desde Open Food Facts (solo productos de OFF). */
+    val refreshedAtMillis: Long? = null,
+    val changeSummary: String? = null,
+    val changedAtMillis: Long? = null,
 ) {
     /** Código de barras real para mostrar o copiar; la clave interna de un genérico (`generic:<id>`) no lo es. */
     val displayBarcode: String? get() = barcode?.takeUnless { it.startsWith(GenericFoodFormat.KEY_PREFIX) }
@@ -116,9 +123,12 @@ fun ProductDetailScreen(
 ) {
     var state by remember(route) { mutableStateOf<LoadState>(LoadState.Loading) }
     var reloadKey by remember(route) { mutableStateOf(0) }
+    var refreshing by remember(route) { mutableStateOf(false) }
+    var refreshMessage by remember(route) { mutableStateOf<String?>(null) }
 
     LaunchedEffect(route, reloadKey) {
-        state = LoadState.Loading
+        // Al recargar tras un refresco se mantiene la ficha en pantalla (no parpadea ni pierde la cantidad escrita).
+        if (state !is LoadState.Ready) state = LoadState.Loading
         state = try {
             load(route, repository, diaryStore, customFoods, mealChoices.defaultMeal())
         } catch (e: Exception) {
@@ -133,6 +143,24 @@ fun ProductDetailScreen(
     val favoriteKey = ready?.detail?.let { d -> d.customFoodId?.let(FavoriteKeys::custom) ?: d.barcode }
     var favorite by remember(favoriteKey) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val refreshProduct: () -> Unit = refresh@{
+        val code = ready?.detail?.barcode ?: return@refresh
+        if (refreshing) return@refresh
+        refreshing = true
+        refreshMessage = null
+        scope.launch {
+            try {
+                refreshMessage = refreshMessageFor(repository.refresh(code))
+                reloadKey++
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                refreshMessage = "No se pudo actualizar. Inténtalo de nuevo."
+            } finally {
+                refreshing = false
+            }
+        }
+    }
     LaunchedEffect(favoriteKey) {
         favorite = try {
             favoriteKey != null && favoriteKey in favoriteStore.keys()
@@ -213,7 +241,11 @@ fun ProductDetailScreen(
                     secondaryAction = EmptyStateAction("Volver") { navigator.pop() },
                     modifier = Modifier.fillMaxSize(),
                 )
-                is LoadState.Ready -> DetailContent(navigator, route, s, diaryStore, today, mealChoices)
+                is LoadState.Ready -> DetailContent(
+                    navigator, route, s, repository, diaryStore, today, mealChoices,
+                    refreshing = refreshing, refreshMessage = refreshMessage, onRefresh = refreshProduct,
+                    onProductChanged = { reloadKey++ },
+                )
             }
         }
     }
@@ -259,6 +291,8 @@ private suspend fun load(
                 servingSizeG = p.servingSizeG, servingLabel = p.servingLabel,
                 source = if (p.barcode.startsWith(GenericFoodFormat.KEY_PREFIX)) DataSource.Generic else DataSource.OpenFoodFacts,
                 sourceNote = note, product = p,
+                refreshedAtMillis = result.refreshedAtMillis, changeSummary = result.changeSummary,
+                changedAtMillis = result.changedAtMillis,
             )
             val servings = p.servingSizeG != null
             LoadState.Ready(
@@ -304,9 +338,14 @@ private fun DetailContent(
     navigator: Navigator,
     route: Route.ProductDetail,
     ready: LoadState.Ready,
+    repository: ProductRepository,
     diaryStore: DiaryStore,
     today: () -> String,
     mealChoices: MealChoices,
+    refreshing: Boolean,
+    refreshMessage: String?,
+    onRefresh: () -> Unit,
+    onProductChanged: () -> Unit,
 ) {
     val detail = ready.detail
     val editing = route.entryId != null
@@ -317,6 +356,8 @@ private fun DetailContent(
     var amountText by remember(ready) { mutableStateOf(formatGrams(ready.initialAmount).replace(".", "")) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var correctionBusy by remember { mutableStateOf(false) }
+    var correctionError by remember { mutableStateOf<String?>(null) }
 
     val servingG = detail.servingSizeG
     val amount = parseNumber(amountText)
@@ -348,10 +389,11 @@ private fun DetailContent(
                             }
                         }
                     }
-                    if (detail.source != null || reasons.isNotEmpty()) {
+                    if (detail.source != null || reasons.isNotEmpty() || detail.product?.isCorrected == true) {
                         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalAlignment = Alignment.CenterVertically) {
                             detail.source?.let { SourceChip(it) }
                             if (reasons.isNotEmpty()) DoubtfulChip()
+                            if (detail.product?.isCorrected == true) CorrectedChip()
                         }
                     }
                 }
@@ -416,6 +458,50 @@ private fun DetailContent(
             item { NutritionTable("Por 100 g", detail.nutrients.toRows()) }
             if (servingG != null) {
                 item { NutritionTable("Por porción · ${formatGrams(servingG)} g", detail.nutrients.perServingRows(servingG)) }
+            }
+            if (!editing && detail.source == DataSource.OpenFoodFacts && detail.product != null) {
+                item { RefreshSection(detail, refreshing, refreshMessage, onRefresh) }
+            }
+            detail.product?.let { product ->
+                item {
+                    ProductCorrectionSection(
+                        product = product,
+                        busy = correctionBusy,
+                        error = correctionError,
+                        onSave = { nutrients ->
+                            correctionBusy = true
+                            correctionError = null
+                            scope.launch {
+                                try {
+                                    repository.correct(ProductCorrection(product.barcode, nutrients, nowMillis()))
+                                    onProductChanged()
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    correctionError = "No se pudo guardar la corrección. Inténtalo de nuevo."
+                                } finally {
+                                    correctionBusy = false
+                                }
+                            }
+                        },
+                        onRevert = {
+                            correctionBusy = true
+                            correctionError = null
+                            scope.launch {
+                                try {
+                                    repository.revertCorrection(product.barcode)
+                                    onProductChanged()
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    correctionError = "No se pudo volver al original. Inténtalo de nuevo."
+                                } finally {
+                                    correctionBusy = false
+                                }
+                            }
+                        },
+                    )
+                }
             }
             item {
                 val source = detail.source?.label
@@ -495,6 +581,36 @@ private fun DetailContent(
     }
 }
 
+/** «Actualizado hoy / hace N días», último cambio nutricional relevante y botón de refresco manual. */
+@Composable
+private fun RefreshSection(detail: FoodDetail, refreshing: Boolean, message: String?, onRefresh: () -> Unit) {
+    val now = nowMillis()
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.large) {
+        Column(Modifier.fillMaxWidth().padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+            Text(
+                detail.refreshedAtMillis?.let { "Datos de Open Food Facts ${updatedAgo(now, it)}" }
+                    ?: "Datos de Open Food Facts",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            val changed = detail.changedAtMillis
+            if (detail.changeSummary != null && changed != null) {
+                Text(
+                    "Cambió ${updatedAgo(now, changed).removePrefix("actualizado ")}: ${detail.changeSummary}. " +
+                        "Tus entradas anteriores del diario conservan los valores con los que las registraste.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            message?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            OutlinedButton(
+                onClick = onRefresh,
+                enabled = !refreshing,
+                modifier = Modifier.semantics { contentDescription = "Actualizar desde Open Food Facts" },
+            ) { Text(if (refreshing) "Actualizando…" else "Actualizar datos") }
+        }
+    }
+}
+
 @Composable
 internal fun MacroCell(label: String, grams: Double?, color: androidx.compose.ui.graphics.Color, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(Spacing.xxs)) {
@@ -506,6 +622,26 @@ internal fun MacroCell(label: String, grams: Double?, color: androidx.compose.ui
             grams?.let { "${formatGrams(it)} g" } ?: "Sin dato",
             style = MaterialTheme.typography.titleMedium,
         )
+    }
+}
+
+/** Mensaje al usuario tras un refresco manual. */
+internal fun refreshMessageFor(result: RefreshResult): String = when (result) {
+    is RefreshResult.Updated ->
+        result.change?.let { "Valores actualizados: $it (por 100 g)." } ?: "Datos al día: sin cambios nutricionales relevantes."
+    RefreshResult.Rejected -> "Open Food Facts devuelve datos incompletos; se conservan los que tenías."
+    RefreshResult.NotFound -> "El producto ya no está en Open Food Facts; se conservan los datos guardados."
+    RefreshResult.Skipped -> "Este producto no se puede actualizar."
+    is RefreshResult.Failure -> "Sin conexión con Open Food Facts. Inténtalo más tarde."
+}
+
+/** «actualizado hoy» / «actualizado hace 3 días» respecto a [now]. */
+internal fun updatedAgo(now: Long, then: Long): String {
+    val days = ((now - then) / 86_400_000L).coerceAtLeast(0)
+    return when (days) {
+        0L -> "actualizado hoy"
+        1L -> "actualizado ayer"
+        else -> "actualizado hace $days días"
     }
 }
 

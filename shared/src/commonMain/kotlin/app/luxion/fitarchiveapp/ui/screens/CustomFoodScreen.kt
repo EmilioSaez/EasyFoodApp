@@ -34,6 +34,8 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
 import app.luxion.fitarchiveapp.data.CustomFoodStore
 import app.luxion.fitarchiveapp.model.CustomFood
+import app.luxion.fitarchiveapp.ai.LabelReading
+import app.luxion.fitarchiveapp.ui.components.DoubtfulDataBanner
 import app.luxion.fitarchiveapp.ui.components.NumberField
 import app.luxion.fitarchiveapp.ui.navigation.Navigator
 import app.luxion.fitarchiveapp.ui.navigation.Route
@@ -85,6 +87,7 @@ fun CustomFoodScreen(
     }
 
     val errors = validateCustomFood(form, requireAll = showErrors)
+    val unread = route.unreadFields
     val editing = foodId != null
 
     fun save() {
@@ -147,6 +150,15 @@ fun CustomFoodScreen(
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(Spacing.l),
             verticalArrangement = Arrangement.spacedBy(Spacing.m),
         ) {
+            if (unread != null) {
+                Text(
+                    "Leído de la foto de la etiqueta por la IA: compruébalo y corrígelo antes de guardar.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                val reasons = form.doubtfulReasons()
+                if (reasons.isNotEmpty()) DoubtfulDataBanner(reasons = reasons, onCorrect = null)
+            }
             route.barcode?.let { code ->
                 OutlinedTextField(
                     value = code,
@@ -163,7 +175,7 @@ fun CustomFoodScreen(
                 onValueChange = { form = form.copy(name = it) },
                 label = { Text("Nombre") },
                 isError = errors.name != null,
-                supportingText = errors.name?.let { { Text(it) } },
+                supportingText = (errors.name ?: unreadHint(unread, LabelReading.FIELD_NAME, form.name))?.let { { Text(it) } },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 modifier = Modifier.fillMaxWidth(),
@@ -183,27 +195,27 @@ fun CustomFoodScreen(
                     label = "Peso porción",
                     suffix = "g",
                     isError = errors.servingSize != null,
-                    supportingText = errors.servingSize,
+                    supportingText = errors.servingSize ?: unreadHint(unread, LabelReading.FIELD_SERVING_SIZE, form.servingSize),
                     modifier = Modifier.weight(1f),
                 )
             }
 
             Text("Valores por 100 g", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
             NumberRow(
-                "Energía" to Field(form.kcal, "kcal", errors.kcal) { form = form.copy(kcal = it) },
-                "Proteína" to Field(form.protein, "g", errors.protein) { form = form.copy(protein = it) },
+                "Energía" to Field(form.kcal, "kcal", errors.kcal, unreadHint(unread, LabelReading.FIELD_KCAL, form.kcal)) { form = form.copy(kcal = it) },
+                "Proteína" to Field(form.protein, "g", errors.protein, unreadHint(unread, LabelReading.FIELD_PROTEIN, form.protein)) { form = form.copy(protein = it) },
             )
             NumberRow(
-                "Hidratos" to Field(form.carbs, "g", errors.carbs) { form = form.copy(carbs = it) },
-                "Grasas" to Field(form.fat, "g", errors.fat) { form = form.copy(fat = it) },
+                "Hidratos" to Field(form.carbs, "g", errors.carbs, unreadHint(unread, LabelReading.FIELD_CARBS, form.carbs)) { form = form.copy(carbs = it) },
+                "Grasas" to Field(form.fat, "g", errors.fat, unreadHint(unread, LabelReading.FIELD_FAT, form.fat)) { form = form.copy(fat = it) },
             )
             NumberRow(
-                "Saturadas" to Field(form.saturated, "g", errors.saturated) { form = form.copy(saturated = it) },
-                "Azúcares" to Field(form.sugars, "g", errors.sugars) { form = form.copy(sugars = it) },
+                "Saturadas" to Field(form.saturated, "g", errors.saturated, unreadHint(unread, LabelReading.FIELD_SATURATED, form.saturated)) { form = form.copy(saturated = it) },
+                "Azúcares" to Field(form.sugars, "g", errors.sugars, unreadHint(unread, LabelReading.FIELD_SUGARS, form.sugars)) { form = form.copy(sugars = it) },
             )
             NumberRow(
-                "Fibra" to Field(form.fiber, "g", errors.fiber) { form = form.copy(fiber = it) },
-                "Sal" to Field(form.salt, "g", errors.salt) { form = form.copy(salt = it) },
+                "Fibra" to Field(form.fiber, "g", errors.fiber, unreadHint(unread, LabelReading.FIELD_FIBER, form.fiber)) { form = form.copy(fiber = it) },
+                "Sal" to Field(form.salt, "g", errors.salt, unreadHint(unread, LabelReading.FIELD_SALT, form.salt)) { form = form.copy(salt = it) },
             )
 
             if (editing) {
@@ -231,7 +243,13 @@ fun CustomFoodScreen(
     }
 }
 
-private class Field(val value: String, val suffix: String, val error: String?, val onChange: (String) -> Unit)
+private class Field(
+    val value: String,
+    val suffix: String,
+    val error: String?,
+    val hint: String? = null,
+    val onChange: (String) -> Unit,
+)
 
 /** Fila de dos campos numéricos (rejilla de 2 columnas). */
 @Composable
@@ -244,7 +262,7 @@ private fun NumberRow(left: Pair<String, Field>, right: Pair<String, Field>) {
                 label = label,
                 suffix = f.suffix,
                 isError = f.error != null,
-                supportingText = f.error,
+                supportingText = f.error ?: f.hint,
                 modifier = Modifier.weight(1f),
             )
         }

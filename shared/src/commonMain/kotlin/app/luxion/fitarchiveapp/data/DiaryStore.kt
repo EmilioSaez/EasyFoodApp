@@ -4,6 +4,7 @@ import app.luxion.fitarchiveapp.domain.DaySummary
 import app.luxion.fitarchiveapp.model.DiaryEntry
 import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.model.NewDiaryEntry
+import app.luxion.fitarchiveapp.model.Nutrients
 import app.luxion.fitarchiveapp.model.Quantity
 
 /** Acceso al diario local (la implementación real es [SqlDelightDiaryStore]). */
@@ -12,6 +13,8 @@ interface DiaryStore {
     suspend fun entriesForDate(date: String): List<DiaryEntry>
     /** Kcal por día de los días con entradas entre [from] y [to] (ambos incluidos), en orden de fecha. */
     suspend fun daySummaries(from: String, to: String): List<DaySummary> = emptyList()
+    /** Entradas de los días entre [from] y [to] (ambos incluidos), en orden de fecha. */
+    suspend fun entriesBetween(from: String, to: String): List<DiaryEntry> = emptyList()
     suspend fun find(id: Long): DiaryEntry?
     /** Última entrada de cada alimento distinto (hasta [limit]), de la más reciente a la más antigua. */
     suspend fun recentFoods(limit: Int): List<DiaryEntry> = emptyList()
@@ -19,6 +22,8 @@ interface DiaryStore {
     suspend fun add(entry: NewDiaryEntry, createdAtMillis: Long): Long
     /** Cambia comida y cantidad; devuelve `false` si la entrada no existe. */
     suspend fun update(id: Long, meal: MealType, quantity: Quantity): Boolean
+    /** Edita una entrada rápida (comida, nombre y totales); devuelve `false` si no existe o no es rápida. */
+    suspend fun updateQuick(id: Long, meal: MealType, name: String, totals: Nutrients): Boolean = false
     /** Borra la entrada; devuelve `false` si no existía. */
     suspend fun delete(id: Long): Boolean
 }

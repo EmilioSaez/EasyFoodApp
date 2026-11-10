@@ -26,9 +26,12 @@ class MigrationsCompletenessTest {
         EasyFoodDatabase.Schema.create(fresh)
         val migrated = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         EasyFoodDatabase.Schema.create(migrated)
-        for (t in listOf("WaterEntity", "WaterGoalEntity", "FavoriteFoodEntity", "GenericFoodsMetaEntity")) {
+        for (t in listOf("WaterEntity", "WaterGoalEntity", "FavoriteFoodEntity", "GenericFoodsMetaEntity", "MealTemplateItemEntity", "MealTemplateEntity", "ExerciseEntity", "ExerciseSettingsEntity")) {
             migrated.execute(null, "DROP TABLE $t", 0)
         }
+        migrated.execute(null, "ALTER TABLE DiaryEntryEntity DROP COLUMN quick", 0) // la añade 12.sqm (no es idempotente)
+
+        for (c in listOf("saturated_fat_100g", "sugars_100g", "fiber_100g", "salt_100g")) migrated.execute(null, "ALTER TABLE DiaryEntryEntity DROP COLUMN $c", 0) // 16.sqm
 
         EasyFoodDatabase.Schema.migrate(migrated, 8, EasyFoodDatabase.Schema.version)
 

@@ -29,6 +29,8 @@ fun DiaryEntryRow(
     doubtful: Boolean = false,
     onClick: () -> Unit = {},
     onLongClick: (() -> Unit)? = null,
+    /** `false` en las entradas rápidas, que no tienen origen de datos. */
+    showSource: Boolean = true,
 ) {
     Column(modifier) {
     HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
@@ -38,7 +40,10 @@ fun DiaryEntryRow(
         headlineContent = { Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("$quantityText · ${source.label}", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    listOfNotNull(quantityText.ifEmpty { null }, source.label.takeIf { showSource }).joinToString(" · "),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
                 if (doubtful) DoubtfulChip(Modifier.padding(start = Spacing.s))
             }
         },

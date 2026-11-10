@@ -45,8 +45,10 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import app.luxion.fitarchiveapp.data.ExerciseStore
 import app.luxion.fitarchiveapp.data.GoalStore
 import app.luxion.fitarchiveapp.data.WaterStore
+import app.luxion.fitarchiveapp.ui.components.ExercisePercentPicker
 import app.luxion.fitarchiveapp.ui.components.WaterGoalRow
 import app.luxion.fitarchiveapp.domain.ActivityLevel
 import app.luxion.fitarchiveapp.domain.Goal
@@ -80,6 +82,7 @@ fun GoalsScreen(
     mealsPerDay: Int? = null,
     onMealsPerDayChange: (Int) -> Unit = {},
     waterStore: WaterStore? = null,
+    exerciseStore: ExerciseStore? = null,
 ) {
     var saved by remember { mutableStateOf(DailyGoals()) }
     var sex by remember { mutableStateOf(Sex.MALE) }
@@ -138,6 +141,10 @@ fun GoalsScreen(
             CenterAlignedTopAppBar(
                 title = { Text("Objetivos") },
                 actions = {
+                    IconButton(
+                        onClick = { navigator.push(Route.Reminders) },
+                        modifier = Modifier.semantics { contentDescription = "Recordatorios" },
+                    ) { Text("🔔", style = MaterialTheme.typography.titleMedium) }
                     IconButton(
                         onClick = { navigator.push(Route.Data) },
                         modifier = Modifier.semantics { contentDescription = "Datos: exportar e importar" },
@@ -285,6 +292,13 @@ fun GoalsScreen(
             Section("Comidas al día") {
                 // Se guarda al elegir, aparte de «Guardar objetivos». Sin elección previa, el Diario usa el preset por defecto.
                 MealsPerDayPicker(mealsPerDay ?: MealPlan.DEFAULT_MEALS, onMealsPerDayChange)
+            }
+
+            if (exerciseStore != null) {
+                Section("Ejercicio") {
+                    // Se guarda al elegir, aparte de «Guardar objetivos»; el Diario suma ese porcentaje al objetivo del día.
+                    ExercisePercentPicker(exerciseStore)
+                }
             }
 
             if (waterStore != null) {

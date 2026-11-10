@@ -42,6 +42,19 @@ Implementación: `shared/src/iosMain/.../steps/StepsProvider.ios.kt` (`HKStatist
 - [ ] Los pasos de «hoy» y la media de 14 días coinciden con la app Salud (fecha según el calendario del dispositivo).
 - [ ] Revisar `getRequestStatusForAuthorizationToShareTypes` (interpretación de `ShouldRequest`/`Unnecessary`) y que `HKUnit.unitFromString("count")` devuelve la unidad esperada.
 
+## IA: clave en el Keychain y reducción de imágenes
+Código en `shared/src/iosMain/.../ai/`. Se comprueba el tipado desde Windows y en CI, pero no se ha ejecutado en iPhone.
+- [ ] `KeychainAiKeyVault`: guardar, leer y borrar la clave (`kSecClassGenericPassword`, `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`); comprobar que no pasa a copias de seguridad ni a otro dispositivo.
+- [ ] `downscaleToJpeg` (UIKit): foto de la cámara en vertical y horizontal sale derecha, con lado mayor de 1024 px y sin metadatos.
+- [ ] `IosAiPreferences` (`NSUserDefaults`): el modelo, el tope y el contador sobreviven a reiniciar la app.
+
+## Foto de la etiqueta (cámara)
+Código en `shared/src/iosMain/.../files/PhotoSource.ios.kt` (`UIImagePickerController` con la cámara; la foto llega como `UIImage` en memoria). Solo se ha comprobado el tipado en Windows; el simulador no tiene cámara. `chooseFile` no está implementado (devuelve «aún no está disponible en iOS»).
+- [ ] «Hacer foto» abre la cámara, aparece el diálogo de permiso (`NSCameraUsageDescription` ya menciona la etiqueta) y la foto vuelve a la pantalla sin pasar por la fototeca.
+- [ ] El delegado no se libera antes de tiempo (`UIImagePickerController.delegate` es débil; se conserva en `activeDelegate`): aceptar y cancelar funcionan, también dos veces seguidas.
+- [ ] La foto en vertical sale derecha en la miniatura y en lo que ve la IA.
+- [ ] Con el permiso denegado aparece el mensaje de la pantalla y «Rellenar a mano» sigue funcionando.
+
 ## Pantalla «Datos»: funciones no implementadas en iOS
 
 - **Guardar y abrir archivos JSON** (`files/DataFiles.ios.kt`): es un stub (`canSave`/`canOpen` = `false`, devuelve «aún no está disponible en iOS»). Falta `UIActivityViewController`/`UIDocumentPickerViewController`. Mientras tanto iOS transfiere por QR y red local.
@@ -56,10 +69,23 @@ Sin probar en iOS (ni en el simulador ni en iPhone): servidor/cliente Ktor sobre
 - [ ] Comportamiento al pasar la app a segundo plano durante la transferencia.
 - [ ] Origen del código de emparejamiento aleatorio (`SecureRandom.ios.kt`): comprobar que usa una fuente segura en dispositivo.
 
+## Recordatorios (notificaciones locales)
+
+Implementación: `shared/src/iosMain/.../reminders/ReminderScheduler.ios.kt` (`UNUserNotificationCenter`, `UNCalendarNotificationTrigger` de un solo disparo). Solo se ha comprobado el tipado en Windows (`compileKotlinIosSimulatorArm64` y `compileKotlinIosArm64`).
+
+- [ ] Al activar «Recordatorios» en Objetivos aparece el diálogo de permiso de notificaciones; denegarlo muestra el aviso y «Abrir ajustes» abre los ajustes de la app.
+- [ ] Las notificaciones llegan a la hora elegida con la app cerrada (hora local del dispositivo, también tras cambiar de zona horaria u hora de verano).
+- [ ] Con la app en primer plano no salen (no hay `UNUserNotificationCenterDelegate`): decidir si se quiere mostrarlas con banner.
+- [ ] Registrar una comida o el peso y volver a la pantalla anterior retira el aviso de hoy (reprograma con `removeAllPendingNotificationRequests`).
+- [ ] Límite de 64 notificaciones pendientes: el plan de 7 días con 6 comidas, peso y agua suma 56 como máximo.
+- [ ] Tocar la notificación abre la app (sin navegar a una pantalla concreta).
+- [ ] Las propiedades de `NSDateComponents` (`year`, `month`, `day`, `hour`, `minute`) como `Long` compilan en el CI de macOS.
+
 ## Aplicación y proyecto Xcode
 
 - [ ] La app arranca en el simulador y en un iPhone (nunca se ha ejecutado, solo compilado en CI).
 - [ ] Base de datos SQLDelight con `NativeSqliteDriver`: crea y migra la BD en el dispositivo; `-lsqlite3` enlaza (lo hace el CI) y funciona en ejecución.
+- [ ] Copias de seguridad (`BackupFiles.ios.kt`, `MainViewController`): solo se ha escrito, no compilado ni probado. Comprobar que `databasePath()` encuentra el archivo real de `NativeSqliteDriver`, que se hace la copia antes de migrar (instalar una versión, subir `Schema.version` y reabrir), que se restaura si la migración falla y que la copia semanal aparece en «Datos».
 - [ ] Safe areas, teclado y orientación solo vertical (`safeDrawingPadding()` en `MainViewController`).
 - [ ] Botón/gesto de atrás (`PlatformBackHandler.ios.kt`): gesto de borde de iOS frente a la navegación de Compose.
 - [ ] `CADisableMinimumFrameDurationOnPhone` y fluidez en ProMotion.
@@ -75,3 +101,12 @@ Sin probar en iOS (ni en el simulador ni en iPhone): servidor/cliente Ktor sobre
 - [ ] **TestFlight con fastlane:** clave API de App Store Connect, `archive`/export del `.ipa`, subida y número de build incremental. Ni fastlane ni secretos en CI están configurados.
 - [ ] **Prueba en iPhone real** vía TestFlight, o en un Mac prestado (Xcode con Apple ID gratuito, ver `docs/ios.md`).
 - [ ] Cumplimiento de App Store: `ITSAppUsesNonExemptEncryption=NO` declarado; revisar descripción de privacidad y capturas.
+
+## Foto del plato (UIImagePickerController)
+
+Implementación: `shared/src/iosMain/.../photo/PhotoCapture.ios.kt`. Solo tipado en Windows; el simulador no tiene cámara.
+
+- [ ] «Hacer foto» abre la cámara del sistema (diálogo de `NSCameraUsageDescription` la primera vez) y la foto llega a «Foto lista».
+- [ ] «Elegir de la fototeca» funciona sin pedir permiso y devuelve la imagen.
+- [ ] El delegado sigue vivo al volver del selector (UIKit solo guarda una referencia débil) y cancelar no deja la pantalla bloqueada.
+- [ ] La orientación de fotos hechas en vertical es correcta tras `downscaleToJpeg`.

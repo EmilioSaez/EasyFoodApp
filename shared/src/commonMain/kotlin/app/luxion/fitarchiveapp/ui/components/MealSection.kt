@@ -26,7 +26,8 @@ import androidx.compose.ui.unit.sp
 import app.luxion.fitarchiveapp.ui.theme.Spacing
 
 /**
- * Tarjeta de una comida (Desayuno, Comida…): título en Sora 18 con «Copiar» justo a su derecha (si hay [onCopy]), resumen debajo
+ * Tarjeta de una comida (Desayuno, Comida…): título en Sora 18 con «Copiar» y «Plantilla» (guardar como plantilla) justo a su derecha
+ * (si hay [onCopy] / [onSaveTemplate]), resumen debajo
  * y el «+» cuadrado de 36 dp en la cabecera (docs/design.md §2.14). [entries] recibe las filas ([DiaryEntryRow]);
  * si [isEmpty], se muestra [emptyText] en su lugar.
  */
@@ -37,6 +38,7 @@ fun MealSection(
     onAdd: () -> Unit,
     modifier: Modifier = Modifier,
     onCopy: (() -> Unit)? = null,
+    onSaveTemplate: (() -> Unit)? = null,
     isEmpty: Boolean = false,
     emptyText: String = "Nada apuntado todavía",
     entries: @Composable ColumnScope.() -> Unit = {},
@@ -56,6 +58,12 @@ fun MealSection(
                     Text(title, style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp, lineHeight = 24.sp))
                     if (onCopy != null) {
                         TextButton(onClick = onCopy, modifier = Modifier.semantics { contentDescription = "Copiar $title" }) { Text("Copiar") }
+                    }
+                    if (onSaveTemplate != null) {
+                        TextButton(
+                            onClick = onSaveTemplate,
+                            modifier = Modifier.semantics { contentDescription = "Guardar $title como plantilla" },
+                        ) { Text("Plantilla") }
                     }
                 }
                 Text(

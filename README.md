@@ -4,13 +4,19 @@ App multiplataforma (Kotlin Multiplatform + Compose Multiplatform) para **contar
 
 ## Qué hace
 
-- **Diario del día**: totales de kcal y macros, secciones por comida, progreso frente al objetivo, edición y borrado de entradas.
-- **Añadir alimento**: búsqueda de texto en la base local y accesos rápidos (recientes, favoritos, escáner y alimento propio); los alimentos se marcan como favoritos con una estrella.
+- **Diario del día**: totales de kcal y macros, secciones por comida, progreso frente al objetivo, edición y borrado de entradas. Tarjeta con fibra, sal, azúcares y saturadas del día frente a objetivos orientativos, con «incompleto» si a algún alimento le faltan datos.
+- **Añadir alimento**: búsqueda de texto en la base local (por nombre, marca o supermercado como «mercadona» o «lidl»; tolera acentos, plurales y erratas, prioriza lo que más usas y tiene el filtro «Solo mis productos») y accesos rápidos (recientes, favoritos, plantillas, escáner y alimento propio); los alimentos se marcan como favoritos con una estrella. Las **plantillas de comida** («mi desayuno de siempre») se guardan desde una comida del Diario o desde la pestaña Alimentos y se añaden al diario de un toque, a la comida y fecha que elijas.
 - **Escáner de códigos de barras** (solo Android) y entrada manual de EAN. La consulta por EAN va a [Open Food Facts](https://world.openfoodfacts.org).
-- **Ficha de producto**: cantidad, tabla nutricional por 100 g y aviso cuando los datos faltan o parecen erróneos.
+- **Ficha de producto**: cantidad, tabla nutricional por 100 g y aviso cuando los datos faltan o parecen erróneos. Los productos de Open Food Facts se refrescan a mano («Actualizar datos») y en segundo plano (máx. 20 peticiones por arranque, sin red no hace nada) y la ficha avisa de los cambios nutricionales relevantes; el diario conserva los valores con los que registraste cada entrada ([detalles](docs/refrescar-productos.md)). Los valores de un producto de Open Food Facts o genérico se pueden **corregir en local** («Corregido por ti», con los originales a la vista y «Volver al original»); la corrección se conserva aunque el producto se actualice, va en exportar e importar, y la ficha ofrece abrir el producto en Open Food Facts para corregirlo allí (sin enviar nada automáticamente).
 - **Alimento propio**: crear, editar y borrar alimentos introducidos a mano.
 - **Objetivos y TDEE**: cálculo del gasto energético, ritmo y ajuste manual de kcal/macros.
+- **Resumen semanal y mensual**: icono ▥ del Diario. Media de kcal y macros, días cumplidos (objetivo ±10 %), mejor racha, mejor y peor día y peso frente a calorías, con selector semana/mes y navegación entre periodos. Se deriva de lo ya guardado: sin tabla nueva ni cambios en la exportación.
 - **Agua diaria**: tarjeta en el Diario con «+ Vaso», «+ 500 ml», «+ 1 L» y deshacer, y progreso frente a un objetivo (2 L por defecto, editable en Objetivos).
+- **IA opcional** (pestaña «IA»): usa tu propia clave de API de Anthropic. «¿Qué como?» propone 3–5 opciones para lo que queda del día según tus kcal y macros restantes (con tus favoritos, recientes, plantillas y recetas como candidatos) y las añade al diario como entrada rápida; «¿Cómo voy?» resume y aconseja sobre el día o la semana (kcal, proteína, fibra, sal, azúcares, agua y ejercicio); y puedes preguntar con una conversación corta. Solo se envía un resumen mínimo, con tope de llamadas al día y sin consejo médico. La clave se guarda solo en el dispositivo, de forma protegida (Keystore, Keychain o DPAPI), y nunca entra en la base de datos, en exportar/importar ni en copias de seguridad. Sin clave la IA queda desactivada y el resto de la app no cambia. Ver [docs/ia.md](docs/ia.md).
+- **Alta por foto de la etiqueta** (con la IA activada): cuando un código o una búsqueda no encuentran el alimento, «Fotografiar etiqueta» lee el nombre, la marca, los ingredientes, la porción y la tabla nutricional por 100 g y rellena el formulario de alimento propio para que lo revises antes de guardar. Lo que no se lee queda vacío y marcado, nunca inventado, y se avisa si las kcal no cuadran con los macros. En escritorio se sube una imagen desde un archivo. La foto se envía reducida a Anthropic con tu clave y no se guarda en el dispositivo.
+- **Foto del plato** (con IA): botón «✦ Foto del plato» en la pestaña Alimentos y en el «+» de cada comida. Haces una foto (o subes una imagen en escritorio), la IA lista los alimentos con gramos estimados y cada uno se enlaza con tu base para que las kcal y los macros salgan de datos reales; lo que no encuentra queda marcado como estimado. Revisas y corriges todo (alimento, cantidad, quitar, añadir) y solo al confirmar se apunta en el diario. Las cantidades son estimaciones (error posible del 20–40 %); la foto no se guarda en el dispositivo.
+- **Ejercicio**: registro manual de actividades (nombre, kcal y duración opcional) por día en el Diario; las kcal gastadas suben el objetivo del día. En Objetivos eliges si se suma todo, un porcentaje (50 % por defecto, porque el nivel de actividad del TDEE ya cuenta el ejercicio habitual) o nada.
+- **Recordatorios**: notificaciones locales (🔔 en Objetivos) para registrar cada comida a su hora, pesarte una vez a la semana y, si quieres, beber agua; eliges horas y días y no avisan de lo que ya has registrado. En Android funcionan con la app cerrada; en escritorio, solo con la app abierta.
 - **Sin cuentas ni servidor**: los datos viven en el dispositivo (offline-first, SQLDelight).
 
 ## Plataformas
@@ -23,7 +29,11 @@ App multiplataforma (Kotlin Multiplatform + Compose Multiplatform) para **contar
 
 ## Datos: exportar e importar
 
-La pantalla **Datos** (icono ⇅ del Diario y de Objetivos) exporta el perfil a un JSON versionado (alimentos propios, favoritos, diario, pesos, recetas, agua y productos consultados; la base genérica no se exporta porque ya viene con la app) e importa fusionando, con vista previa y detección de duplicados. También transfiere por QR y por red local con código de emparejamiento de un solo uso.
+La pantalla **Datos** (icono ⇅ del Diario y de Objetivos) exporta el perfil a un JSON versionado (alimentos propios, favoritos, plantillas de comida, diario, pesos, recetas, agua, ejercicio, productos consultados y tus correcciones de productos; la base genérica no se exporta porque ya viene con la app) e importa fusionando, con vista previa y detección de duplicados. También transfiere por QR y por red local con código de emparejamiento de un solo uso.
+
+**Entrada rápida:** para cuando comes fuera, el botón «Entrada rápida» de la pestaña Alimentos (y el «+» de cada comida del Diario) apunta solo kcal y macros, con nombre opcional, a una comida y día concretos, sin crear un alimento. Se edita, se borra, cuenta en los totales y se copia como cualquier entrada, y viaja en exportar e importar.
+
+**Copias de seguridad automáticas**: una vez por semana, al abrir la app, se guarda una copia JSON en el dispositivo (se conservan las últimas 6), con interruptor, «Copiar ahora» y «Restaurar» en la pantalla Datos. Además, antes de migrar la base de datos a una versión nueva se copia el archivo y, si la migración falla, se restaura sola. Detalles en [docs/copias-seguridad.md](docs/copias-seguridad.md).
 
 El seguimiento de lo que falta está en [ROADMAP.md](ROADMAP.md).
 
@@ -33,7 +43,7 @@ Casi todo el código está en `shared`: una sola base de código para las tres p
 
 | Módulo | Contenido |
 |---|---|
-| `shared` | Modelo, dominio (TDEE), datos (Open Food Facts con Ktor, repositorios y stores SQLDelight), exportación/transferencia y toda la UI en Compose Multiplatform. Con código específico por plataforma (`androidMain`, `jvmMain`, `iosMain`) para escáner, ajustes, aleatoriedad segura y drivers de base de datos. |
+| `shared` | Modelo, dominio (TDEE), datos (Open Food Facts con Ktor, repositorios y stores SQLDelight), exportación/transferencia y toda la UI en Compose Multiplatform. Incluye el cliente de la API de Claude (`ai`). Con código específico por plataforma (`androidMain`, `jvmMain`, `iosMain`) para escáner, ajustes, aleatoriedad segura y drivers de base de datos. |
 | `desktopApp` | Aplicación de escritorio (JVM). Solo arranca `App` de `shared`. |
 | `androidApp` | Aplicación Android. |
 | `iosApp` | Proyecto Xcode que embebe el framework `Shared`. |
@@ -68,7 +78,7 @@ Para comprobar que compilan los targets de iOS sin Mac (solo klibs, no enlaza el
 
 ## Datos y licencias
 
-- **Productos con código de barras**: [Open Food Facts](https://world.openfoodfacts.org), base abierta aportada por la comunidad bajo licencia ODbL. Los datos pueden ser incorrectos o estar incompletos; la app los marca para revisión cuando detecta valores dudosos.
+- **Productos con código de barras**: [Open Food Facts](https://world.openfoodfacts.org), base abierta aportada por la comunidad bajo licencia ODbL. Los datos pueden ser incorrectos o estar incompletos; la app los marca para revisión cuando detecta valores dudosos y permite corregirlos en local o abrir el producto en Open Food Facts para corregirlo allí.
 - **Alimentos genéricos** (fruta, pan, carne…): [USDA FoodData Central](https://fdc.nal.usda.gov/), conjunto SR Legacy, dominio público (CC0 1.0). Los nombres están traducidos al español (traducción propia con IA, embebida y offline). Detalles en [docs/generic-foods.md](docs/generic-foods.md).
 - BEDCA se descartó por no ofrecer licencia de redistribución.
 
@@ -76,5 +86,6 @@ Para comprobar que compilan los targets de iOS sin Mac (solo klibs, no enlaza el
 
 - [docs/design.md](docs/design.md): especificación de diseño (tokens, pantallas, componentes y navegación).
 - [docs/generic-foods.md](docs/generic-foods.md): base genérica de alimentos, fuente, licencia y formato.
+- [docs/ia.md](docs/ia.md): IA con la clave del usuario (API de Claude, privacidad, límites y almacenamiento de la clave).
 - [docs/ios.md](docs/ios.md): app de iOS, cómo compilarla y problemas probables.
 - [ROADMAP.md](ROADMAP.md): fases y tareas pendientes.

@@ -6,27 +6,40 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.ui.Modifier
+import app.luxion.fitarchiveapp.ai.AiModule
+import app.luxion.fitarchiveapp.ai.AndroidAiPreferences
+import app.luxion.fitarchiveapp.ai.AndroidKeystoreKeyVault
+import app.luxion.fitarchiveapp.backup.MigrationFailedException
+import app.luxion.fitarchiveapp.backup.fileBackupFiles
 import app.luxion.fitarchiveapp.data.OpenFoodFactsClient
 import app.luxion.fitarchiveapp.data.ProductRepository
 import app.luxion.fitarchiveapp.data.SqlDelightCustomFoodStore
 import app.luxion.fitarchiveapp.data.SqlDelightFavoriteStore
+import app.luxion.fitarchiveapp.data.SqlDelightMealTemplateStore
 import app.luxion.fitarchiveapp.data.SqlDelightDiaryStore
 import app.luxion.fitarchiveapp.data.SqlDelightGoalStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductSearchStore
 import app.luxion.fitarchiveapp.data.SqlDelightProductStore
 import app.luxion.fitarchiveapp.data.SqlDelightRecipeStore
 import app.luxion.fitarchiveapp.data.SqlDelightSettingsStore
+import app.luxion.fitarchiveapp.data.SqlDelightExerciseStore
 import app.luxion.fitarchiveapp.data.SqlDelightWaterStore
 import app.luxion.fitarchiveapp.data.SqlDelightWeightStore
 import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
 import app.luxion.fitarchiveapp.data.generic.GenericFoodSeeder
 import app.luxion.fitarchiveapp.export.SqlDelightImportTarget
 import app.luxion.fitarchiveapp.ui.App
+import app.luxion.fitarchiveapp.ui.screens.MigrationErrorScreen
+import java.io.File
 import java.time.LocalDate
 import java.time.LocalTime
 
 class MainActivity : ComponentActivity() {
-    private val database by lazy { createDatabase(applicationContext) }
+    /** Copias de seguridad en el almacenamiento interno de la app (`files/backups`), junto a la base. */
+    private val backupFiles by lazy {
+        fileBackupFiles(File(filesDir, "backups").path, getDatabasePath(DATABASE_NAME).path)
+    }
+    private val database by lazy { createDatabase(applicationContext, DATABASE_NAME, backupFiles) }
     private val repository by lazy {
         ProductRepository(
             remote = OpenFoodFactsClient(),
@@ -40,11 +53,16 @@ class MainActivity : ComponentActivity() {
     private val recipeStore by lazy { SqlDelightRecipeStore(database.recipeQueries) }
     private val settingsStore by lazy { SqlDelightSettingsStore(database.settingsQueries) }
     private val favoriteStore by lazy { SqlDelightFavoriteStore(database.favoriteFoodQueries) }
+    private val templateStore by lazy { SqlDelightMealTemplateStore(database.mealTemplateQueries) }
     private val waterStore by lazy { SqlDelightWaterStore(database.waterQueries) }
+    private val exerciseStore by lazy { SqlDelightExerciseStore(database.exerciseQueries) }
     private val searchStore by lazy { SqlDelightProductSearchStore(database.productSearchQueries) }
     private val customFoodStore by lazy { SqlDelightCustomFoodStore(database.customFoodQueries) }
     private val importTarget by lazy {
-        SqlDelightImportTarget(database.productQueries, database.diaryEntryQueries, database.customFoodQueries, database.weightEntryQueries, database.recipeQueries, database.settingsQueries, database.favoriteFoodQueries, waterQueries = database.waterQueries)
+        SqlDelightImportTarget(database.productQueries, database.diaryEntryQueries, database.customFoodQueries, database.weightEntryQueries, database.recipeQueries, database.settingsQueries, database.favoriteFoodQueries, waterQueries = database.waterQueries, templateQueries = database.mealTemplateQueries, exerciseQueries = database.exerciseQueries)
+    }
+    private val aiModule by lazy {
+        AiModule.create(AndroidKeystoreKeyVault(applicationContext), AndroidAiPreferences(applicationContext), today = { LocalDate.now().toString() })
     }
     private val genericSeeder by lazy {
         GenericFoodSeeder(GenericFoodImporter(database.productQueries), nowMillis = System::currentTimeMillis)
@@ -52,6 +70,19 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Abrir la base aquí (y no al pintar) permite mostrar un aviso si la actualización de la base falla.
+        val failure = try {
+            database
+            null
+        } catch (e: MigrationFailedException) {
+            e.message
+        } catch (e: Exception) {
+            "Error al abrir la base de datos: ${e.message}"
+        }
+        if (failure != null) {
+            setContent { Box(Modifier.safeDrawingPadding()) { MigrationErrorScreen(failure) } }
+            return
+        }
         setContent {
             Box(Modifier.safeDrawingPadding()) {
                 App(
@@ -64,13 +95,22 @@ class MainActivity : ComponentActivity() {
                     recipeStore = recipeStore,
                     settingsStore = settingsStore,
                     waterStore = waterStore,
+                    templateStore = templateStore,
+                    exerciseStore = exerciseStore,
                     favoriteStore = favoriteStore,
                     importTarget = importTarget,
                     today = { LocalDate.now().toString() },
                     nowMinutes = { LocalTime.now().let { it.hour * 60 + it.minute } },
                     genericSeeder = genericSeeder,
+                    ai = aiModule,
+                    backgroundRefresh = true,
+                    backupFiles = backupFiles,
                 )
             }
         }
+    }
+
+    private companion object {
+        const val DATABASE_NAME = "easyfood.db"
     }
 }

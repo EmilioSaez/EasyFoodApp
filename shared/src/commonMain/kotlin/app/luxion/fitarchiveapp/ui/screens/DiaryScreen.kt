@@ -39,9 +39,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.data.DiaryStore
+import app.luxion.fitarchiveapp.data.ExerciseStore
 import app.luxion.fitarchiveapp.data.GoalStore
+import app.luxion.fitarchiveapp.data.MealTemplateStore
+import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.data.WaterStore
 import app.luxion.fitarchiveapp.data.WeightStore
+import app.luxion.fitarchiveapp.ui.components.ExerciseCard
+import app.luxion.fitarchiveapp.ui.components.ExerciseDialog
 import app.luxion.fitarchiveapp.ui.components.WaterCard
 import app.luxion.fitarchiveapp.domain.WeightReminder
 import app.luxion.fitarchiveapp.ui.components.WeightReminderCard
@@ -74,14 +79,21 @@ fun DiaryScreen(
     today: String,
     mealsPerDay: Int? = null,
     waterStore: WaterStore? = null,
+    templateStore: MealTemplateStore? = null,
+    exerciseStore: ExerciseStore? = null,
 ) {
     val scope = rememberCoroutineScope()
-    val presenter = remember(diaryStore, goalStore, mealsPerDay) { DiaryPresenter(diaryStore, goalStore, scope, today, mealsPerDay) }
+    val presenter = remember(diaryStore, goalStore, mealsPerDay, templateStore, exerciseStore) {
+        DiaryPresenter(diaryStore, goalStore, scope, today, mealsPerDay, templates = templateStore, exercise = exerciseStore)
+    }
     val state by presenter.state.collectAsState()
     val snackbar = remember { SnackbarHostState() }
     var editing by remember { mutableStateOf<EntryUi?>(null) }
     var pickingDate by remember { mutableStateOf(false) }
     var copying by remember { mutableStateOf<CopyRequest?>(null) }
+    var savingTemplate by remember { mutableStateOf<MealType?>(null) }
+    var templateError by remember { mutableStateOf<String?>(null) }
+    var addingExercise by remember { mutableStateOf(false) }
 
     // Aviso semanal de peso: se recalcula cada vez que se abre el Diario, así desaparece al registrar.
     var weightDue by remember { mutableStateOf(false) }
@@ -113,7 +125,7 @@ fun DiaryScreen(
         snackbarHost = { SnackbarHost(snackbar) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = { navigator.push(Route.Add()) },
+                onClick = { navigator.push(Route.Add(date = state.date)) },
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             ) { Text("+ Añadir alimento") }
@@ -127,6 +139,7 @@ fun DiaryScreen(
                 onPrevious = { presenter.shiftDay(-1) },
                 onNext = { presenter.shiftDay(1) },
                 onPickDate = { pickingDate = true },
+                onSummary = { navigator.push(Route.Summary) },
                 onData = { navigator.push(Route.Data) },
                 modifier = Modifier.padding(horizontal = Spacing.s),
             )
@@ -153,6 +166,13 @@ fun DiaryScreen(
                         item("header") { DiaryFullHeader(state, presenter, onSetGoal) }
                         if (showWeightReminder) item("weight-reminder") { WeightReminderCard(weightDays, registerWeight) }
                         if (waterStore != null) item("water") { WaterCard(waterStore, state.date) }
+                        if (exerciseStore != null) item("exercise") {
+                            ExerciseCard(
+                                state,
+                                onAdd = { addingExercise = true },
+                                onDelete = { presenter.deleteExercise(it.id) },
+                            )
+                        }
                         if (state.isEmpty) {
                             // Ayuda discreta de primer uso: no sustituye a las tarjetas de comida.
                             item("empty-hint") {
@@ -176,25 +196,34 @@ fun DiaryScreen(
                             MealSection(
                                 title = meal.meal.label,
                                 summary = mealSummary(meal.kcal, meal.proteinG, meal.carbsG, meal.fatG),
-                                onAdd = { navigator.push(Route.Add(meal.meal)) },
+                                onAdd = { navigator.push(Route.Add(meal.meal, date = state.date)) },
                                 onCopy = if (meal.entries.isEmpty()) null else { { copying = CopyRequest(meal.meal) } },
+                                onSaveTemplate = if (meal.entries.isEmpty() || templateStore == null) null else {
+                                    { templateError = null; savingTemplate = meal.meal }
+                                },
                                 isEmpty = meal.entries.isEmpty(),
                             ) {
                                 meal.entries.forEach { entry ->
                                     DiaryEntryRow(
                                         name = entry.name,
-                                        quantityText = entry.quantity.format(),
+                                        quantityText = if (entry.quick) entry.macrosText else entry.quantity.format(),
                                         source = entry.source,
                                         kcal = entry.kcal,
                                         doubtful = entry.doubtful,
+                                        showSource = !entry.quick,
                                         onClick = {
-                                            navigator.push(Route.ProductDetail(entry.barcode, meal.meal, entry.id))
+                                            if (entry.quick) {
+                                                navigator.push(Route.QuickEntry(meal.meal, state.date, entry.id))
+                                            } else {
+                                                navigator.push(Route.ProductDetail(entry.barcode, meal.meal, entry.id))
+                                            }
                                         },
                                         onLongClick = { editing = entry },
                                     )
                                 }
                             }
                         }
+                        if (state.intake.isNotEmpty()) item("intake") { IntakeCard(state.intake) }
                     }
                 }
             }
@@ -206,6 +235,16 @@ fun DiaryScreen(
             date = state.date,
             onPick = { pickingDate = false; presenter.select(it) },
             onDismiss = { pickingDate = false },
+        )
+    }
+
+    if (addingExercise) {
+        ExerciseDialog(
+            onDismiss = { addingExercise = false },
+            onConfirm = { name, kcal, minutes ->
+                addingExercise = false
+                presenter.addExercise(name, kcal, minutes)
+            },
         )
     }
 
@@ -222,10 +261,30 @@ fun DiaryScreen(
         )
     }
 
+    savingTemplate?.let { meal ->
+        TemplateNameDialog(
+            title = "Guardar ${meal.label} como plantilla",
+            initialName = meal.label,
+            confirmLabel = "Guardar",
+            error = templateError,
+            onDismiss = { savingTemplate = null },
+            onConfirm = { name ->
+                presenter.saveMealAsTemplate(meal, name) { error ->
+                    templateError = error
+                    if (error == null) savingTemplate = null
+                }
+            },
+        )
+    }
+
     editing?.let { entry ->
         EntryActionsDialog(
             entry = entry,
             onDismiss = { editing = null },
+            onEditQuick = {
+                editing = null
+                navigator.push(Route.QuickEntry(date = state.date, entryId = entry.id))
+            },
             onSave = { quantity ->
                 editing = null
                 presenter.updateQuantity(entry.id, quantity)
@@ -262,6 +321,7 @@ private fun DiaryFullHeader(
 private fun EntryActionsDialog(
     entry: EntryUi,
     onDismiss: () -> Unit,
+    onEditQuick: () -> Unit,
     onSave: (Quantity) -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -273,7 +333,8 @@ private fun EntryActionsDialog(
         onDismissRequest = onDismiss,
         title = { Text(entry.name, maxLines = 2) },
         text = {
-            QuantitySelector(
+            // Una entrada rápida no tiene cantidad que cambiar: se edita en su pantalla.
+            if (entry.quick) Text(entry.macrosText.ifEmpty { "Entrada rápida" }) else QuantitySelector(
                 unit = unit,
                 onUnitChange = { next ->
                     // Al cambiar de unidad se convierte la cantidad para no reinterpretar «30 g» como 30 porciones.
@@ -290,7 +351,11 @@ private fun EntryActionsDialog(
             )
         },
         confirmButton = {
-            TextButton(onClick = { onSave(Quantity(amount!!, unit)) }, enabled = valid) { Text("Guardar") }
+            if (entry.quick) {
+                TextButton(onClick = onEditQuick) { Text("Editar") }
+            } else {
+                TextButton(onClick = { onSave(Quantity(amount!!, unit)) }, enabled = valid) { Text("Guardar") }
+            }
         },
         dismissButton = {
             Row {

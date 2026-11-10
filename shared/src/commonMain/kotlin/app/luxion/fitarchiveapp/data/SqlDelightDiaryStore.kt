@@ -26,6 +26,10 @@ class SqlDelightDiaryStore(
         queries.selectDailyKcal(from, to).executeAsList().map { DaySummary(it.date, it.kcal ?: 0.0) }
     }
 
+    override suspend fun entriesBetween(from: String, to: String): List<DiaryEntry> = withContext(dispatcher) {
+        queries.selectBetween(from, to).executeAsList().map { it.toDomain() }
+    }
+
     override suspend fun find(id: Long): DiaryEntry? = withContext(dispatcher) {
         queries.selectById(id).executeAsOneOrNull()?.toDomain()
     }
@@ -49,6 +53,11 @@ class SqlDelightDiaryStore(
                 carbs_100g = entry.nutrients.carbsG,
                 fat_100g = entry.nutrients.fatG,
                 created_at = createdAtMillis,
+                quick = if (entry.quick) 1L else 0L,
+                saturated_fat_100g = entry.nutrients.saturatedFatG,
+                sugars_100g = entry.nutrients.sugarsG,
+                fiber_100g = entry.nutrients.fiberG,
+                salt_100g = entry.nutrients.saltG,
             )
             queries.lastInsertedId().executeAsOne()
         }
@@ -61,6 +70,17 @@ class SqlDelightDiaryStore(
             exists
         }
     }
+
+    override suspend fun updateQuick(id: Long, meal: MealType, name: String, totals: Nutrients): Boolean =
+        withContext(dispatcher) {
+            queries.transactionWithResult {
+                val exists = queries.selectById(id).executeAsOneOrNull()?.quick == 1L
+                if (exists) {
+                    queries.updateQuick(meal.name, name, totals.kcal, totals.proteinG, totals.carbsG, totals.fatG, id)
+                }
+                exists
+            }
+        }
 
     override suspend fun delete(id: Long): Boolean = withContext(dispatcher) {
         queries.transactionWithResult {
@@ -84,6 +104,11 @@ internal fun DiaryEntryEntity.toDomain() = DiaryEntry(
         proteinG = protein_100g,
         carbsG = carbs_100g,
         fatG = fat_100g,
+        saturatedFatG = saturated_fat_100g,
+        sugarsG = sugars_100g,
+        fiberG = fiber_100g,
+        saltG = salt_100g,
     ),
     createdAtMillis = created_at,
+    quick = quick == 1L,
 )
