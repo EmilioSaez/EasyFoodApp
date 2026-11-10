@@ -120,7 +120,7 @@ fun DataScreen(navigator: Navigator, presenter: DataPresenter, today: () -> Stri
     ) { padding ->
         Column(
             Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())
-                .padding(start = Spacing.l, end = Spacing.l, bottom = Spacing.xxl),
+                .padding(start = Spacing.screen, end = Spacing.screen, bottom = Spacing.xxl),
             verticalArrangement = Arrangement.spacedBy(Spacing.l),
         ) {
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = Spacing.s)) {

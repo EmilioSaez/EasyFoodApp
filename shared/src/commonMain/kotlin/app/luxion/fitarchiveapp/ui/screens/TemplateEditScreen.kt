@@ -167,7 +167,7 @@ private fun TemplateForm(
             Column(Modifier.fillMaxSize().padding(padding)) {
                 LazyColumn(
                     Modifier.weight(1f),
-                    contentPadding = PaddingValues(Spacing.l),
+                    contentPadding = PaddingValues(Spacing.screen),
                     verticalArrangement = Arrangement.spacedBy(Spacing.m),
                 ) {
                     item("name") {

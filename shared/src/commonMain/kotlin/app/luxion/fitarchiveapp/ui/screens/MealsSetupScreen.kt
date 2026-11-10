@@ -41,7 +41,7 @@ fun MealsSetupScreen(onConfirm: (Int) -> Unit, error: String? = null, saving: Bo
         },
     ) { padding ->
         Column(
-            Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = Spacing.l),
+            Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = Spacing.screen),
             verticalArrangement = Arrangement.spacedBy(Spacing.m),
         ) {
             Text("¿Cuántas comidas haces al día?", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = Spacing.xl))

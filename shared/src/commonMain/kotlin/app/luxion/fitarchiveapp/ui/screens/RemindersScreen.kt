@@ -137,7 +137,7 @@ fun RemindersScreen(
         val current = settings
         Column(
             Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())
-                .padding(start = Spacing.l, end = Spacing.l, bottom = Spacing.xxl),
+                .padding(start = Spacing.screen, end = Spacing.screen, bottom = Spacing.xxl),
             verticalArrangement = Arrangement.spacedBy(Spacing.l),
         ) {
             if (current == null) return@Column
