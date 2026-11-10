@@ -36,6 +36,10 @@ class AiSettingsStore(private val prefs: AiPreferences) {
     fun setDailyLimit(value: Int) = prefs.putString(LIMIT, value.coerceIn(MIN_DAILY_LIMIT, MAX_DAILY_LIMIT).toString())
     fun setConsent(accepted: Boolean) = prefs.putString(CONSENT, if (accepted) "1" else "0")
 
+    /** Aviso propio de una función que envía datos que el aviso general no cubría (p. ej. `advice`); se acepta una vez por dispositivo. */
+    fun hasAck(id: String): Boolean = prefs.getString(ACK_PREFIX + id) == "1"
+    fun setAck(id: String) = prefs.putString(ACK_PREFIX + id, "1")
+
     fun usage(today: String): AiUsage = AiUsage(
         callsToday = if (prefs.getString(USAGE_DATE) == today) prefs.getString(USAGE_CALLS_TODAY)?.toIntOrNull() ?: 0 else 0,
         callsTotal = long(USAGE_CALLS_TOTAL),
@@ -73,6 +77,7 @@ class AiSettingsStore(private val prefs: AiPreferences) {
         private const val MODEL = "ai.model"
         private const val LIMIT = "ai.dailyLimit"
         private const val CONSENT = "ai.consent"
+        private const val ACK_PREFIX = "ai.ack."
         private const val USAGE_DATE = "ai.usage.date"
         private const val USAGE_CALLS_TODAY = "ai.usage.callsToday"
         private const val USAGE_CALLS_TOTAL = "ai.usage.callsTotal"

@@ -19,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import app.luxion.fitarchiveapp.ai.AiAdviceSource
 import app.luxion.fitarchiveapp.ai.AiModule
 import app.luxion.fitarchiveapp.data.CustomFoodStore
 import app.luxion.fitarchiveapp.data.ExerciseStore
@@ -109,6 +110,9 @@ fun App(
         Surface(Modifier.fillMaxSize()) {
             val navigator = remember { Navigator() }
             val aiModule = remember(ai) { ai ?: AiModule.inMemory(today) }
+            val aiAdviceSource = remember(diaryStore, goalStore, favoriteStore, customFoodStore, recipeStore, templateStore, waterStore, exerciseStore) {
+                AiAdviceSource(diaryStore, goalStore, favoriteStore, customFoodStore, recipeStore, templateStore, waterStore, exerciseStore)
+            }
             val dataPresenter = remember(importTarget, backupFiles) {
                 val exporter = DataExporter(importTarget) { kotlin.time.Clock.System.now().toEpochMilliseconds() }
                 DataPresenter(
@@ -198,7 +202,7 @@ fun App(
                             Route.Reminders -> RemindersScreen(navigator, settingsStore, reminderScheduler, meals.count) { remindersRevision++ }
                             Route.Summary -> SummaryScreen(navigator, diaryStore, goalStore, weightStore, today)
                             Route.Data -> DataScreen(navigator, dataPresenter, today)
-                            Route.Ai -> AiScreen(navigator, aiModule)
+                            Route.Ai -> AiScreen(navigator, aiModule, aiAdviceSource, diaryStore, today, mealChoices)
                             Route.AiSettings -> AiSettingsScreen(navigator, aiModule, today)
                         }
                     }
