@@ -303,7 +303,7 @@ Mezcla de la captura de referencia (resumen grande arriba, semana con días y ta
 ```
 Scaffold
 ├─ Cabecera (la fila va anclada; la franja y la tarjeta se desplazan con la lista; ver «Cabecera»)
-│  ├─ Fila: «Hoy ▾» (toca → selector de fecha) · derecha: 🔥 racha (icono de llama + nº de días)
+│  ├─ Fila: «Hoy ▾» (toca → selector de fecha) · derecha: 🔥 racha (icono de llama + nº de días) · ▥ Resumen (§2.16)
 │  ├─ Franja semanal (7 días, lunes a domingo de la semana del día elegido): inicial (L M X J V S D) · número · punto de estado
 │  └─ Tarjeta de objetivo
 │       «kcal» · «consumidas / objetivo» (displayMedium, cifras tabulares)
@@ -383,6 +383,26 @@ Para cuando se come fuera: una entrada del diario con nombre opcional y kcal y m
 - **Exportar e importar:** campo opcional `quick` en `diaryEntries`, **sin subir `schemaVersion`**: los archivos antiguos no lo traen y se leen como `false`; una versión anterior de la app que lo ignore verá un alimento de 100 g con esos valores. Con `quick = true` el importador exige cantidad 100 g; si no, la entrada se omite y se lista como no válida. La detección de duplicados es la del diario (fecha, código, nombre e instante de creación).
 - **Limitación:** la ficha de un alimento sigue añadiendo siempre al día de hoy; solo la entrada rápida respeta el día mostrado en el Diario.
 
+### 2.19 Resumen semanal y mensual (Fase 12)
+Pantalla `SummaryScreen` (`ui/screens/SummaryScreen.kt`) con la lógica en `domain/PeriodSummary.kt` (`PeriodRange`, `PeriodSummaries`). Se deriva de datos existentes: entradas del diario (`DiaryStore.entriesBetween`, consulta `selectBetween`, sin migración), objetivo de kcal (`GoalStore`) y pesajes (`WeightStore`). No hay tabla nueva ni cambios en el formato de exportación.
+- **Dónde vive y por qué.** Ruta `Route.Summary`, no es una pestaña. Se abre desde la fila anclada del Diario con el icono ▥ («Resumen semanal y mensual»), entre la racha y Datos (⇅). Motivos: (1) el resumen amplía lo que el Diario ya enseña (franja semanal con días cumplidos y racha, misma regla de ±10 % de `DayStatus`), así que el acceso natural está en esa misma fila; (2) la barra inferior ya tiene seis pestañas (§1.7), por encima del máximo cómodo de `NavigationBar`; (3) el peso es solo una de las cuatro tarjetas, por lo que no encaja como sección de «Mi peso». Se vuelve con «‹» o el gesto atrás de la plataforma.
+```
+Scaffold
+├─ CenterAlignedTopAppBar: ‹ · «Resumen»
+└─ LazyColumn (margen 20, separación 12)
+   ├─ SingleChoiceSegmentedButtonRow: Semana · Mes
+   ├─ ‹ [título del periodo] ›   («9–15 nov 2026» · «Noviembre de 2026»); bajo el título, «Esta semana» / «Este mes» si no se está en el actual
+   ├─ MEDIA DIARIA: kcal (displayMedium, Sora) · «Objetivo 2.000 kcal · −120 kcal · sobre 5 días con registro» · StackedMacroBar con la media de P/H/G
+   ├─ DÍAS CUMPLIDOS: «5 de 6» (headlineLarge) · 🔥 mejor racha · DailyKcalChart (barras por día + banda del objetivo)
+   ├─ MEJOR DÍA | PEOR DÍA (dos tarjetas): fecha · kcal · diferencia con el objetivo
+   └─ PESO FRENTE A CALORÍAS: «Peso: −0,6 kg, de 78,4 a 77,8 kg, con una media de 1.980 kcal al día (−120 kcal frente al objetivo).» · WeightChart del periodo
+```
+- **Periodos.** Semana de lunes a domingo y mes natural. «‹» retrocede sin límite; «›» se desactiva en el periodo actual. Cambiar de semana a mes vuelve al periodo actual.
+- **Cálculos.** Las medias de kcal y macros son sobre los días **con registro** (los días vacíos no bajan la media; los futuros no cuentan). Una entrada sin dato de kcal o en porciones sin tamaño suma 0, igual que `daySummaries`. «Días cumplidos» usa `DayStatus` (objetivo ±10 %): se juzgan los días cerrados (cumplidos o fallados, incluidos los sin registro) y hoy solo cuenta si ya está cumplido. La mejor racha es la serie más larga de días cumplidos dentro del periodo (la racha actual sigue en el Diario). Mejor/peor día: el día registrado y juzgado más cerca/lejos del objetivo (empate: el más antiguo); con un solo día juzgable no hay «peor día».
+- **Peso frente a calorías.** Con dos o más pesajes en el periodo se muestra la variación entre el primero y el último junto a la media de kcal del periodo y su diferencia con el objetivo; la gráfica es `WeightChart`. No se afirma causalidad: son los dos datos juntos.
+- **Gráficas** (`DailyKcalChart`, `WeightChart`, `StackedMacroBar`): dibujadas con `Canvas`/`Row`, sin librerías, con los colores del tema (§1.7): dentro del margen en `tertiary`, fuera en `error`, sin objetivo o hoy pendiente en `primary`, banda del objetivo en líneas discontinuas y macros con `easyFoodColors`. El color nunca va solo: hay leyenda con texto, cada gráfica lleva `contentDescription` y las cifras salen en Inter/Sora con formato es-ES.
+- **Estados.** Cargando: sin indicador (milisegundos, como el Diario). Error de lectura: `EmptyState` de error con «Reintentar». Sin registros: `EmptyState` «Aún no hay registros» con «Ir al Diario» (periodo actual) o «Sin registros en este periodo» con «Ver el periodo actual». Sin objetivo: la tarjeta de días cumplidos explica que hay que fijarlo en Objetivos, sin banda en la gráfica ni mejor/peor día. Con menos de dos pesajes: la tarjeta de peso lo explica en lugar de mostrar la gráfica.
+
 ### 2.17 Plantillas de comida (Fase 12)
 «Mi desayuno de siempre»: un conjunto de alimentos con sus cantidades que se añade al diario de una vez. Implementación: `MealTemplate` / `TemplateItem` (`model`), `MealTemplateStore` (`data`), `TemplateList`, `TemplateEditScreen`, `TemplateDialogs` y `TemplateForm` (`ui/screens`).
 - **Qué se guarda:** nombre y lista ordenada de alimentos; cada uno, como una entrada del diario, con copia del nombre y de los valores por 100 g (no cambia si se purga la caché) y su **cantidad con unidad** (gramos o porciones). Los nombres no se repiten (sin distinguir mayúsculas), porque la importación identifica por nombre.
@@ -437,7 +457,7 @@ Tarjeta «OTROS NUTRIENTES» al final de la lista del Diario (`IntakeCard`), sol
 - **Exportar e importar.** Campo opcional `ExportFile.reminders`, **sin subir `schemaVersion`**: los archivos antiguos no lo traen. Como las comidas al día, solo se toma si el dispositivo aún no los ha configurado; se sanea (días 1 a 7, horas 0 a 1439).
 
 ## 3. Componentes compartidos (en `shared/ui`)
-`EasyFoodTheme` · `CalorieRing` · `MacroProgressRow` · `MacroDot` · `SourceAvatar` / `SourceChip` (enum `DataSource { OpenFoodFacts, Generic, Custom }`) · `DoubtfulChip` · `DoubtfulDataBanner` · `MealSection` · `DiaryEntryRow` · `FoodResultRow` · `QuantitySelector` · `NutritionTable` · `EmptyState` · `NumberField` (OutlinedTextField con sufijo de unidad) · `FoodSearch` (buscador de alimentos de «Añadir» y del editor de recetas).
+`EasyFoodTheme` · `CalorieRing` · `MacroProgressRow` · `MacroDot` · `SourceAvatar` / `SourceChip` (enum `DataSource { OpenFoodFacts, Generic, Custom }`) · `DoubtfulChip` · `DoubtfulDataBanner` · `MealSection` · `DiaryEntryRow` · `FoodResultRow` · `QuantitySelector` · `NutritionTable` · `EmptyState` · `NumberField` (OutlinedTextField con sufijo de unidad) · `FoodSearch` (buscador de alimentos de «Añadir» y del editor de recetas) · `DailyKcalChart` (barras de kcal por día con la banda del objetivo, §2.16).
 
 ## 4. Navegación
-Diario ⇄ Añadir (con `meal` como argumento) → Escáner / Alimento propio → Ficha → vuelve al Diario con la entrada añadida y el snackbar «Añadido a Merienda · Deshacer». Objetivos y Recetas se abren desde la barra inferior (Recetas → Detalle → Editar, o Recetas → Nueva receta → Buscador de ingredientes). Formato de números: locale es-ES (1.215 · 4,6 g). La pestaña «IA» (§2.16) es la sexta de la barra inferior y abre «Ajustes de IA».
+Diario ⇄ Añadir (con `meal` como argumento) → Escáner / Alimento propio → Ficha → vuelve al Diario con la entrada añadida y el snackbar «Añadido a Merienda · Deshacer». Objetivos y Recetas se abren desde la barra inferior (Recetas → Detalle → Editar, o Recetas → Nueva receta → Buscador de ingredientes). Formato de números: locale es-ES (1.215 · 4,6 g). La pestaña «IA» (§2.16) es la sexta de la barra inferior y abre «Ajustes de IA». El Resumen (§2.19) se abre con el icono ▥ de la fila del Diario y vuelve a él.

@@ -71,6 +71,9 @@ sealed interface Route {
     /** Recordatorios locales: comidas, peso y agua. */
     data object Reminders : Route
 
+    /** Resumen semanal y mensual, derivado del diario, los objetivos y los pesajes; se abre desde el Diario. */
+    data object Summary : Route
+
     /** Datos: exportar, importar y transferir por QR o red local. */
     data object Data : Route
 

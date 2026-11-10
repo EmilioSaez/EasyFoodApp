@@ -50,6 +50,10 @@ WHERE date BETWEEN ? AND ?
 GROUP BY date
 ORDER BY date;
 
+-- Entradas entre dos fechas ISO (ambas incluidas), para el resumen semanal y mensual.
+selectBetween:
+SELECT * FROM DiaryEntryEntity WHERE date BETWEEN ? AND ? ORDER BY date, meal, created_at, id;
+
 selectById:
 SELECT * FROM DiaryEntryEntity WHERE id = ?;
 

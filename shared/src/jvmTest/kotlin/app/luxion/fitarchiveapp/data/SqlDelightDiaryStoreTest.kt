@@ -176,4 +176,17 @@ class SqlDelightDiaryStoreTest {
         val bare = store.find(store.add(nutella, 2L))!!.nutrients
         assertNull(bare.fiberG)
     }
+
+    @Test
+    fun entriesBetweenReturnsEntriesInRangeInDateOrder() = runTest {
+        store.add(nutella.copy(date = "2026-11-05", name = "b"), 2)
+        store.add(nutella.copy(date = "2026-11-03", name = "fuera"), 1)
+        store.add(nutella.copy(date = "2026-11-04", name = "a"), 3)
+        store.add(nutella.copy(date = "2026-11-09", name = "fuera2"), 4)
+
+        val entries = store.entriesBetween("2026-11-04", "2026-11-08")
+
+        assertEquals(listOf("a", "b"), entries.map { it.name })
+        assertEquals(emptyList(), store.entriesBetween("2026-12-01", "2026-12-31"))
+    }
 }
