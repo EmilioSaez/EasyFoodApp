@@ -12,8 +12,9 @@ class TdeeCalculatorTest {
         weight: Double = 80.0,
         height: Double = 180.0,
         age: Int = 30,
+        activity: ActivityLevel = ActivityLevel.MODERATE,
         goal: Goal = Goal.MAINTAIN,
-    ) = UserProfile(age, sex, weight, height, goal)
+    ) = UserProfile(age, sex, weight, height, activity, goal)
 
     @Test
     fun bmrMale() {
@@ -35,23 +36,23 @@ class TdeeCalculatorTest {
     fun maintainUsesTdee() {
         val r = TdeeCalculator.calculate(profile())
         assertEquals(1780, r.bmrKcal)
-        assertEquals(2136, r.tdeeKcal) // 1780 * 1.2
-        assertEquals(2136, r.targetKcal)
+        assertEquals(2759, r.tdeeKcal) // 1780 * 1.55
+        assertEquals(2759, r.targetKcal)
     }
 
     @Test
     fun loseAndGainAdjustKcal() {
         val lose = TdeeCalculator.calculate(profile(goal = Goal.LOSE))
         val gain = TdeeCalculator.calculate(profile(goal = Goal.GAIN))
-        assertEquals(1709, lose.targetKcal) // 2136 * 0.8
-        assertEquals(2350, gain.targetKcal) // 2136 * 1.1
+        assertEquals(2207, lose.targetKcal) // 2759 * 0.8
+        assertEquals(3035, gain.targetKcal) // 2759 * 1.1
     }
 
     @Test
-    fun stepsIncreaseTdee() {
-        val base = TdeeCalculator.calculate(profile()).tdeeKcal
-        assertEquals(base, TdeeCalculator.calculate(profile(), averageSteps = 3_000).tdeeKcal)
-        assertTrue(TdeeCalculator.calculate(profile(), averageSteps = 12_000).tdeeKcal > base)
+    fun activityLevelsIncreaseTdee() {
+        val values = ActivityLevel.entries.map { TdeeCalculator.calculate(profile(activity = it)).tdeeKcal }
+        assertEquals(values.sorted(), values)
+        assertEquals(values.toSet().size, values.size)
     }
 
     @Test
@@ -74,7 +75,7 @@ class TdeeCalculatorTest {
     @Test
     fun targetNeverBelowMinimum() {
         val r = TdeeCalculator.calculate(
-            profile(Sex.FEMALE, 40.0, 150.0, 70, Goal.LOSE),
+            profile(Sex.FEMALE, 40.0, 150.0, 70, ActivityLevel.SEDENTARY, Goal.LOSE),
         )
         assertEquals(TdeeCalculator.MIN_TARGET_KCAL, r.targetKcal)
         assertTrue(r.macros.carbsG >= 0)

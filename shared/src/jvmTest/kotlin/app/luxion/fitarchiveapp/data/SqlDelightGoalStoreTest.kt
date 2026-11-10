@@ -2,6 +2,7 @@ package app.luxion.fitarchiveapp.data
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import app.luxion.fitarchiveapp.db.EasyFoodDatabase
+import app.luxion.fitarchiveapp.domain.ActivityLevel
 import app.luxion.fitarchiveapp.domain.Goal
 import app.luxion.fitarchiveapp.domain.Sex
 import app.luxion.fitarchiveapp.domain.TdeeCalculator
@@ -137,7 +138,7 @@ class SqlDelightGoalStoreTest {
     @Test
     fun buildsFromTdeeTargets() = runTest {
         val targets = TdeeCalculator.calculate(
-            UserProfile(30, Sex.MALE, 80.0, 180.0, Goal.MAINTAIN),
+            UserProfile(30, Sex.MALE, 80.0, 180.0, ActivityLevel.MODERATE, Goal.MAINTAIN),
         )
         val goals = DailyGoals.from(targets)
         store.save(goals)

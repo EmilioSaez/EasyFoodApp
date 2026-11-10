@@ -216,12 +216,13 @@ TopAppBar con ✕, título y TextButton «Guardar». OutlinedTextField «Nombre�
 TopAppBar «Objetivos»
 ├─ ResultCard (primaryContainer, large): «Objetivo diario» · 2.100 kcal (displayMedium) · grid 2 col: Metabolismo basal / Gasto total (TDEE) · fórmula (bodySmall)
 ├─ «Tus datos»: SegmentedButton Hombre | Mujer · grid 3 col de OutlinedTextField: Edad (años), Peso (kg), Altura (cm)
-├─ «Pasos diarios» (solo con sensor): pasos de hoy y la media con la que se calcula el gasto; sin selector de actividad ni «Objetivo fijo»
+├─ «Actividad física»: 5 filas RadioButton con nombre, descripción y factor
+│    Sedentaria ×1,2 · Ligera ×1,375 · Moderada ×1,55 · Alta ×1,725 · Muy alta ×1,9
 ├─ «Meta»: SegmentedButton Perder | Mantener | Ganar · Slider con ritmo (0,25 / 0,5 / 0,75 / 1 kg/sem; 1 kg/sem ≈ 1.100 kcal/día). **Fase 11:** sin posición de 0 kg/sem: con Perder o Ganar siempre hay un ritmo real (el mínimo es 0,25 kg/sem); «no perder ni ganar» se elige con «Mantener», que deshabilita el slider
 └─ MacroSplitCard (surfaceContainerLow): barra apilada 12 dp (P/H/G) + 3 filas: punto, nombre, %, gramos · TextButton «Editar» (sliders o gramos/kg)
 BottomBar: Button «Guardar objetivos»
 ```
-Fórmula (Mifflin-St Jeor): TMB = 10·kg + 6,25·cm − 5·edad + 5 (hombre) / −161 (mujer). TDEE = TMB × 1,2 (base sedentaria) + pasos sobre 3.000 × 0,0005 kcal × kg, con la media de los últimos 14 días si hay al menos 5 con datos (`StepsActivity`). El objetivo se recalcula solo con el perfil, la meta y los pasos reales; los ajustes manuales siguen siendo opcionales. Objetivo = TDEE ± ajuste de la meta. No debe bajar de TMB×1,0 sin avisar.
+Fórmula (Mifflin-St Jeor): TMB = 10·kg + 6,25·cm − 5·edad + 5 (hombre) / −161 (mujer). TDEE = TMB × factor. Objetivo = TDEE ± ajuste de la meta. No debe bajar de TMB×1,0 sin avisar.
 Por defecto: proteína 1,6–2,0 g/kg, grasa 25–30 % y el resto en hidratos. Gramos: P y H a 4 kcal/g, G a 9 kcal/g.
 El usuario puede escribir el objetivo a mano; en ese caso la tarjeta lo muestra como «Personalizado».
 
@@ -360,7 +361,7 @@ Rediseño hecho en Claude Design (13 pantallas de 390 dp: Diario completo oscuro
 - **Diario** (orden de la lista): cabecera, franja y tarjeta de objetivo de §2.12; aviso «Toca pesarse» a lo ancho (52 dp, ámbar); tarjeta **Agua** (§2.13: «1,25 de 2 L», barra de 8 dp en el color de hidratos que no desborda, «+ Vaso» · «+ 500 ml» · «+ 1 L» de 48 dp, «Deshacer (−250 ml)», error «No se pudo guardar o leer el agua.» en ámbar); fila con el rótulo «COMIDAS» y el botón «Copiar día» con icono a la derecha; tarjetas de comida con el título en Sora 18, «Copiar» justo a su derecha (solo con entradas), el resumen kcal/macros debajo, el «+» cuadrado a la derecha y filas con separadores de 1 px.
 - **Alimentos:** título grande y «Añadiendo a Merienda» (si hay comida preseleccionada); búsqueda de 52 dp; **4 accesos en cuadrícula 4×72**: Recientes · Favoritos · Escáner · Alimento propio, donde Recientes y Favoritos son el selector de lista (el activo en `primaryContainer`, `aria-current`); rótulo «ÚLTIMOS ALIMENTOS · 24» / «FAVORITOS · 5»; filas de 72 con avatar de origen cuadrado (OFF = tertiaryContainer, G = secondaryContainer, P = warningContainer) y estrella de 48 dp al final (☆ en `onSurfaceVariant`, ★ rellena en `primary`); favoritos vacío con `EmptyState` (estrella de 32 en círculo de 72). Sin pestañas «Recientes · Favoritos · Propios» ni «+» de añadido rápido.
 - **Ficha:** barra superior ← · «Producto» · ★ de favorito (`primary` si está marcado) · editar; chips «Open Food Facts» y «Dudoso»; aviso ámbar; tarjeta de cantidad con segmentado, −/campo/+, kcal en Sora 44 y barra apilada P/H/G con g y %; tabla «Por 100 g»; barra inferior con selector de comida y «Añadir · 163 kcal».
-- **Objetivos:** tarjeta resumen (kcal en display, basal/TDEE, ); Meta con segmentado y slider; «Tus datos» como 4 casillas; sección «Pasos diarios»; fila «Comidas al día»; sección «Agua» con − [2 L al día] + (§2.13); «Guardar objetivos» al final. El reparto de macros queda como hoy (tarjeta aparte) mientras no se decida.
+- **Objetivos:** tarjeta resumen (kcal en display, basal/TDEE); Meta con segmentado y slider; «Tus datos» como 4 casillas; fila Actividad con la sugerencia por pasos; fila «Comidas al día»; sección «Agua» con − [2 L al día] + (§2.13); «Guardar objetivos» al final. El reparto de macros queda como hoy (tarjeta aparte) mientras no se decida.
 - **Mi peso:** peso actual en display con chip verde de variación; tarjeta de progreso al objetivo con fecha estimada; gráfica con la línea del objetivo discontinua, el último punto destacado y selector de periodo **1M · 3M · Todo** (por defecto Todo); lista de registros; FAB «Registrar peso».
 - **Recetas:** tarjetas con kcal por ración, barra apilada de macros y aviso ámbar si faltan datos; FAB «Nueva receta».
 - **Navegación:** `NavigationBar` M3 estándar, activo en `primary`.
@@ -442,21 +443,11 @@ Registrar una comida a partir de una foto, con la IA de §2.16. Código en `plat
 - **Estados.** Sin clave, IA desactivada, aviso sin aceptar o tope diario: `EmptyState` con el mensaje de `AiError` y «Ajustes de IA», sin pedir foto ni llamar. «No veo comida en la foto» y errores de la API (clave, saldo, límite, servicio, red, negativa, respuesta mal formada) con «Reintentar» si procede y «Otra foto».
 - **Datos y privacidad.** Se envían la foto y las notas escritas; no el resumen del día ni el diario. La foto no se escribe en disco y se descarta al analizarla o al salir. Sin migración de esquema.
 
-### 2.18 Ejercicio que suma al objetivo (implementado)
-Registro manual de actividades por día; las kcal gastadas suben el objetivo de ese día.
-```
-Diario: tarjeta «Ejercicio» (tras la de agua; `surfaceVariant`)
-├─ Fila: «Ejercicio» · «N kcal» (si hay) y a la derecha «+ Añadir»
-├─ Efecto: «+200 kcal al objetivo (50 % de 400)» · sin actividades: «Suma el 50 % de lo que gastes al objetivo del día.» · desactivado: «Desactivado en Objetivos: no suma al objetivo.»
-└─ Una fila por actividad: nombre, duración opcional («40 min», «1 h 30 min»), kcal y «Quitar»
-Diálogo «Añadir ejercicio»: Actividad (hasta 60 caracteres) · Kcal gastadas (1 a 10 000) · Duración opcional (1 a 1440 min)
-Objetivos: sección «Ejercicio» (antes de «Agua») → No sumar · 25 % · 50 % (recomendado) · 75 % · Sumar todo; se guarda al elegir
-```
-- **Objetivo efectivo.** `objetivo del día = objetivo guardado + kcal de ejercicio × porcentaje / 100` (redondeado, `ExerciseRules.bonusKcal`). Solo cambia las kcal: los macros no se tocan. Sin objetivo de kcal definido, el ejercicio no crea uno. El objetivo efectivo es el que ven la tarjeta de objetivo, la franja semanal y la racha (cada día usa el ejercicio de ese día). El porcentaje es global, no se guarda por día: al cambiarlo se recalculan también los días pasados.
-- **Criterio contra el doble conteo.** El TDEE ya incluye la actividad habitual: la base sedentaria y los pasos medidos (§2.6, `StepsActivity`) cuentan el ejercicio medio de tu semana. Por eso (1) se registra solo el ejercicio que **no** está ya en ese nivel (una sesión extra, no el entrenamiento de siempre), y (2) por defecto se suma solo el **50 %**, porque tablas y relojes sobreestiman y el solapamiento con el nivel nunca es nulo. Quien prefiera que el objetivo no cambie pone «No sumar»; quien no tenga sensor de pasos (gasto base sedentario) y registre todo su ejercicio puede subir a 100 %. Los pasos del móvil no se suman a mano: ya entran por el nivel.
-- **Datos.** `ExerciseEntity(id, date, name, kcal, minutes?, created_at)` (varias por día, índice por fecha) y `ExerciseSettingsEntity(id = 1, percent, updated_at)`; sin fila de ajuste vale `ExerciseRules.DEFAULT_PERCENT` (50). Migración `13.sqm` (v13 a v14, idempotente, solo crea tablas: no toca datos existentes), con `Migration13Test`.
-- **Exportar e importar.** `ExportFile.exercises` (`date`, `name`, `kcal`, `minutes`, `createdAtMillis`) y `ExportFile.exercisePercent` (`percent`, `updatedAtMillis`): colecciones opcionales nuevas, así que **`schemaVersion` sigue en 1**. Las actividades no tienen id estable entre dispositivos: se reconocen por fecha, nombre (sin distinguir mayúsculas), kcal y duración; las idénticas se cuentan como duplicadas (y dos sesiones idénticas del mismo día se conservan) y el resto se añade. El porcentaje sigue la regla del agua (gana el más reciente; empate, el local). Los inválidos se omiten y se informan. Vista previa y resumen incluyen la fila «Ejercicio».
-- **Implementación.** `ExerciseCard`, `ExerciseDialog` y `ExercisePercentPicker` (`ui/components/ExerciseCard.kt`), `ExerciseStore` / `SqlDelightExerciseStore`, `ExerciseRules` / `NewExercise` / `ExerciseEntry` (`model/Exercise.kt`). `DiaryPresenter` recibe el almacén (opcional) y expone `exercises`, `exerciseBonusKcal` y el `goalKcal` efectivo; `DayStatus.streak` y `buildWeek` admiten el extra por día.
+### 2.18 Ejercicio que suma al objetivo (retirado)
+Se retiró la tarjeta «Ejercicio» del Diario («+ Añadir», «Suma el X % de lo que gastes…») y el ajuste «Sumar el 25/50/75/100 %» de Objetivos: el objetivo del día es el guardado, sin extra por ejercicio. La actividad vuelve a entrar por el **nivel de actividad** (§2.6) y la sugerencia por pasos.
+- **Datos conservados.** Las tablas `ExerciseEntity` y `ExerciseSettingsEntity` (migración `13.sqm`, con `Migration13Test`) no se tocan ni se borran: lo ya guardado sigue en la base de datos, sin usarse. La IA tampoco recibe ejercicio.
+- **Exportar e importar.** `ExportFile.exercises` y `ExportFile.exercisePercent` siguen en el formato (`schemaVersion` sigue en 1), así que una copia de seguridad conserva y restaura esos datos; las reglas de validación están en `ExerciseRules`.
+- **Código.** `ExerciseStore` / `SqlDelightExerciseStore` y `model/Exercise.kt` se mantienen solo para esos datos; la UI, `DiaryPresenter`, `DayStatus` y `buildWeek` ya no los usan.
 
 ### 2.19 Fibra, sal, azúcares y saturadas del día (implementado)
 

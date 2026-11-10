@@ -139,7 +139,7 @@ fun AiReviewCard(state: AiTabState) {
     val enabled = state.advicePrivacyAccepted && !state.limitReached
     AiCard("¿Cómo voy?") {
         Text(
-            "Un resumen breve de kcal, proteína, fibra, sal, azúcares, agua y ejercicio, con un consejo.",
+            "Un resumen breve de kcal, proteína, fibra, sal, azúcares y agua, con un consejo.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

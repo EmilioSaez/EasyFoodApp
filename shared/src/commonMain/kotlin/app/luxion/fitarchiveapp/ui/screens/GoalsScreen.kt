@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -19,6 +20,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -37,14 +39,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import app.luxion.fitarchiveapp.data.ExerciseStore
 import app.luxion.fitarchiveapp.data.GoalStore
 import app.luxion.fitarchiveapp.data.WaterStore
-import app.luxion.fitarchiveapp.ui.components.ExercisePercentPicker
 import app.luxion.fitarchiveapp.ui.components.WaterGoalRow
+import app.luxion.fitarchiveapp.domain.ActivityLevel
 import app.luxion.fitarchiveapp.domain.Goal
 import app.luxion.fitarchiveapp.domain.MealPlan
 import app.luxion.fitarchiveapp.domain.Sex
@@ -76,13 +78,13 @@ fun GoalsScreen(
     mealsPerDay: Int? = null,
     onMealsPerDayChange: (Int) -> Unit = {},
     waterStore: WaterStore? = null,
-    exerciseStore: ExerciseStore? = null,
 ) {
     var saved by remember { mutableStateOf(DailyGoals()) }
     var sex by remember { mutableStateOf(Sex.MALE) }
     var ageText by remember { mutableStateOf("") }
     var weightText by remember { mutableStateOf("") }
     var heightText by remember { mutableStateOf("") }
+    var activity by remember { mutableStateOf(ActivityLevel.MODERATE) }
     var goal by remember { mutableStateOf(Goal.MAINTAIN) }
     var paceIndex by remember { mutableStateOf(GoalsPlanner.DEFAULT_PACE_INDEX) }
     var editing by remember { mutableStateOf(false) }
@@ -111,11 +113,9 @@ fun GoalsScreen(
     val weightError = weightText.isNotEmpty() && weight?.let { it in 20.0..500.0 } != true
     val heightError = heightText.isNotEmpty() && height?.let { it in 80.0..260.0 } != true
     val profile = if (age != null && weight != null && height != null && !ageError && !weightError && !heightError) {
-        UserProfile(age, sex, weight, height, goal)
+        UserProfile(age, sex, weight, height, activity, goal)
     } else null
-    val stepsState = rememberStepsState(rememberStepsProvider(), today)
-    val averageSteps = StepsActivity.averageSteps(stepsState.days, today())
-    val plan = profile?.let { GoalsPlanner.plan(it, paceIndex, averageSteps?.first) }
+    val plan = profile?.let { GoalsPlanner.plan(it, paceIndex) }
 
     fun override(text: String?): Int? = text?.let { parseNumber(it)?.toInt() }?.takeIf { it >= 0 }
     val kcalOverride = override(kcalText)?.takeIf { it > 0 }
@@ -123,6 +123,8 @@ fun GoalsScreen(
         plan, profile, saved, kcalOverride, override(proteinText), override(carbsText), override(fatText),
     )
     val custom = kcalOverride != null
+    val stepsState = rememberStepsState(rememberStepsProvider(), today)
+    val stepsSuggestion = profile?.let { StepsActivity.suggest(it, stepsState.days, today()) }
     val hasManual = kcalText != null || proteinText != null || carbsText != null || fatText != null
 
     Scaffold(
@@ -178,12 +180,15 @@ fun GoalsScreen(
                     color = MaterialTheme.easyFoodColors.warning,
                 )
             }
-            if (kcalOverride != null && plan != null && kcalOverride < plan.bmrKcal) {
-                Text(
-                    "Tu objetivo está por debajo de tu metabolismo basal (${formatKcal(plan.bmrKcal.toDouble())} kcal).",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.easyFoodColors.warning,
-                )
+            if (kcalOverride != null && profile != null) {
+                val bmr = GoalsPlanner.plan(profile, paceIndex).bmrKcal
+                if (kcalOverride < bmr) {
+                    Text(
+                        "Tu objetivo está por debajo de tu metabolismo basal (${formatKcal(bmr.toDouble())} kcal).",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.easyFoodColors.warning,
+                    )
+                }
             }
 
             Section("Meta") {
@@ -244,18 +249,36 @@ fun GoalsScreen(
                 }
             }
 
-            StepsSection(stepsState, averageSteps)
+            Section("Actividad física") {
+                ActivityLevel.entries.forEach { level ->
+                    Row(
+                        Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                            .selectable(selected = activity == level, onClick = { activity = level }, role = Role.RadioButton),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = activity == level, onClick = null)
+                        Column(Modifier.weight(1f).padding(start = Spacing.m)) {
+                            Text(level.title, style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                level.description,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Text(
+                            "×${level.factor.toString().replace('.', ',')}",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
+            StepsSection(stepsState, stepsSuggestion, onApply = { activity = it })
 
             Section("Comidas al día") {
                 // Se guarda al elegir, aparte de «Guardar objetivos». Sin elección previa, el Diario usa el preset por defecto.
                 MealsPerDayPicker(mealsPerDay ?: MealPlan.DEFAULT_MEALS, onMealsPerDayChange)
-            }
-
-            if (exerciseStore != null) {
-                Section("Ejercicio") {
-                    // Se guarda al elegir, aparte de «Guardar objetivos»; el Diario suma ese porcentaje al objetivo del día.
-                    ExercisePercentPicker(exerciseStore)
-                }
             }
 
             if (waterStore != null) {
@@ -336,7 +359,7 @@ private fun ResultCard(
                 Stat("Gasto total (TDEE)", plan?.tdeeKcal, Modifier.weight(1f))
             }
             Text(
-                "Mifflin-St Jeor: TMB = 10·kg + 6,25·cm − 5·edad + 5 (hombre) / −161 (mujer); TDEE = TMB × 1,2 + pasos",
+                "Mifflin-St Jeor: TMB = 10·kg + 6,25·cm − 5·edad + 5 (hombre) / −161 (mujer); TDEE = TMB × actividad",
                 style = MaterialTheme.typography.bodySmall,
             )
         }
