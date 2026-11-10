@@ -1,11 +1,13 @@
 package app.luxion.fitarchiveapp.ui.screens
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -14,9 +16,11 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -25,12 +29,16 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.model.MealType
+import app.luxion.fitarchiveapp.plate.PlateAnalyzer
 import app.luxion.fitarchiveapp.plate.PlateItem
 import app.luxion.fitarchiveapp.plate.PlatePresenter
+import app.luxion.fitarchiveapp.plate.PlateQuestion
 import app.luxion.fitarchiveapp.plate.PlateSource
 import app.luxion.fitarchiveapp.plate.PlateState
 import app.luxion.fitarchiveapp.ui.components.NumberField
@@ -42,6 +50,7 @@ import app.luxion.fitarchiveapp.ui.theme.Spacing
 import app.luxion.fitarchiveapp.ai.AiModels
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private sealed interface PlateDialog {
     data class Change(val item: PlateItem) : PlateDialog
@@ -62,6 +71,7 @@ internal fun PlateReviewContent(
     onConfirm: () -> Unit,
 ) {
     var dialog by remember { mutableStateOf<PlateDialog?>(null) }
+    val scope = rememberCoroutineScope()
     val review = state.review
     val totals = review.totals
     Column(Modifier.fillMaxSize()) {
@@ -100,6 +110,8 @@ internal fun PlateReviewContent(
                     onGrams = { presenter.setGrams(item.id, it) },
                     onChange = { dialog = PlateDialog.Change(item) },
                     onRemove = { presenter.remove(item.id) },
+                    onAnswer = { answer -> scope.launch { presenter.answer(item.id, answer) } },
+                    onDismissQuestion = { presenter.dismissQuestion(item.id) },
                     modifier = Modifier.padding(horizontal = Spacing.l),
                 )
             }
@@ -170,14 +182,18 @@ private fun PlateItemCard(
     onGrams: (Double) -> Unit,
     onChange: () -> Unit,
     onRemove: () -> Unit,
+    onAnswer: (String) -> Unit,
+    onDismissQuestion: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val manual = item.source is PlateSource.Manual
-    var gramsText by remember(item.id) { mutableStateOf(formatGrams(item.grams)) }
+    // Se rehace al resolverse la pregunta: la IA pudo cambiar los gramos.
+    var gramsText by remember(item.id, item.question == null) { mutableStateOf(formatGrams(item.grams)) }
     val t = item.totals
     Card(modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
         Column(Modifier.padding(Spacing.m), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             Text(item.name, style = MaterialTheme.typography.titleMedium)
+            item.question?.let { PlateQuestionBlock(it, onAnswer, onDismissQuestion) }
             val origin = when (val s = item.source) {
                 is PlateSource.Linked -> "De tu base · ${s.pick.result.source.label}" + if (item.looseMatch) " · coincidencia aproximada, revísala" else ""
                 is PlateSource.Estimated -> "ESTIMADO por la IA (sin coincidencia en tu base)"
@@ -217,6 +233,50 @@ private fun PlateItemCard(
                 }
                 if (!manual) TextButton(onClick = onChange) { Text("Cambiar") }
                 TextButton(onClick = onRemove) { Text("Quitar") }
+            }
+        }
+    }
+}
+
+/**
+ * Duda de la IA sobre un alimento: la pregunta, respuestas sugeridas y un campo libre. Responder re-consulta la foto;
+ * «Dejar como está» mantiene el alimento tal cual (estimado) para cambiarlo a mano.
+ */
+@Composable
+private fun PlateQuestionBlock(question: PlateQuestion, onAnswer: (String) -> Unit, onDismiss: () -> Unit) {
+    var text by remember { mutableStateOf("") }
+    Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.small) {
+        Column(Modifier.fillMaxWidth().padding(Spacing.s), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+            Text(question.text, style = MaterialTheme.typography.titleSmall)
+            if (question.options.isNotEmpty()) {
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                    question.options.forEach { option ->
+                        SuggestionChip(onClick = { onAnswer(option) }, enabled = !question.busy, label = { Text(option) })
+                    }
+                }
+            }
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it.take(PlateAnalyzer.MAX_ANSWER) },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Tu respuesta") },
+                singleLine = true,
+                enabled = !question.busy,
+            )
+            question.error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+            Text(
+                "Al responder se vuelve a enviar a Anthropic la foto y tu respuesta.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalAlignment = Alignment.CenterVertically) {
+                if (question.busy) {
+                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    Text("Mirando de nuevo…", style = MaterialTheme.typography.bodySmall)
+                } else {
+                    Button(onClick = { onAnswer(text) }, enabled = text.isNotBlank()) { Text("Responder") }
+                    TextButton(onClick = onDismiss) { Text("Dejar como está") }
+                }
             }
         }
     }
