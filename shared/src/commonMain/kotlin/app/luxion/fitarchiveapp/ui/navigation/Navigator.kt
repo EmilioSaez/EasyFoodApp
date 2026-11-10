@@ -68,6 +68,9 @@ sealed interface Route {
     /** Seguimiento de peso: registro, historial y gráfica. */
     data object Weight : Route
 
+    /** Recordatorios locales: comidas, peso y agua. */
+    data object Reminders : Route
+
     /** Datos: exportar, importar y transferir por QR o red local. */
     data object Data : Route
 

@@ -11,6 +11,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -36,6 +37,9 @@ import app.luxion.fitarchiveapp.data.generic.GenericFoodSeeder
 import app.luxion.fitarchiveapp.export.DataExporter
 import app.luxion.fitarchiveapp.export.DataImporter
 import app.luxion.fitarchiveapp.export.ImportTarget
+import app.luxion.fitarchiveapp.reminders.ReminderScheduler
+import app.luxion.fitarchiveapp.reminders.ReminderSync
+import app.luxion.fitarchiveapp.reminders.rememberReminderScheduler
 import app.luxion.fitarchiveapp.ui.components.SeedProgressBanner
 import app.luxion.fitarchiveapp.ui.navigation.Navigator
 import app.luxion.fitarchiveapp.ui.navigation.PlatformBackHandler
@@ -54,6 +58,7 @@ import app.luxion.fitarchiveapp.ui.screens.ProductDetailScreen
 import app.luxion.fitarchiveapp.ui.screens.QuickEntryScreen
 import app.luxion.fitarchiveapp.ui.screens.RecipeDetailScreen
 import app.luxion.fitarchiveapp.ui.screens.RecipeEditScreen
+import app.luxion.fitarchiveapp.ui.screens.RemindersScreen
 import app.luxion.fitarchiveapp.ui.screens.RecipesScreen
 import app.luxion.fitarchiveapp.ui.screens.ScannerScreen
 import app.luxion.fitarchiveapp.ui.screens.TemplateEditScreen
@@ -93,6 +98,7 @@ fun App(
     genericSeeder: GenericFoodSeeder? = null,
     ai: AiModule? = null,
     backgroundRefresh: Boolean = false,
+    reminderScheduler: ReminderScheduler = rememberReminderScheduler(),
 ) {
     EasyFoodTheme {
         Surface(Modifier.fillMaxSize()) {
@@ -118,6 +124,26 @@ fun App(
             }
             PlatformBackHandler(enabled = navigator.canGoBack) { navigator.pop() }
             val meals = rememberMealsSetting(settingsStore, navigator.current)
+            var remindersRevision by remember { mutableIntStateOf(0) }
+            // Reprograma los avisos al arrancar, al cambiar de pantalla (p. ej. tras registrar una comida) y al editar ajustes.
+            // Con los recordatorios apagados no vuelve a leer la base en cada cambio de pantalla (salvo al salir de «Datos»,
+            // que puede haber importado ajustes).
+            val reminders = remember { ReminderSyncState() }
+            LaunchedEffect(navigator.current, remindersRevision, meals.count) {
+                val route = navigator.current
+                val leftData = reminders.lastRoute == Route.Data
+                reminders.lastRoute = route
+                if (reminders.enabled == false && reminders.revision == remindersRevision && !leftData) return@LaunchedEffect
+                try {
+                    reminders.enabled = ReminderSync(settingsStore, diaryStore, weightStore, waterStore, reminderScheduler)
+                        .sync(today(), nowMinutes())
+                    reminders.revision = remindersRevision
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // Los avisos son un extra: un fallo al programarlos no debe afectar a la app.
+                }
+            }
 
             // En escritorio, las mismas pantallas en una columna de 600 dp como máximo, centrada.
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
@@ -154,6 +180,7 @@ fun App(
                             is Route.TemplateEdit -> if (templateStore != null) {
                                 TemplateEditScreen(navigator, route, templateStore, searchStore, customFoodStore)
                             }
+                            Route.Reminders -> RemindersScreen(navigator, settingsStore, reminderScheduler, meals.count) { remindersRevision++ }
                             Route.Data -> DataScreen(navigator, dataPresenter, today)
                             Route.Ai -> AiScreen(navigator, aiModule)
                             Route.AiSettings -> AiSettingsScreen(navigator, aiModule, today)
@@ -163,6 +190,13 @@ fun App(
             }
         }
     }
+}
+
+/** Último estado conocido de los recordatorios, para no releer la base en cada cambio de pantalla si están apagados. */
+private class ReminderSyncState {
+    var enabled: Boolean? = null
+    var revision: Int = -1
+    var lastRoute: Route? = null
 }
 
 private const val STARTUP_REFRESH_DELAY_MS = 15_000L

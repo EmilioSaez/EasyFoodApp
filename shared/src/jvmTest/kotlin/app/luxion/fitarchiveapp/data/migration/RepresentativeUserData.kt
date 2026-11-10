@@ -96,7 +96,10 @@ object RepresentativeUserData {
         ),
         "RecipeIngredientEntity" to mapOf("id" to 8, "recipe_id" to 9, "position" to 0, "name" to "Sal", "grams" to 1.0),
         // Ajustes y versión de la base genérica ya importada (1 = nombres en inglés).
-        "SettingsEntity" to mapOf("id" to 1, "meals_per_day" to 5),
+        "SettingsEntity" to mapOf(
+            "id" to 1, "meals_per_day" to 5,
+            "reminders" to """{"enabled":true,"mealTimes":{"BREAKFAST":450},"mealDays":[1,2,3],"water":true}""",
+        ),
         "GenericFoodsMetaEntity" to mapOf("id" to 1, "data_version" to 1),
         // Favoritos: EAN, genérico y propio.
         "FavoriteFoodEntity" to mapOf("key" to "8410000000017", "created_at" to 1_700_000_500_000),

@@ -4,6 +4,9 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- Recordatorios locales: el permiso de notificaciones se pide en Android 13+; el reinicio reprograma los avisos. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Pasos diarios (solo lectura) desde Health Connect para reevaluar el gasto. -->
     <uses-permission android:name="android.permission.health.READ_STEPS" />
 
@@ -42,5 +45,12 @@
                 <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
             </intent-filter>
         </activity-alias>
+        <receiver android:name="app.luxion.fitarchiveapp.reminders.ReminderReceiver" android:exported="false" />
+        <receiver android:name="app.luxion.fitarchiveapp.reminders.ReminderBootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>
