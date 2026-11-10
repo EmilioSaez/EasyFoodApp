@@ -53,6 +53,8 @@ class Migration11Test {
 
             // 12.sqm (ALTER TABLE ADD COLUMN) no es idempotente: se quita su columna para repetir solo la 11.
             d.execute(null, "ALTER TABLE DiaryEntryEntity DROP COLUMN quick", 0)
+            // 16.sqm (ALTER TABLE ADD COLUMN) no es idempotente: se quitan sus columnas para repetir solo esta migración.
+            for (c in listOf("saturated_fat_100g", "sugars_100g", "fiber_100g", "salt_100g")) d.execute(null, "ALTER TABLE DiaryEntryEntity DROP COLUMN $c", 0)
             MigrationTestKit.migrateToLatest(d, from = 11) // idempotente: no vacía ni duplica nada
 
             MigrationTestKit.assertPreserved(after, MigrationTestKit.snapshot(d))
