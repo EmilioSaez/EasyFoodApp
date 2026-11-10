@@ -392,6 +392,22 @@ Base técnica de la IA con la clave de API propia de cada usuario (sin servidor 
 - **Mensajes de error** en español, en el color `error` bajo la acción que los provocó (clave no válida, saldo, límite de peticiones, servicio caído, sin conexión, negativa de la IA, respuesta cortada o mal formada, límite diario).
 - **Sin clave, la IA queda desactivada y el resto de la app no cambia.**
 
+### 2.18 Ejercicio que suma al objetivo (implementado)
+Registro manual de actividades por día; las kcal gastadas suben el objetivo de ese día.
+```
+Diario: tarjeta «Ejercicio» (tras la de agua; `surfaceVariant`)
+├─ Fila: «Ejercicio» · «N kcal» (si hay) y a la derecha «+ Añadir»
+├─ Efecto: «+200 kcal al objetivo (50 % de 400)» · sin actividades: «Suma el 50 % de lo que gastes al objetivo del día.» · desactivado: «Desactivado en Objetivos: no suma al objetivo.»
+└─ Una fila por actividad: nombre, duración opcional («40 min», «1 h 30 min»), kcal y «Quitar»
+Diálogo «Añadir ejercicio»: Actividad (hasta 60 caracteres) · Kcal gastadas (1 a 10 000) · Duración opcional (1 a 1440 min)
+Objetivos: sección «Ejercicio» (antes de «Agua») → No sumar · 25 % · 50 % (recomendado) · 75 % · Sumar todo; se guarda al elegir
+```
+- **Objetivo efectivo.** `objetivo del día = objetivo guardado + kcal de ejercicio × porcentaje / 100` (redondeado, `ExerciseRules.bonusKcal`). Solo cambia las kcal: los macros no se tocan. Sin objetivo de kcal definido, el ejercicio no crea uno. El objetivo efectivo es el que ven la tarjeta de objetivo, la franja semanal y la racha (cada día usa el ejercicio de ese día). El porcentaje es global, no se guarda por día: al cambiarlo se recalculan también los días pasados.
+- **Criterio contra el doble conteo.** El TDEE ya incluye la actividad habitual: el factor del nivel de actividad (§2.6) y, si se usa, la sugerencia por pasos (`StepsActivity`) cuentan el ejercicio medio de tu semana. Por eso (1) se registra solo el ejercicio que **no** está ya en ese nivel (una sesión extra, no el entrenamiento de siempre), y (2) por defecto se suma solo el **50 %**, porque tablas y relojes sobreestiman y el solapamiento con el nivel nunca es nulo. Quien prefiera que el objetivo no cambie pone «No sumar»; quien lleve nivel «Sedentaria» y registre todo su ejercicio puede subir a 100 %. Los pasos del móvil no se suman a mano: ya entran por el nivel.
+- **Datos.** `ExerciseEntity(id, date, name, kcal, minutes?, created_at)` (varias por día, índice por fecha) y `ExerciseSettingsEntity(id = 1, percent, updated_at)`; sin fila de ajuste vale `ExerciseRules.DEFAULT_PERCENT` (50). Migración `13.sqm` (v13 a v14, idempotente, solo crea tablas: no toca datos existentes), con `Migration13Test`.
+- **Exportar e importar.** `ExportFile.exercises` (`date`, `name`, `kcal`, `minutes`, `createdAtMillis`) y `ExportFile.exercisePercent` (`percent`, `updatedAtMillis`): colecciones opcionales nuevas, así que **`schemaVersion` sigue en 1**. Las actividades no tienen id estable entre dispositivos: se reconocen por fecha, nombre (sin distinguir mayúsculas), kcal y duración; las idénticas se cuentan como duplicadas (y dos sesiones idénticas del mismo día se conservan) y el resto se añade. El porcentaje sigue la regla del agua (gana el más reciente; empate, el local). Los inválidos se omiten y se informan. Vista previa y resumen incluyen la fila «Ejercicio».
+- **Implementación.** `ExerciseCard`, `ExerciseDialog` y `ExercisePercentPicker` (`ui/components/ExerciseCard.kt`), `ExerciseStore` / `SqlDelightExerciseStore`, `ExerciseRules` / `NewExercise` / `ExerciseEntry` (`model/Exercise.kt`). `DiaryPresenter` recibe el almacén (opcional) y expone `exercises`, `exerciseBonusKcal` y el `goalKcal` efectivo; `DayStatus.streak` y `buildWeek` admiten el extra por día.
+
 ## 3. Componentes compartidos (en `shared/ui`)
 `EasyFoodTheme` · `CalorieRing` · `MacroProgressRow` · `MacroDot` · `SourceAvatar` / `SourceChip` (enum `DataSource { OpenFoodFacts, Generic, Custom }`) · `DoubtfulChip` · `DoubtfulDataBanner` · `MealSection` · `DiaryEntryRow` · `FoodResultRow` · `QuantitySelector` · `NutritionTable` · `EmptyState` · `NumberField` (OutlinedTextField con sufijo de unidad) · `FoodSearch` (buscador de alimentos de «Añadir» y del editor de recetas).
 

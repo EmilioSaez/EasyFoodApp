@@ -95,6 +95,14 @@ object RepresentativeUserData {
         "WaterEntity" to mapOf("date" to "2026-11-01", "ml" to 1750, "updated_at" to 20),
         "WaterEntity" to mapOf("date" to "2026-11-02", "ml" to 20000, "updated_at" to 21),
         "WaterGoalEntity" to mapOf("id" to 1, "goal_ml" to 2500, "updated_at" to 22),
+        // Ejercicio (13.sqm): con y sin duración, nombre con acentos/comilla, varias el mismo día, y el porcentaje.
+        "ExerciseEntity" to mapOf(
+            "id" to 3, "date" to "2026-11-01", "name" to "Correr ñandú 🏃 (d'Ana)", "kcal" to 420, "minutes" to 40,
+            "created_at" to 40,
+        ),
+        "ExerciseEntity" to mapOf("id" to 6, "date" to "2026-11-01", "name" to "Pesas", "kcal" to 150, "minutes" to null, "created_at" to 41),
+        "ExerciseEntity" to mapOf("id" to 10, "date" to "2026-11-02", "name" to "Bici", "kcal" to 10000, "minutes" to 1440, "created_at" to 42),
+        "ExerciseSettingsEntity" to mapOf("id" to 1, "percent" to 75, "updated_at" to 43),
         // Plantillas de comida (11.sqm): gramos y porciones, alimento con EAN, genérico y propio sin barcode.
         "MealTemplateEntity" to mapOf("id" to 2, "name" to "Mi desayuno de siempre", "created_at" to 30, "updated_at" to 31),
         "MealTemplateEntity" to mapOf("id" to 7, "name" to "Cena ñoña 🍽 (d'Ana)", "created_at" to 32, "updated_at" to 32),

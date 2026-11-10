@@ -12,6 +12,7 @@ App multiplataforma (Kotlin Multiplatform + Compose Multiplatform) para **contar
 - **Objetivos y TDEE**: cálculo del gasto energético, ritmo y ajuste manual de kcal/macros.
 - **Agua diaria**: tarjeta en el Diario con «+ Vaso», «+ 500 ml», «+ 1 L» y deshacer, y progreso frente a un objetivo (2 L por defecto, editable en Objetivos).
 - **IA opcional** (pestaña «IA»): base técnica para funciones con Claude usando tu propia clave de API de Anthropic. La clave se guarda solo en el dispositivo, de forma protegida (Keystore, Keychain o DPAPI), y nunca entra en la base de datos, en exportar/importar ni en copias de seguridad. Sin clave la IA queda desactivada y el resto de la app no cambia. Ver [docs/ia.md](docs/ia.md).
+- **Ejercicio**: registro manual de actividades (nombre, kcal y duración opcional) por día en el Diario; las kcal gastadas suben el objetivo del día. En Objetivos eliges si se suma todo, un porcentaje (50 % por defecto, porque el nivel de actividad del TDEE ya cuenta el ejercicio habitual) o nada.
 - **Sin cuentas ni servidor**: los datos viven en el dispositivo (offline-first, SQLDelight).
 
 ## Plataformas
@@ -24,7 +25,7 @@ App multiplataforma (Kotlin Multiplatform + Compose Multiplatform) para **contar
 
 ## Datos: exportar e importar
 
-La pantalla **Datos** (icono ⇅ del Diario y de Objetivos) exporta el perfil a un JSON versionado (alimentos propios, favoritos, plantillas de comida, diario, pesos, recetas, agua y productos consultados; la base genérica no se exporta porque ya viene con la app) e importa fusionando, con vista previa y detección de duplicados. También transfiere por QR y por red local con código de emparejamiento de un solo uso.
+La pantalla **Datos** (icono ⇅ del Diario y de Objetivos) exporta el perfil a un JSON versionado (alimentos propios, favoritos, plantillas de comida, diario, pesos, recetas, agua, ejercicio y productos consultados; la base genérica no se exporta porque ya viene con la app) e importa fusionando, con vista previa y detección de duplicados. También transfiere por QR y por red local con código de emparejamiento de un solo uso.
 
 **Entrada rápida:** para cuando comes fuera, el botón «Entrada rápida» de la pestaña Alimentos (y el «+» de cada comida del Diario) apunta solo kcal y macros, con nombre opcional, a una comida y día concretos, sin crear un alimento. Se edita, se borra, cuenta en los totales y se copia como cualquier entrada, y viaja en exportar e importar.
 

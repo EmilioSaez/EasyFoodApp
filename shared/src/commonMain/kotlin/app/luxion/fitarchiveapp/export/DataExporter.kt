@@ -9,6 +9,7 @@ import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
 import app.luxion.fitarchiveapp.data.toDomain
 import app.luxion.fitarchiveapp.db.CustomFoodQueries
 import app.luxion.fitarchiveapp.db.DiaryEntryQueries
+import app.luxion.fitarchiveapp.db.ExerciseQueries
 import app.luxion.fitarchiveapp.db.FavoriteFoodQueries
 import app.luxion.fitarchiveapp.db.ProductQueries
 import app.luxion.fitarchiveapp.db.SettingsQueries
@@ -37,6 +38,8 @@ interface ExportSource {
     suspend fun waterGoal(): ExportedWaterGoal? = null
     suspend fun favorites(): List<ExportedFavorite> = emptyList()
     suspend fun mealTemplates(): List<ExportedMealTemplate> = emptyList()
+    suspend fun exercises(): List<ExportedExercise> = emptyList()
+    suspend fun exercisePercent(): ExportedExercisePercent? = null
 }
 
 /** Genera el JSON de exportación a partir de [source]. */
@@ -60,6 +63,8 @@ class DataExporter(
         waterGoal = source.waterGoal(),
         favorites = source.favorites(),
         mealTemplates = source.mealTemplates(),
+        exercises = source.exercises(),
+        exercisePercent = source.exercisePercent(),
     )
 
     suspend fun exportToJson(): String = ExportCodec.encode(buildFile())
@@ -118,9 +123,20 @@ class SqlDelightExportSource(
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val waterQueries: WaterQueries? = null,
     private val templateQueries: MealTemplateQueries? = null,
+    private val exerciseQueries: ExerciseQueries? = null,
 ) : ExportSource {
     override suspend fun mealTemplates(): List<ExportedMealTemplate> = withContext(dispatcher) {
         templateQueries?.transactionWithResult { templateQueries.readAll() }.orEmpty().map { it.toExported() }
+    }
+
+    override suspend fun exercises(): List<ExportedExercise> = withContext(dispatcher) {
+        exerciseQueries?.selectAll()?.executeAsList().orEmpty().map {
+            ExportedExercise(it.date, it.name, it.kcal.toInt(), it.minutes?.toInt(), it.created_at)
+        }
+    }
+
+    override suspend fun exercisePercent(): ExportedExercisePercent? = withContext(dispatcher) {
+        exerciseQueries?.selectPercent()?.executeAsOneOrNull()?.let { ExportedExercisePercent(it.percent.toInt(), it.updated_at) }
     }
 
     override suspend fun water(): List<ExportedWater> = withContext(dispatcher) {

@@ -1,0 +1,44 @@
+-- Ejercicio registrado a mano: varias actividades por día (migración 13.sqm). Las kcal son las gastadas.
+CREATE TABLE IF NOT EXISTS ExerciseEntity (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL CHECK (length(date) = 10),
+    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+    kcal INTEGER NOT NULL CHECK (kcal > 0 AND kcal <= 10000),
+    minutes INTEGER CHECK (minutes IS NULL OR (minutes > 0 AND minutes <= 1440)),
+    created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS ExerciseEntity_date ON ExerciseEntity(date);
+
+-- Porcentaje de las kcal de ejercicio que se suma al objetivo: una única fila (id = 1); 0 = desactivado.
+-- Sin fila = porcentaje por defecto.
+CREATE TABLE IF NOT EXISTS ExerciseSettingsEntity (
+    id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+    percent INTEGER NOT NULL CHECK (percent >= 0 AND percent <= 100),
+    updated_at INTEGER NOT NULL
+);
+
+selectAll:
+SELECT * FROM ExerciseEntity ORDER BY date ASC, id ASC;
+
+selectByDate:
+SELECT * FROM ExerciseEntity WHERE date = ? ORDER BY id ASC;
+
+insert:
+INSERT INTO ExerciseEntity(date, name, kcal, minutes, created_at) VALUES (?, ?, ?, ?, ?);
+
+lastInsertedId:
+SELECT last_insert_rowid();
+
+deleteById:
+DELETE FROM ExerciseEntity WHERE id = ?;
+
+-- Kcal de ejercicio por día en un rango (inclusive); los días sin ejercicio no aparecen.
+selectDailyKcal:
+SELECT date, SUM(kcal) AS kcal FROM ExerciseEntity WHERE date >= ? AND date <= ? GROUP BY date;
+
+selectPercent:
+SELECT * FROM ExerciseSettingsEntity WHERE id = 1;
+
+upsertPercent:
+INSERT OR REPLACE INTO ExerciseSettingsEntity(id, percent, updated_at) VALUES (1, ?, ?);
