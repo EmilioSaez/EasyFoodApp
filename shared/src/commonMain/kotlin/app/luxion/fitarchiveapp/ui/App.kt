@@ -34,6 +34,8 @@ import app.luxion.fitarchiveapp.data.SettingsStore
 import app.luxion.fitarchiveapp.data.WaterStore
 import app.luxion.fitarchiveapp.data.WeightStore
 import app.luxion.fitarchiveapp.data.generic.GenericFoodSeeder
+import app.luxion.fitarchiveapp.backup.BackupFiles
+import app.luxion.fitarchiveapp.backup.BackupManager
 import app.luxion.fitarchiveapp.export.DataExporter
 import app.luxion.fitarchiveapp.export.DataImporter
 import app.luxion.fitarchiveapp.export.ImportTarget
@@ -78,6 +80,7 @@ import kotlinx.coroutines.launch
  * [genericSeeder], si se indica, carga la base genérica en segundo plano al arrancar y muestra su progreso.
  * [ai] agrupa la clave y los ajustes de la IA (guardados fuera de la BD exportable); sin él, la IA queda sin clave.
  * [backgroundRefresh] activa el refresco oportunista de los productos de Open Food Facts usados (ver [ProductRefresher]).
+ * [backupFiles], si se indica, activa la copia de seguridad periódica (y su sección en «Datos») en esa carpeta.
  */
 @Composable
 fun App(
@@ -100,15 +103,25 @@ fun App(
     ai: AiModule? = null,
     backgroundRefresh: Boolean = false,
     reminderScheduler: ReminderScheduler = rememberReminderScheduler(),
+    backupFiles: BackupFiles? = null,
 ) {
     EasyFoodTheme {
         Surface(Modifier.fillMaxSize()) {
             val navigator = remember { Navigator() }
             val aiModule = remember(ai) { ai ?: AiModule.inMemory(today) }
-            val dataPresenter = remember(importTarget) {
+            val dataPresenter = remember(importTarget, backupFiles) {
+                val exporter = DataExporter(importTarget) { kotlin.time.Clock.System.now().toEpochMilliseconds() }
                 DataPresenter(
-                    exporter = DataExporter(importTarget) { kotlin.time.Clock.System.now().toEpochMilliseconds() },
+                    exporter = exporter,
                     importer = DataImporter(importTarget),
+                    backups = backupFiles?.let {
+                        BackupManager(
+                            files = it,
+                            export = exporter::exportToJson,
+                            nowMillis = { kotlin.time.Clock.System.now().toEpochMilliseconds() },
+                            today = today,
+                        )
+                    },
                 )
             }
             if (backgroundRefresh) {
@@ -123,6 +136,7 @@ fun App(
                     }
                 }
             }
+            dataPresenter.backups?.let { AutoBackup(it) }
             PlatformBackHandler(enabled = navigator.canGoBack) { navigator.pop() }
             val meals = rememberMealsSetting(settingsStore, navigator.current)
             var remindersRevision by remember { mutableIntStateOf(0) }
@@ -202,6 +216,20 @@ private class ReminderSyncState {
 }
 
 private const val STARTUP_REFRESH_DELAY_MS = 15_000L
+/** Copia automática: una a los pocos segundos de abrir la app si toca y, si sigue abierta, se vuelve a mirar cada pocas horas. */
+@Composable
+private fun AutoBackup(backups: BackupManager) {
+    LaunchedEffect(backups) {
+        delay(STARTUP_DELAY_MILLIS)
+        while (true) {
+            backups.runIfDue()
+            delay(RECHECK_MILLIS)
+        }
+    }
+}
+
+private const val STARTUP_DELAY_MILLIS = 5_000L
+private const val RECHECK_MILLIS = 6L * 60 * 60 * 1000
 
 /** Lanza la carga inicial de la base genérica (fuera del hilo de UI) y pinta su avance. */
 @Composable

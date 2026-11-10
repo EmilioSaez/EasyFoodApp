@@ -78,6 +78,7 @@ Implementación: `shared/src/iosMain/.../reminders/ReminderScheduler.ios.kt` (`U
 
 - [ ] La app arranca en el simulador y en un iPhone (nunca se ha ejecutado, solo compilado en CI).
 - [ ] Base de datos SQLDelight con `NativeSqliteDriver`: crea y migra la BD en el dispositivo; `-lsqlite3` enlaza (lo hace el CI) y funciona en ejecución.
+- [ ] Copias de seguridad (`BackupFiles.ios.kt`, `MainViewController`): solo se ha escrito, no compilado ni probado. Comprobar que `databasePath()` encuentra el archivo real de `NativeSqliteDriver`, que se hace la copia antes de migrar (instalar una versión, subir `Schema.version` y reabrir), que se restaura si la migración falla y que la copia semanal aparece en «Datos».
 - [ ] Safe areas, teclado y orientación solo vertical (`safeDrawingPadding()` en `MainViewController`).
 - [ ] Botón/gesto de atrás (`PlatformBackHandler.ios.kt`): gesto de borde de iOS frente a la navegación de Compose.
 - [ ] `CADisableMinimumFrameDurationOnPhone` y fluidez en ProMotion.

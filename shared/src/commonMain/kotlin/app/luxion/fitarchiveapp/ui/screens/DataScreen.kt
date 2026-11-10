@@ -34,6 +34,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -55,6 +56,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import app.luxion.fitarchiveapp.backup.BackupInfo
+import app.luxion.fitarchiveapp.backup.BackupManager
 import app.luxion.fitarchiveapp.export.qr.QrCodeEncoder
 import app.luxion.fitarchiveapp.export.qr.QrMatrix
 import app.luxion.fitarchiveapp.export.qr.QrTransfer
@@ -219,6 +222,103 @@ private fun FileSection(
         ) { Text("Elegir archivo…") }
         if (!files.canOpen) UnavailableNote("En esta plataforma aún no se pueden abrir archivos; usa QR o red local.")
     }
+
+    presenter.backups?.let { BackupSection(presenter, it) { msg -> showMessage(msg) } }
+}
+
+// --- Copias de seguridad automáticas ---
+
+@Composable
+private fun BackupSection(presenter: DataPresenter, backups: BackupManager, showMessage: suspend (String) -> Any) {
+    val scope = rememberCoroutineScope()
+    var reload by remember { mutableIntStateOf(0) }
+    var loaded by remember { mutableStateOf(false) }
+    var enabled by remember { mutableStateOf(true) }
+    var copies by remember { mutableStateOf<List<BackupInfo>>(emptyList()) }
+    var busy by remember { mutableStateOf(false) }
+
+    LaunchedEffect(backups, reload) {
+        enabled = backups.isEnabled()
+        copies = backups.list()
+        loaded = true
+    }
+
+    SectionCard(
+        "Copia de seguridad automática",
+        "Una vez por semana, al abrir la app, se guarda una copia en este dispositivo con el mismo formato que la " +
+            "exportación. Se conservan las últimas ${BackupManager.DEFAULT_KEEP}. Si borras la app, se pierden con ella: " +
+            "guarda también un archivo JSON.",
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Copia semanal automática", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    backupSummary(enabled, copies.firstOrNull()),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Switch(
+                checked = enabled,
+                enabled = loaded,
+                onCheckedChange = { value ->
+                    enabled = value
+                    scope.launch {
+                        try {
+                            backups.setEnabled(value)
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (_: Exception) {
+                            enabled = !value
+                            showMessage("No se pudo cambiar el ajuste.")
+                        }
+                    }
+                },
+                modifier = Modifier.semantics { contentDescription = "Copia semanal automática" },
+            )
+        }
+        OutlinedButton(
+            enabled = !busy,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+            onClick = {
+                busy = true
+                scope.launch {
+                    try {
+                        val info = backups.backupNow()
+                        showMessage("Copia guardada (${info.date})")
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        showMessage("No se pudo guardar la copia.")
+                    } finally {
+                        busy = false
+                        reload++
+                    }
+                }
+            },
+        ) { Text(if (busy) "Copiando…" else "Copiar ahora") }
+        if (copies.isNotEmpty()) {
+            Text("Copias guardadas", style = MaterialTheme.typography.labelLarge)
+            copies.forEach { info ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(info.date, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                    TextButton(onClick = { scope.launch { presenter.stageBackup(info) } }) { Text("Restaurar") }
+                }
+            }
+            Text(
+                "Restaurar muestra antes una vista previa: se añade lo que falte y no se borra nada.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/** «Última copia: 2026-11-10» o el motivo por el que no hay. */
+internal fun backupSummary(enabled: Boolean, last: BackupInfo?): String = when {
+    last != null -> "Última copia: ${last.date}" + if (enabled) "" else " · desactivada"
+    enabled -> "Aún no hay copias; se hará la primera al abrir la app."
+    else -> "Desactivada · aún no hay copias."
 }
 
 @Composable

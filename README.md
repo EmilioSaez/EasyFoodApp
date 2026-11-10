@@ -31,6 +31,8 @@ La pantalla **Datos** (icono ⇅ del Diario y de Objetivos) exporta el perfil a 
 
 **Entrada rápida:** para cuando comes fuera, el botón «Entrada rápida» de la pestaña Alimentos (y el «+» de cada comida del Diario) apunta solo kcal y macros, con nombre opcional, a una comida y día concretos, sin crear un alimento. Se edita, se borra, cuenta en los totales y se copia como cualquier entrada, y viaja en exportar e importar.
 
+**Copias de seguridad automáticas**: una vez por semana, al abrir la app, se guarda una copia JSON en el dispositivo (se conservan las últimas 6), con interruptor, «Copiar ahora» y «Restaurar» en la pantalla Datos. Además, antes de migrar la base de datos a una versión nueva se copia el archivo y, si la migración falla, se restaura sola. Detalles en [docs/copias-seguridad.md](docs/copias-seguridad.md).
+
 El seguimiento de lo que falta está en [ROADMAP.md](ROADMAP.md).
 
 ## Arquitectura

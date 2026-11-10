@@ -3,6 +3,8 @@ package app.luxion.fitarchiveapp.ui.screens
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import app.luxion.fitarchiveapp.backup.BackupInfo
+import app.luxion.fitarchiveapp.backup.BackupManager
 import app.luxion.fitarchiveapp.export.DataExporter
 import app.luxion.fitarchiveapp.export.DataImporter
 import app.luxion.fitarchiveapp.export.ExportFormatException
@@ -113,6 +115,8 @@ sealed interface ImportStage {
 class DataPresenter(
     private val exporter: DataExporter,
     private val importer: DataImporter,
+    /** Copia de seguridad periódica, o `null` si la plataforma no la ofrece. */
+    val backups: BackupManager? = null,
 ) {
     var stage: ImportStage by mutableStateOf(ImportStage.Idle)
         private set
@@ -122,6 +126,24 @@ class DataPresenter(
 
     /** JSON de exportación sin envolver el error (lo usa el anfitrión de red local, que ya gestiona los suyos). */
     suspend fun exportJson(): String = exporter.exportToJson()
+
+    /**
+     * Restaura desde una copia automática: la previsualiza con el mismo flujo que cualquier importación (se fusiona con
+     * lo que haya, no se borra nada) y espera la confirmación del usuario.
+     */
+    suspend fun stageBackup(info: BackupInfo) {
+        val manager = backups ?: return
+        stage = ImportStage.Working
+        val json = try {
+            manager.read(info)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            stage = ImportStage.Failed("No se pudo leer la copia de seguridad.")
+            return
+        }
+        stage(json)
+    }
 
     /** Obtiene el JSON con [fetch] (red local, cámara...) y lo previsualiza; un fallo deja la fase en error. */
     suspend fun stageFrom(fetch: suspend () -> String) {

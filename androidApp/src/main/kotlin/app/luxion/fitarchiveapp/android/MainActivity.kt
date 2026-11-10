@@ -9,6 +9,8 @@ import androidx.compose.ui.Modifier
 import app.luxion.fitarchiveapp.ai.AiModule
 import app.luxion.fitarchiveapp.ai.AndroidAiPreferences
 import app.luxion.fitarchiveapp.ai.AndroidKeystoreKeyVault
+import app.luxion.fitarchiveapp.backup.MigrationFailedException
+import app.luxion.fitarchiveapp.backup.fileBackupFiles
 import app.luxion.fitarchiveapp.data.OpenFoodFactsClient
 import app.luxion.fitarchiveapp.data.ProductRepository
 import app.luxion.fitarchiveapp.data.SqlDelightCustomFoodStore
@@ -27,11 +29,17 @@ import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
 import app.luxion.fitarchiveapp.data.generic.GenericFoodSeeder
 import app.luxion.fitarchiveapp.export.SqlDelightImportTarget
 import app.luxion.fitarchiveapp.ui.App
+import app.luxion.fitarchiveapp.ui.screens.MigrationErrorScreen
+import java.io.File
 import java.time.LocalDate
 import java.time.LocalTime
 
 class MainActivity : ComponentActivity() {
-    private val database by lazy { createDatabase(applicationContext) }
+    /** Copias de seguridad en el almacenamiento interno de la app (`files/backups`), junto a la base. */
+    private val backupFiles by lazy {
+        fileBackupFiles(File(filesDir, "backups").path, getDatabasePath(DATABASE_NAME).path)
+    }
+    private val database by lazy { createDatabase(applicationContext, DATABASE_NAME, backupFiles) }
     private val repository by lazy {
         ProductRepository(
             remote = OpenFoodFactsClient(),
@@ -62,6 +70,19 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Abrir la base aquí (y no al pintar) permite mostrar un aviso si la actualización de la base falla.
+        val failure = try {
+            database
+            null
+        } catch (e: MigrationFailedException) {
+            e.message
+        } catch (e: Exception) {
+            "Error al abrir la base de datos: ${e.message}"
+        }
+        if (failure != null) {
+            setContent { Box(Modifier.safeDrawingPadding()) { MigrationErrorScreen(failure) } }
+            return
+        }
         setContent {
             Box(Modifier.safeDrawingPadding()) {
                 App(
@@ -83,8 +104,13 @@ class MainActivity : ComponentActivity() {
                     genericSeeder = genericSeeder,
                     ai = aiModule,
                     backgroundRefresh = true,
+                    backupFiles = backupFiles,
                 )
             }
         }
+    }
+
+    private companion object {
+        const val DATABASE_NAME = "easyfood.db"
     }
 }
