@@ -533,7 +533,7 @@ private fun DetailContent(
                                     } else {
                                         diaryStore.add(
                                             NewDiaryEntry(
-                                                date = today(),
+                                                date = route.date ?: today(),
                                                 meal = meal,
                                                 barcode = detail.barcode,
                                                 name = detail.name,

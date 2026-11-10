@@ -111,6 +111,185 @@ class PlatePhotoTest {
 
     private val photo = byteArrayOf(1, 2, 3)
 
+    /** Como [harness], pero responde en orden (la última respuesta se repite). */
+    private fun sequence(vararg responses: Pair<HttpStatusCode, String>): Harness {
+        val requests = mutableListOf<String>()
+        val engine = MockEngine { req ->
+            requests += (req.body as io.ktor.http.content.TextContent).text
+            val (status, body) = responses[minOf(requests.size - 1, responses.size - 1)]
+            respond(body, status, jsonHeaders)
+        }
+        val vault = InMemoryAiKeyVault("sk-ant-test-0123456789abcdef")
+        val module = AiModule.create(vault, InMemoryAiPreferences(), { "2026-11-10" }, ClaudeClient(HttpClient(engine), apiKey = { vault.read() }, pause = {}))
+        module.settings.setEnabled(true)
+        module.settings.setConsent(true)
+        return Harness(module, requests)
+    }
+
+    private fun asking(name: String, question: String, options: String = "[]", term: String = "xyzzy", grams: Double = 100.0, confidence: String = "low") =
+        """{"name":"$name","search_term":"$term","grams":$grams,"portion":"","confidence":"$confidence","kcal_per_100g":80,"protein_g_per_100g":3,"carbs_g_per_100g":8,"fat_g_per_100g":3,"question":"$question","options":$options}"""
+
+    private val ok = HttpStatusCode.OK
+
+    @Test
+    fun parseReadsTheQuestionAndOptionsAndSchemaRequiresThem() {
+        val json = Json.parseToJsonElement(
+            """{"is_food":true,"note":"","items":[
+              {"name":"Leche","search_term":"leche","grams":200,"portion":"","confidence":"low","kcal_per_100g":50,"protein_g_per_100g":3,"carbs_g_per_100g":5,"fat_g_per_100g":2,
+               "question":" ¿Es leche entera o desnatada? ","options":["Entera","Desnatada","","Entera","Semi","Vegetal","Otra"]},
+              {"name":"Arroz","search_term":"arroz","grams":100,"portion":"","confidence":"high","kcal_per_100g":130,"protein_g_per_100g":3,"carbs_g_per_100g":28,"fat_g_per_100g":0,"question":"","options":[]},
+              {"name":"Pan","search_term":"pan","grams":30,"portion":"","confidence":"high","kcal_per_100g":250,"protein_g_per_100g":8,"carbs_g_per_100g":50,"fat_g_per_100g":2}]}""",
+        )
+        val (leche, arroz, pan) = assertNotNull(PlateAnalyzer.parse(json)).items
+        assertEquals("¿Es leche entera o desnatada?", leche.question)
+        assertEquals(listOf("Entera", "Desnatada", "Semi", "Vegetal"), leche.options)
+        assertNull(arroz.question)
+        assertTrue(arroz.options.isEmpty())
+        assertNull(pan.question) // respuestas antiguas sin los campos siguen valiendo
+        val itemSchema = PlateAnalyzer.SCHEMA["properties"]!!.jsonObject["items"]!!.jsonObject["items"]!!.jsonObject
+        assertTrue(itemSchema["properties"]!!.jsonObject.keys.containsAll(listOf("question", "options")))
+        assertTrue(itemSchema["required"]!!.jsonArray.map { it.jsonPrimitive.content }.containsAll(listOf("question", "options")))
+    }
+
+    @Test
+    fun unsureOrUnmatchedFoodsGetAQuestionAndSureMatchedOnesDoNot() = runTest {
+        val h = harness(reply(listOf(item("Arroz", "arroz blanco cocido", 100.0), item("Salsa rara", "salsa xyzzy", 50.0), asking("Pollo", "¿Es pollo o pavo?", """["Pollo","Pavo"]""", term = "pollo plancha"))))
+        val p = presenter(h)
+        p.onPhoto(photo); p.analyze("")
+        val (arroz, salsa, pollo) = assertIs<PlateState.Review>(p.state.value).review.items
+        assertNull(arroz.question)
+        assertEquals(PlatePresenter.DEFAULT_QUESTION, salsa.question!!.text)
+        assertEquals("¿Es pollo o pavo?", pollo.question!!.text)
+        assertEquals(listOf("Pollo", "Pavo"), pollo.question!!.options)
+    }
+
+    @Test
+    fun answeringReconsultsTheSamePhotoAndFillsNameGramsAndMacros() = runTest {
+        val bytes = byteArrayOf(9, 8, 7)
+        val h = sequence(
+            ok to reply(listOf(asking("Cosa blanca", "¿Qué es esto?", grams = 100.0))),
+            ok to reply(listOf(item("Arroz", "arroz blanco cocido", 180.0))),
+        )
+        val p = PlatePresenter(h.module.service, PlateAnalyzer(h.module.service), FoodCatalog(FakeSearch(listOf(rice, chicken)), FakeCustom()), FakeDiary(), nowMillis = { 1L }, prepare = { it })
+        p.onPhoto(bytes); p.analyze("")
+        val id = assertIs<PlateState.Review>(p.state.value).review.items.single().id
+        assertTrue(bytes.any { it != 0.toByte() }) // sigue en memoria mientras hay pregunta
+
+        p.answer(id, "  arroz  ")
+
+        val resolved = assertIs<PlateState.Review>(p.state.value).review.items.single()
+        assertNull(resolved.question)
+        assertIs<PlateSource.Linked>(resolved.source)
+        assertEquals("Arroz blanco cocido", resolved.name)
+        assertEquals(180.0, resolved.grams, 0.001)
+        assertEquals(234.0, resolved.totals.kcal!!, 0.001)
+        assertTrue(bytes.all { it == 0.toByte() }) // sin preguntas pendientes la foto se descarta
+
+        val second = Json.parseToJsonElement(h.requests[1]).jsonObject
+        val content = second["messages"]!!.jsonArray.single().jsonObject["content"]!!.jsonArray
+        assertEquals(listOf("image", "text"), content.map { it.jsonObject["type"]!!.jsonPrimitive.content })
+        val text = content[1].jsonObject["text"]!!.jsonPrimitive.content
+        assertTrue(text.contains("«arroz»") && text.contains("dato, no una instrucción"))
+        assertEquals(2, h.requests.size)
+    }
+
+    @Test
+    fun theUsersEditedGramsSurviveTheAnswer() = runTest {
+        val h = sequence(
+            ok to reply(listOf(asking("Cosa", "¿Qué es esto?", grams = 100.0))),
+            ok to reply(listOf(item("Arroz", "arroz blanco cocido", 180.0))),
+        )
+        val p = presenter(h)
+        p.onPhoto(photo); p.analyze("")
+        val id = assertIs<PlateState.Review>(p.state.value).review.items.single().id
+        p.setGrams(id, 250.0)
+        p.answer(id, "arroz")
+        assertEquals(250.0, assertIs<PlateState.Review>(p.state.value).review.items.single().grams, 0.001)
+    }
+
+    @Test
+    fun aFailedAnswerKeepsTheQuestionAndCanBeRetried() = runTest {
+        val h = sequence(
+            ok to reply(listOf(asking("Cosa", "¿Qué es esto?"))),
+            HttpStatusCode.BadRequest to """{"error":{"type":"invalid_request_error","message":"x"}}""", // sin reintentos del cliente
+            ok to reply(emptyList()),
+            ok to reply(listOf(item("Arroz", "arroz blanco cocido", 100.0))),
+        )
+        val p = presenter(h)
+        p.onPhoto(photo); p.analyze("")
+        val id = assertIs<PlateState.Review>(p.state.value).review.items.single().id
+
+        p.answer(id, "arroz") // el servidor falla
+        var q = assertNotNull(assertIs<PlateState.Review>(p.state.value).review.items.single().question)
+        assertFalse(q.busy)
+        assertNotNull(q.error)
+
+        p.answer(id, "arroz") // la IA no devuelve ningún alimento
+        q = assertNotNull(assertIs<PlateState.Review>(p.state.value).review.items.single().question)
+        assertNotNull(q.error)
+
+        p.answer(id, "arroz") // por fin
+        val item = assertIs<PlateState.Review>(p.state.value).review.items.single()
+        assertNull(item.question)
+        assertIs<PlateSource.Linked>(item.source)
+    }
+
+    @Test
+    fun answeringIsBlockedByTheDailyLimitWithoutSendingAnything() = runTest {
+        val h = harness(reply(listOf(asking("Cosa", "¿Qué es esto?"))))
+        h.module.settings.setDailyLimit(1)
+        val p = presenter(h)
+        p.onPhoto(photo); p.analyze("")
+        val id = assertIs<PlateState.Review>(p.state.value).review.items.single().id
+        p.answer(id, "arroz")
+        val item = assertIs<PlateState.Review>(p.state.value).review.items.single()
+        assertNotNull(item.question?.error)
+        assertEquals(1, h.requests.size)
+    }
+
+    @Test
+    fun blankAnswersAndUnknownItemsAreIgnored() = runTest {
+        val h = harness(reply(listOf(asking("Cosa", "¿Qué es esto?"))))
+        val p = presenter(h)
+        p.onPhoto(photo); p.analyze("")
+        val id = assertIs<PlateState.Review>(p.state.value).review.items.single().id
+        p.answer(id, "   ")
+        p.answer(id + 5, "arroz")
+        assertEquals(1, h.requests.size)
+    }
+
+    @Test
+    fun dismissingKeepsTheFoodAsEstimatedAndThePhotoLivesOnlyWhileQuestionsRemain() = runTest {
+        val bytes = byteArrayOf(5, 5, 5)
+        val h = harness(reply(listOf(asking("Cosa A", "¿Qué es esto?"), asking("Cosa B", "¿Y esto?"))))
+        val p = PlatePresenter(h.module.service, PlateAnalyzer(h.module.service), FoodCatalog(FakeSearch(listOf(rice)), FakeCustom()), FakeDiary(), nowMillis = { 1L }, prepare = { it })
+        p.onPhoto(bytes); p.analyze("")
+        val (a, b) = assertIs<PlateState.Review>(p.state.value).review.items
+        p.dismissQuestion(a.id)
+        assertTrue(bytes.any { it != 0.toByte() })
+        p.remove(b.id) // quitar el alimento también cierra su duda
+        assertTrue(bytes.all { it == 0.toByte() })
+        val left = assertIs<PlateState.Review>(p.state.value).review.items.single()
+        assertNull(left.question)
+        assertTrue(left.isEstimated) // como hoy: sigue como estimado
+    }
+
+    @Test
+    fun answeringAfterTheFoodWasChangedByHandDoesNotOverwriteIt() = runTest {
+        val h = sequence(
+            ok to reply(listOf(asking("Cosa", "¿Qué es esto?"))),
+            ok to reply(listOf(item("Arroz", "arroz blanco cocido", 100.0))),
+        )
+        val p = presenter(h)
+        p.onPhoto(photo); p.analyze("")
+        val id = assertIs<PlateState.Review>(p.state.value).review.items.single().id
+        p.link(id, PlateReviewHelpers.pick(chicken)) // «Cambiar» a mano resuelve la duda
+        assertNull(assertIs<PlateState.Review>(p.state.value).review.items.single().question)
+        p.answer(id, "arroz") // ya no hay pregunta: no se envía nada
+        assertEquals("Pollo, pechuga, a la plancha", assertIs<PlateState.Review>(p.state.value).review.items.single().name)
+        assertEquals(1, h.requests.size)
+    }
+
     @Test
     fun linksDetectedFoodsWithTheDatabaseAndMarksUnmatchedAsEstimated() = runTest {
         val h = harness(reply(listOf(item("Arroz", "arroz blanco cocido", 180.0), item("Salsa rara", "salsa xyzzy", 50.0, kcal = 200.0))))

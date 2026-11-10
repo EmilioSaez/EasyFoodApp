@@ -461,7 +461,7 @@ Objetivos: sección «Ejercicio» (antes de «Agua») → No sumar · 25 % · 50
 
 ### 2.19 Fibra, sal, azúcares y saturadas del día (implementado)
 
-Tarjeta «OTROS NUTRIENTES» al final de la lista del Diario (`IntakeCard`), solo si el día tiene entradas. Una fila por nutriente: nombre a la izquierda y «12 g · mín. 25 g» a la derecha.
+Segunda página de la tarjeta de kcal del Diario (`NutrientPager` en `DiaryTop.kt`, `IntakeLine` en `IntakeCard.kt`): bajo las kcal se desliza horizontalmente entre «Macros» y «Otros nutrientes», con puntos indicadores y el título de la página a la izquierda. Ambas páginas tienen la misma estructura (nombre, «12 / 50 g» y barra de 4 dp), así que la tarjeta no cambia de altura. Se muestra también en un día vacío (todo «—»). Un valor parcial se marca «12+ / 50 g»; el detalle («· incompleto», «sin datos») va en la descripción de accesibilidad (`valueText`).
 
 - **Objetivos orientativos** (`IntakeGuidelines`, no son consejo médico, no editables): fibra mínimo 25 g; sal máximo 5 g (OMS); azúcares máximo el 10 % de la energía a 4 kcal/g (50 g con 2 000 kcal) y saturadas máximo el 10 % a 9 kcal/g (~22 g). La energía es el objetivo de kcal de Objetivos o, sin él, 2 000 kcal. Hacerlos editables exigiría columnas nuevas en `DailyGoalEntity`; queda fuera.
 - **Datos ausentes**: un valor `null` nunca se suma como 0 sin avisar. Si alguna entrada no tiene el dato (o está en porciones sin tamaño) la fila añade «· incompleto» y el total es solo lo conocido; si ninguna lo tiene, «sin datos · máx. 5 g». Se pinta en `onSurfaceVariant`. Pasarse de un máximo se pinta en `error`; no llegar a un mínimo no es un fallo.

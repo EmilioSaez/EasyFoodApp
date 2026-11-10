@@ -4,14 +4,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.domain.IntakeLimit
 import app.luxion.fitarchiveapp.domain.NutrientIntake
 import app.luxion.fitarchiveapp.ui.components.formatGrams
@@ -24,35 +26,44 @@ fun NutrientIntake.valueText(): String {
     return "${formatGrams(totalG)} g · $goal" + if (incomplete) " · incompleto" else ""
 }
 
-/** Desglose del día de fibra, sal, azúcares y saturadas con objetivos orientativos (docs/design.md §2.14). */
+/** Texto corto para la celda: «12 / 50 g», «12+ / 50 g» si faltan datos y «—» si ninguna entrada aporta el dato. */
+fun NutrientIntake.cellText(): String =
+    if (!hasData) "—" else "${formatGrams(totalG)}${if (incomplete) "+" else ""} / ${formatGrams(goalG)} g"
+
+/**
+ * Página «otros nutrientes» de la tarjeta de kcal (docs/design.md §2.19): fibra, sal, azúcares y saturadas con la misma
+ * estructura que los macros (nombre, «total / objetivo» y barra) para que ambas páginas midan lo mismo.
+ */
 @Composable
-fun IntakeCard(intake: List<NutrientIntake>, modifier: Modifier = Modifier) {
-    Card(
-        modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+internal fun IntakeLine(intake: List<NutrientIntake>, modifier: Modifier = Modifier) {
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.m)) {
+        intake.forEach { n -> IntakeCell(n, Modifier.weight(1f)) }
+    }
+}
+
+@Composable
+private fun IntakeCell(n: NutrientIntake, modifier: Modifier) {
+    val scheme = MaterialTheme.colorScheme
+    val color = if (n.exceeded) scheme.error else scheme.secondary
+    Column(
+        modifier.semantics(mergeDescendants = true) { contentDescription = "${n.label}: ${n.valueText()}" },
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Column(Modifier.padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
-            Text("OTROS NUTRIENTES", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            intake.forEach { n ->
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(n.label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                    Text(
-                        n.valueText(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = when {
-                            n.exceeded -> MaterialTheme.colorScheme.error
-                            n.incomplete || !n.hasData -> MaterialTheme.colorScheme.onSurfaceVariant
-                            else -> MaterialTheme.colorScheme.onSurface
-                        },
-                    )
-                }
-            }
-            Text(
-                "Objetivos orientativos (OMS), no consejo médico.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        Text(n.label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+        Text(
+            n.cellText(),
+            style = MaterialTheme.typography.labelMedium,
+            color = if (n.exceeded) scheme.error else scheme.onSurfaceVariant,
+            maxLines = 1,
+        )
+        LinearProgressIndicator(
+            progress = { if (n.hasData && n.goalG > 0) (n.totalG / n.goalG).toFloat().coerceIn(0f, 1f) else 0f },
+            modifier = Modifier.fillMaxWidth().height(4.dp),
+            color = color,
+            trackColor = scheme.surfaceContainerHighest,
+            strokeCap = StrokeCap.Round,
+            gapSize = 0.dp,
+            drawStopIndicator = {},
+        )
     }
 }

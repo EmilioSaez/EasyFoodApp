@@ -183,7 +183,7 @@ fun buildDiaryUiState(
             MacroProgress("Grasa", meals.sumOf { it.fatG }, goals.fatG?.toDouble()),
         ),
         meals = meals,
-        intake = if (entries.isEmpty()) emptyList() else IntakeGuidelines.intake(entries, goals.kcal),
+        intake = IntakeGuidelines.intake(entries, goals.kcal),
         loading = false,
     )
 }

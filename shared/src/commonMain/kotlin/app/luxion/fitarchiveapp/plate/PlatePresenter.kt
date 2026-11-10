@@ -108,10 +108,12 @@ class PlatePresenter(
                     discardPhoto()
                     _state.value = PlateState.NoFood(analysis.note)
                 } else {
-                    val items = analysis.items.mapIndexed { i, d -> link(i, d) }
-                    discardPhoto()
+                    val items = analysis.items.mapIndexed { i, d -> link(i, d).let { it.copy(question = questionFor(d, it)) } }
+                    val review = PlateReview(items)
+                    // La foto solo se conserva (en memoria) mientras quede alguna pregunta por responder.
+                    if (!review.hasQuestions) discardPhoto()
                     savedIds = mutableSetOf()
-                    _state.value = PlateState.Review(PlateReview(items), analysis.note)
+                    _state.value = PlateState.Review(review, analysis.note)
                 }
             }
         }
@@ -143,6 +145,16 @@ class PlatePresenter(
         )
     }
 
+    /**
+     * Pregunta al usuario si la IA lo pidió o si no está segura (confianza baja) o no hay coincidencia en la base:
+     * mejor preguntar que adivinar. Sin pregunta de la IA se usa [DEFAULT_QUESTION].
+     */
+    private fun questionFor(d: DetectedFood, item: PlateItem): PlateQuestion? {
+        val text = d.question
+            ?: if (d.confidence == PlateConfidence.LOW || item.source !is PlateSource.Linked) DEFAULT_QUESTION else return null
+        return PlateQuestion(text, d.options, askedGrams = d.grams)
+    }
+
     /** Descarta la foto de memoria (al enviarla, al confirmar, al salir). */
     fun discardPhoto() {
         jpeg?.fill(0)
@@ -160,8 +172,42 @@ class PlatePresenter(
     private fun edit(f: (PlateReview) -> PlateReview) {
         val s = _state.value as? PlateState.Review ?: return
         if (s.saving) return
-        _state.value = s.copy(review = f(s.review), error = null)
+        val review = f(s.review)
+        if (!review.hasQuestions) discardPhoto()
+        _state.value = s.copy(review = review, error = null)
     }
+
+    /**
+     * Responde a la pregunta de la IA sobre el alimento [id]: re-consulta la misma foto (en memoria) con la [answer]
+     * como dato, enlaza el resultado con la base y rellena nombre, gramos y macros. Si falla, la pregunta sigue
+     * abierta con el error y se puede reintentar, dejar como está o cambiar el alimento a mano.
+     */
+    suspend fun answer(id: Int, answer: String) {
+        val text = answer.trim().take(PlateAnalyzer.MAX_ANSWER)
+        if (text.isEmpty()) return
+        val s = _state.value as? PlateState.Review ?: return
+        val item = s.review.items.firstOrNull { it.id == id } ?: return
+        val q = item.question ?: return
+        if (s.saving || q.busy) return
+        fun fail(message: String) = edit { r -> r.updateQuestion(id) { it.copy(busy = false, error = message) } }
+        val photo = jpeg ?: return fail("La foto ya no está disponible. Usa «Cambiar» o una entrada rápida.")
+        service.blocker()?.let { return fail(it.message) }
+        edit { r -> r.updateQuestion(id) { it.copy(busy = true, error = null) } }
+        when (val r = analyzer.clarify(photo, item.name, item.grams, q.text, text)) {
+            is AiResult.Err -> fail(r.error.message)
+            is AiResult.Ok -> {
+                val linked = link(id, r.value)
+                // Mientras esperaba, el usuario pudo quitar el alimento, cambiarlo o dejar la duda: entonces no se pisa.
+                val current = (_state.value as? PlateState.Review)?.review?.items?.firstOrNull { it.id == id }
+                if (current?.question == null) return
+                val grams = if (current.grams == q.askedGrams) linked.grams else current.grams
+                edit { it.replace(id, linked.copy(grams = grams)) }
+            }
+        }
+    }
+
+    /** El usuario no quiere responder: el alimento se queda como estimado o se cambia a mano. */
+    fun dismissQuestion(id: Int) = edit { it.dismissQuestion(id) }
 
     fun setGrams(id: Int, grams: Double) = edit { it.setGrams(id, grams) }
     fun link(id: Int, pick: app.luxion.fitarchiveapp.ui.screens.FoodPick) = edit { it.link(id, pick) }
@@ -171,6 +217,10 @@ class PlatePresenter(
 
     /** Busca en la base para «Cambiar alimento» y «Añadir». */
     suspend fun search(text: String) = catalog.search(text)
+
+    companion object {
+        const val DEFAULT_QUESTION = "¿Qué es esto?"
+    }
 
     /**
      * Registra los alimentos en [meal] y [date] como entradas normales del diario (las no enlazadas, como entrada
@@ -186,6 +236,7 @@ class PlatePresenter(
                 diary.add(item.toEntry(date, meal), nowMillis())
                 savedIds += item.id
             }
+            discardPhoto()
             true
         } catch (e: CancellationException) {
             throw e

@@ -5,6 +5,7 @@ import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.model.Nutrients
 import app.luxion.fitarchiveapp.model.Quantity
 import app.luxion.fitarchiveapp.model.QuantityUnit
+import app.luxion.fitarchiveapp.ui.screens.cellText
 import app.luxion.fitarchiveapp.ui.screens.valueText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -57,6 +58,24 @@ class NutrientIntakeTest {
         val r = IntakeGuidelines.intake(listOf(entry(1, salty)), 2000)
         assertTrue(r.of("Sal").exceeded)
         assertFalse(r.of("Fibra").exceeded) // por debajo del mínimo no es «pasarse»
+    }
+
+    @Test
+    fun cellTextShowsTotalOverGoalAndDashWithoutData() {
+        val partial = Nutrients(100.0, 1.0, 1.0, 1.0, sugarsG = 12.0, fiberG = 5.0)
+        val r = IntakeGuidelines.intake(listOf(entry(1, partial), entry(2, Nutrients(100.0, 1.0, 1.0, 1.0, fiberG = 2.5))), 2000)
+        assertEquals("7,5 / 25 g", r.of("Fibra").cellText())
+        assertEquals("12+ / 50 g", r.of("Azúcares").cellText())
+        assertEquals("—", r.of("Sal").cellText())
+        assertEquals("—", r.of("Saturadas").cellText())
+    }
+
+    @Test
+    fun emptyDayGivesFourNutrientsWithoutData() {
+        val r = IntakeGuidelines.intake(emptyList(), null)
+        assertEquals(listOf("Fibra", "Sal", "Azúcares", "Saturadas"), r.map { it.label })
+        assertTrue(r.none { it.hasData || it.incomplete || it.exceeded })
+        assertTrue(r.all { it.cellText() == "—" })
     }
 
     @Test

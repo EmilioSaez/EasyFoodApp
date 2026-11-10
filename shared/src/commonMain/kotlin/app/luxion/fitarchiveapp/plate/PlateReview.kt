@@ -20,6 +20,19 @@ sealed interface PlateSource {
     data class Manual(val totals: Nutrients) : PlateSource
 }
 
+/**
+ * Duda de la IA sobre un alimento, pendiente de que el usuario responda (o la deje como está). [busy] mientras se
+ * re-consulta; [error] si esa consulta falló (se puede reintentar). [askedGrams] son los gramos del alimento al
+ * preguntar: si el usuario los ha cambiado, la respuesta de la IA no los pisa.
+ */
+data class PlateQuestion(
+    val text: String,
+    val options: List<String> = emptyList(),
+    val askedGrams: Double = 0.0,
+    val busy: Boolean = false,
+    val error: String? = null,
+)
+
 /** Un alimento de la pantalla de revisión; todo es editable (ver [PlateReview]). */
 data class PlateItem(
     val id: Int,
@@ -32,6 +45,8 @@ data class PlateItem(
     val looseMatch: Boolean = false,
     /** Otros alimentos de la base que encajan, para «Cambiar alimento». */
     val alternatives: List<FoodPick> = emptyList(),
+    /** La IA no sabe qué es: pregunta al usuario. `null` si no hay duda o ya se resolvió. */
+    val question: PlateQuestion? = null,
 ) {
     val isEstimated: Boolean get() = source is PlateSource.Estimated
 
@@ -78,6 +93,8 @@ data class PlateReview(val items: List<PlateItem>, private val nextId: Int = (it
 
     val estimatedCount: Int get() = items.count { it.isEstimated }
 
+    val hasQuestions: Boolean get() = items.any { it.question != null }
+
     fun setGrams(id: Int, grams: Double): PlateReview {
         require(grams > 0 && grams.isFinite()) { "La cantidad debe ser positiva" }
         return map(id) { it.copy(grams = grams) }
@@ -85,7 +102,17 @@ data class PlateReview(val items: List<PlateItem>, private val nextId: Int = (it
 
     /** Enlaza el alimento con [pick] (de la base): pasa a tener datos reales y se mantiene la cantidad. */
     fun link(id: Int, pick: FoodPick): PlateReview =
-        map(id) { it.copy(name = pick.result.name, source = PlateSource.Linked(pick), looseMatch = false) }
+        map(id) { it.copy(name = pick.result.name, source = PlateSource.Linked(pick), looseMatch = false, question = null) }
+
+    /** Deja de preguntar por el alimento: se queda como está (entrada manual o estimada). */
+    fun dismissQuestion(id: Int): PlateReview = map(id) { it.copy(question = null) }
+
+    /** Cambia el estado de la pregunta del alimento (ocupada, con error...); no hace nada si ya no hay pregunta. */
+    fun updateQuestion(id: Int, f: (PlateQuestion) -> PlateQuestion): PlateReview =
+        map(id) { item -> item.question?.let { item.copy(question = f(it)) } ?: item }
+
+    /** Sustituye el alimento por el ya identificado con la respuesta (sin pregunta). */
+    fun replace(id: Int, resolved: PlateItem): PlateReview = map(id) { resolved.copy(id = id, question = null) }
 
     fun remove(id: Int): PlateReview = copy(items = items.filterNot { it.id == id })
 

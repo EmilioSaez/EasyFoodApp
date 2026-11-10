@@ -26,7 +26,7 @@ compose.desktop {
             targetFormats(TargetFormat.Msi, TargetFormat.Dmg, TargetFormat.Deb)
             modules("java.sql")
             packageName = "EasyFood"
-            packageVersion = "1.0.0"
+            packageVersion = "1.1.0"
         }
     }
 }
