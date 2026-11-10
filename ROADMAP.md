@@ -137,3 +137,4 @@ Cada punto es un PR. Usa la clave de API de Anthropic de cada usuario (sin servi
 - [ ] Sugerencias y consejos a partir del resumen del día (kcal y macros frente a objetivos)
 - [ ] Foto del plato: estimar kcal y macros (modelo configurable, p. ej. `claude-sonnet-5-5`)
 - [ ] Comprobar en un iPhone el Keychain y la reducción de imágenes (ver `docs/ios-pendiente.md`)
+- [x] Copia de seguridad automática: copia del archivo de la base antes de migrar el esquema (se conservan las 3 últimas y se restaura si la migración falla) y copia semanal con la exportación JSON, con interruptor, «Copiar ahora» y restauración con vista previa en Datos; sin tabla nueva (`docs/copias-seguridad.md`)
