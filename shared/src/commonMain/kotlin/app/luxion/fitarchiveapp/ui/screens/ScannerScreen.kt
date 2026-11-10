@@ -108,7 +108,7 @@ fun ScannerScreen(navigator: Navigator, route: Route.Scanner, repository: Produc
             when (result) {
                 is ProductResult.Found -> {
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    navigator.replace(Route.ProductDetail(result.product.barcode, route.meal))
+                    navigator.replace(Route.ProductDetail(result.product.barcode, route.meal, date = route.date))
                 }
                 ProductResult.NotFound -> outcome = Outcome.NotFound(ean)
                 is ProductResult.Failure -> outcome = Outcome.Failed(ean, result.cause.message)
