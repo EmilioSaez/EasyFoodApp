@@ -210,7 +210,7 @@ fun WeightScreen(navigator: Navigator, weightStore: WeightStore, today: () -> St
         LazyColumn(
             Modifier.padding(padding),
             // Margen inferior para que el FAB no tape la última fila.
-            contentPadding = PaddingValues(start = Spacing.l, top = Spacing.l, end = Spacing.l, bottom = 96.dp),
+            contentPadding = PaddingValues(start = Spacing.screen, top = Spacing.l, end = Spacing.screen, bottom = Spacing.bottomInset),
             verticalArrangement = Arrangement.spacedBy(Spacing.m),
         ) {
             item("chart") {

@@ -1,10 +1,12 @@
 package app.luxion.fitarchiveapp.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -336,7 +338,7 @@ private fun QuickActions(
             colors = colors,
             contentPadding = pad,
         ) {
-            Text(label, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
+            Text(label, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
         }
     }
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
@@ -349,12 +351,12 @@ private fun QuickActions(
         }
         // Para comer fuera (kcal y macros sin crear un alimento) y foto del plato con IA (clave propia; la pantalla
         // explica qué falta si la IA no está lista). En la misma fila para no restar sitio a la lista de debajo.
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-            OutlinedButton(onClick = onQuick, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium) {
-                Text("Entrada rápida · solo kcal y macros", style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
+            OutlinedButton(onClick = onQuick, modifier = Modifier.weight(1f).fillMaxHeight(), shape = MaterialTheme.shapes.medium) {
+                Text("Entrada rápida · solo kcal y macros", style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
             }
-            OutlinedButton(onClick = onPlate, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium) {
-                Text("✦ Foto del plato · con IA", style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
+            OutlinedButton(onClick = onPlate, modifier = Modifier.weight(1f).fillMaxHeight(), shape = MaterialTheme.shapes.medium) {
+                Text("✦ Foto del plato · con IA", style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
             }
         }
     }
