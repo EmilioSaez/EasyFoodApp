@@ -48,6 +48,13 @@ Código en `shared/src/iosMain/.../ai/`. Se comprueba el tipado desde Windows y 
 - [ ] `downscaleToJpeg` (UIKit): foto de la cámara en vertical y horizontal sale derecha, con lado mayor de 1024 px y sin metadatos.
 - [ ] `IosAiPreferences` (`NSUserDefaults`): el modelo, el tope y el contador sobreviven a reiniciar la app.
 
+## Foto de la etiqueta (cámara)
+Código en `shared/src/iosMain/.../files/PhotoSource.ios.kt` (`UIImagePickerController` con la cámara; la foto llega como `UIImage` en memoria). Solo se ha comprobado el tipado en Windows; el simulador no tiene cámara. `chooseFile` no está implementado (devuelve «aún no está disponible en iOS»).
+- [ ] «Hacer foto» abre la cámara, aparece el diálogo de permiso (`NSCameraUsageDescription` ya menciona la etiqueta) y la foto vuelve a la pantalla sin pasar por la fototeca.
+- [ ] El delegado no se libera antes de tiempo (`UIImagePickerController.delegate` es débil; se conserva en `activeDelegate`): aceptar y cancelar funcionan, también dos veces seguidas.
+- [ ] La foto en vertical sale derecha en la miniatura y en lo que ve la IA.
+- [ ] Con el permiso denegado aparece el mensaje de la pantalla y «Rellenar a mano» sigue funcionando.
+
 ## Pantalla «Datos»: funciones no implementadas en iOS
 
 - **Guardar y abrir archivos JSON** (`files/DataFiles.ios.kt`): es un stub (`canSave`/`canOpen` = `false`, devuelve «aún no está disponible en iOS»). Falta `UIActivityViewController`/`UIDocumentPickerViewController`. Mientras tanto iOS transfiere por QR y red local.

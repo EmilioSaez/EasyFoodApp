@@ -21,7 +21,7 @@
 	<key>CFBundleVersion</key>
 	<string>1</string>
 	<key>NSCameraUsageDescription</key>
-	<string>EasyFood usa la cámara para leer el código de barras de los productos.</string>
+	<string>EasyFood usa la cámara para leer el código de barras de los productos y, si lo pides, para fotografiar una etiqueta nutricional.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>EasyFood lee tus pasos diarios de Salud para estimar tu gasto de actividad.</string>
 	<key>LSRequiresIPhoneOS</key>

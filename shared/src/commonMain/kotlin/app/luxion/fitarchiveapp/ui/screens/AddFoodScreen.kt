@@ -170,6 +170,7 @@ fun AddFoodScreen(
             modifier = Modifier.padding(padding),
             emptyPrimary = EmptyStateAction("Crear alimento propio") { navigator.push(Route.CustomFood(meal = route.meal)) },
             emptySecondary = EmptyStateAction("Escanear código") { navigator.push(Route.Scanner(route.meal)) },
+            emptyTertiary = EmptyStateAction("Fotografiar etiqueta") { navigator.push(Route.LabelPhoto(meal = route.meal)) },
             header = {
                 Column(Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s)) {
                     Text("Alimentos", style = MaterialTheme.typography.headlineLarge)

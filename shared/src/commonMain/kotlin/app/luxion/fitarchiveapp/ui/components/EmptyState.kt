@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -24,7 +25,7 @@ enum class EmptyStateTone { Neutral, Warning, Error }
 
 class EmptyStateAction(val label: String, val onClick: () -> Unit)
 
-/** Estado vacío / error reutilizable: icono en círculo de 72 dp, título, texto y hasta dos acciones. */
+/** Estado vacío / error reutilizable: icono en círculo de 72 dp, título, texto y hasta tres acciones. */
 @Composable
 fun EmptyState(
     icon: String,
@@ -34,6 +35,7 @@ fun EmptyState(
     tone: EmptyStateTone = EmptyStateTone.Neutral,
     primaryAction: EmptyStateAction? = null,
     secondaryAction: EmptyStateAction? = null,
+    tertiaryAction: EmptyStateAction? = null,
 ) {
     val colors = MaterialTheme.easyFoodColors
     val (container, content) = when (tone) {
@@ -59,5 +61,6 @@ fun EmptyState(
         )
         primaryAction?.let { Button(onClick = it.onClick) { Text(it.label) } }
         secondaryAction?.let { OutlinedButton(onClick = it.onClick) { Text(it.label) } }
+        tertiaryAction?.let { TextButton(onClick = it.onClick) { Text(it.label) } }
     }
 }

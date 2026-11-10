@@ -66,6 +66,7 @@ fun FoodSearch(
     modifier: Modifier = Modifier,
     emptyPrimary: EmptyStateAction? = null,
     emptySecondary: EmptyStateAction? = null,
+    emptyTertiary: EmptyStateAction? = null,
     /** Se pinta sobre el campo (título de la pestaña). */
     header: @Composable () -> Unit = {},
     quickActions: @Composable () -> Unit = {},
@@ -138,6 +139,7 @@ fun FoodSearch(
                             },
                             primaryAction = emptyPrimary,
                             secondaryAction = emptySecondary,
+                            tertiaryAction = emptyTertiary,
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }

@@ -151,7 +151,10 @@ fun ScannerScreen(navigator: Navigator, route: Route.Scanner, repository: Produc
                         primaryAction = EmptyStateAction("Crear con este código") {
                             navigator.replace(Route.CustomFood(current.ean, route.meal))
                         },
-                        secondaryAction = EmptyStateAction("Escanear otro") {
+                        secondaryAction = EmptyStateAction("Fotografiar etiqueta") {
+                            navigator.replace(Route.LabelPhoto(current.ean, route.meal))
+                        },
+                        tertiaryAction = EmptyStateAction("Escanear otro") {
                             outcome = null
                             input = ""
                             cameraError = null
