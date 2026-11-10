@@ -1072,6 +1072,7 @@ class AppFlowsTest {
 
         onNodeWithText("Menú del día").performScrollTo().performClick() // la fila queda bajo la barra inferior
         waitForText("Editar entrada rápida")
+        waitForText("Energía") // los campos aparecen al terminar de cargar la entrada
         onNodeWithText("Energía").performTextReplacement("1200")
         onNodeWithText("Guardar cambios").performClick()
         waitForText("1.200")
