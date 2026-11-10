@@ -11,6 +11,7 @@ App multiplataforma (Kotlin Multiplatform + Compose Multiplatform) para **contar
 - **Alimento propio**: crear, editar y borrar alimentos introducidos a mano.
 - **Objetivos y TDEE**: cálculo del gasto energético, ritmo y ajuste manual de kcal/macros.
 - **Agua diaria**: tarjeta en el Diario con «+ Vaso», «+ 500 ml», «+ 1 L» y deshacer, y progreso frente a un objetivo (2 L por defecto, editable en Objetivos).
+- **IA opcional** (pestaña «IA»): base técnica para funciones con Claude usando tu propia clave de API de Anthropic. La clave se guarda solo en el dispositivo, de forma protegida (Keystore, Keychain o DPAPI), y nunca entra en la base de datos, en exportar/importar ni en copias de seguridad. Sin clave la IA queda desactivada y el resto de la app no cambia. Ver [docs/ia.md](docs/ia.md).
 - **Sin cuentas ni servidor**: los datos viven en el dispositivo (offline-first, SQLDelight).
 
 ## Plataformas
@@ -33,7 +34,7 @@ Casi todo el código está en `shared`: una sola base de código para las tres p
 
 | Módulo | Contenido |
 |---|---|
-| `shared` | Modelo, dominio (TDEE), datos (Open Food Facts con Ktor, repositorios y stores SQLDelight), exportación/transferencia y toda la UI en Compose Multiplatform. Con código específico por plataforma (`androidMain`, `jvmMain`, `iosMain`) para escáner, ajustes, aleatoriedad segura y drivers de base de datos. |
+| `shared` | Modelo, dominio (TDEE), datos (Open Food Facts con Ktor, repositorios y stores SQLDelight), exportación/transferencia y toda la UI en Compose Multiplatform. Incluye el cliente de la API de Claude (`ai`). Con código específico por plataforma (`androidMain`, `jvmMain`, `iosMain`) para escáner, ajustes, aleatoriedad segura y drivers de base de datos. |
 | `desktopApp` | Aplicación de escritorio (JVM). Solo arranca `App` de `shared`. |
 | `androidApp` | Aplicación Android. |
 | `iosApp` | Proyecto Xcode que embebe el framework `Shared`. |
@@ -76,5 +77,6 @@ Para comprobar que compilan los targets de iOS sin Mac (solo klibs, no enlaza el
 
 - [docs/design.md](docs/design.md): especificación de diseño (tokens, pantallas, componentes y navegación).
 - [docs/generic-foods.md](docs/generic-foods.md): base genérica de alimentos, fuente, licencia y formato.
+- [docs/ia.md](docs/ia.md): IA con la clave del usuario (API de Claude, privacidad, límites y almacenamiento de la clave).
 - [docs/ios.md](docs/ios.md): app de iOS, cómo compilarla y problemas probables.
 - [ROADMAP.md](ROADMAP.md): fases y tareas pendientes.

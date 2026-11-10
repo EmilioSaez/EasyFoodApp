@@ -42,6 +42,12 @@ Implementación: `shared/src/iosMain/.../steps/StepsProvider.ios.kt` (`HKStatist
 - [ ] Los pasos de «hoy» y la media de 14 días coinciden con la app Salud (fecha según el calendario del dispositivo).
 - [ ] Revisar `getRequestStatusForAuthorizationToShareTypes` (interpretación de `ShouldRequest`/`Unnecessary`) y que `HKUnit.unitFromString("count")` devuelve la unidad esperada.
 
+## IA: clave en el Keychain y reducción de imágenes
+Código en `shared/src/iosMain/.../ai/`. Se comprueba el tipado desde Windows y en CI, pero no se ha ejecutado en iPhone.
+- [ ] `KeychainAiKeyVault`: guardar, leer y borrar la clave (`kSecClassGenericPassword`, `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`); comprobar que no pasa a copias de seguridad ni a otro dispositivo.
+- [ ] `downscaleToJpeg` (UIKit): foto de la cámara en vertical y horizontal sale derecha, con lado mayor de 1024 px y sin metadatos.
+- [ ] `IosAiPreferences` (`NSUserDefaults`): el modelo, el tope y el contador sobreviven a reiniciar la app.
+
 ## Pantalla «Datos»: funciones no implementadas en iOS
 
 - **Guardar y abrir archivos JSON** (`files/DataFiles.ios.kt`): es un stub (`canSave`/`canOpen` = `false`, devuelve «aún no está disponible en iOS»). Falta `UIActivityViewController`/`UIDocumentPickerViewController`. Mientras tanto iOS transfiere por QR y red local.

@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import app.luxion.fitarchiveapp.ai.AiModule
 import app.luxion.fitarchiveapp.data.CustomFoodStore
 import app.luxion.fitarchiveapp.data.FavoriteStore
 import app.luxion.fitarchiveapp.data.DiaryStore
@@ -38,6 +39,8 @@ import app.luxion.fitarchiveapp.ui.navigation.Navigator
 import app.luxion.fitarchiveapp.ui.navigation.PlatformBackHandler
 import app.luxion.fitarchiveapp.ui.navigation.Route
 import app.luxion.fitarchiveapp.ui.screens.AddFoodScreen
+import app.luxion.fitarchiveapp.ui.screens.AiScreen
+import app.luxion.fitarchiveapp.ui.screens.AiSettingsScreen
 import app.luxion.fitarchiveapp.ui.screens.CustomFoodScreen
 import app.luxion.fitarchiveapp.ui.screens.DataPresenter
 import app.luxion.fitarchiveapp.ui.screens.DataScreen
@@ -62,6 +65,7 @@ import kotlinx.coroutines.launch
  * [today] devuelve la fecha ISO (`YYYY-MM-DD`) del día actual.
  * [nowMinutes] devuelve la hora local actual en minutos desde medianoche (para preseleccionar la comida).
  * [genericSeeder], si se indica, carga la base genérica en segundo plano al arrancar y muestra su progreso.
+ * [ai] agrupa la clave y los ajustes de la IA (guardados fuera de la BD exportable); sin él, la IA queda sin clave.
  */
 @Composable
 fun App(
@@ -80,10 +84,12 @@ fun App(
     today: () -> String,
     nowMinutes: () -> Int,
     genericSeeder: GenericFoodSeeder? = null,
+    ai: AiModule? = null,
 ) {
     EasyFoodTheme {
         Surface(Modifier.fillMaxSize()) {
             val navigator = remember { Navigator() }
+            val aiModule = remember(ai) { ai ?: AiModule.inMemory(today) }
             val dataPresenter = remember(importTarget) {
                 DataPresenter(
                     exporter = DataExporter(importTarget) { kotlin.time.Clock.System.now().toEpochMilliseconds() },
@@ -128,6 +134,8 @@ fun App(
                                 TemplateEditScreen(navigator, route, templateStore, searchStore, customFoodStore)
                             }
                             Route.Data -> DataScreen(navigator, dataPresenter, today)
+                            Route.Ai -> AiScreen(navigator, aiModule)
+                            Route.AiSettings -> AiSettingsScreen(navigator, aiModule, today)
                         }
                     }
                 }

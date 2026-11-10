@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- La clave de API de la IA y sus ajustes nunca salen del dispositivo: ni copia en la nube ni transferencia a otro móvil. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="easyfood_ai_secure.xml" />
+        <exclude domain="sharedpref" path="easyfood_ai_prefs.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="easyfood_ai_secure.xml" />
+        <exclude domain="sharedpref" path="easyfood_ai_prefs.xml" />
+    </device-transfer>
+</data-extraction-rules>

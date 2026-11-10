@@ -6,6 +6,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.ComposeUIViewController
 import app.cash.sqldelight.driver.native.NativeSqliteDriver
+import app.luxion.fitarchiveapp.ai.AiModule
+import app.luxion.fitarchiveapp.ai.IosAiPreferences
+import app.luxion.fitarchiveapp.ai.KeychainAiKeyVault
 import app.luxion.fitarchiveapp.data.OpenFoodFactsClient
 import app.luxion.fitarchiveapp.data.ProductRepository
 import app.luxion.fitarchiveapp.data.SqlDelightCustomFoodStore
@@ -76,6 +79,7 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
                     nowMillis = { (NSDate().timeIntervalSince1970 * 1000).toLong() },
                 )
             },
+            ai = remember { AiModule.create(KeychainAiKeyVault(), IosAiPreferences(), today = ::todayIso) },
         )
     }
 }

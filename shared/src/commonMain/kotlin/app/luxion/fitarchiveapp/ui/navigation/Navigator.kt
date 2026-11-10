@@ -63,6 +63,12 @@ sealed interface Route {
 
     /** Datos: exportar, importar y transferir por QR o red local. */
     data object Data : Route
+
+    /** Pestaña «IA» (placeholder hasta las funciones de los PRs siguientes). */
+    data object Ai : Route
+
+    /** Ajustes de IA: clave, modelo, tope diario, prueba de conexión y uso. */
+    data object AiSettings : Route
 }
 
 /** Pestañas de la barra inferior. */
@@ -72,6 +78,7 @@ enum class TopLevelTab(val label: String, val icon: String, val route: Route) {
     Recipes("Recetas", "≣", Route.Recipes),
     Weight("Mi peso", "↗", Route.Weight),
     Goals("Objetivos", "◎", Route.Goals),
+    Ai("IA", "✦", Route.Ai),
 }
 
 /**
