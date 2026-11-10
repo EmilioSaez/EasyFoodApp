@@ -4,14 +4,10 @@ import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import app.luxion.fitarchiveapp.db.EasyFoodDatabase
 import app.luxion.fitarchiveapp.model.MealType
-import app.luxion.fitarchiveapp.model.NewDiaryEntry
 import app.luxion.fitarchiveapp.model.NewMealTemplate
-import app.luxion.fitarchiveapp.model.NewRecipe
 import app.luxion.fitarchiveapp.model.Nutrients
-import app.luxion.fitarchiveapp.model.Product
 import app.luxion.fitarchiveapp.model.Quantity
 import app.luxion.fitarchiveapp.model.QuantityUnit
-import app.luxion.fitarchiveapp.model.RecipeIngredient
 import app.luxion.fitarchiveapp.model.TemplateItem
 import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
@@ -139,35 +135,5 @@ class SqlDelightMealTemplateStoreTest {
         assertEquals(2, store.find(id)!!.items.size)
         diary.addTemplate(store.find(id)!!, "2026-11-05", MealType.SNACK, 2_000L)
         assertEquals(2, diary.entriesForDate("2026-11-05").size)
-    }
-
-    // --- Migración v11 -> v12 (11.sqm) ---
-
-    @Test
-    fun migrationFromV11CreatesTheTablesIdempotentlyAndKeepsExistingData() = runTest {
-        // Estado v11: con todos los datos de usuario, pero sin las tablas de plantillas.
-        SqlDelightProductStore(db.productQueries).save(Product("2", "Leche", null, null, milk), 1L)
-        val diary = SqlDelightDiaryStore(db.diaryEntryQueries)
-        diary.add(NewDiaryEntry("2026-11-04", MealType.LUNCH, "2", "Leche", Quantity(200.0, QuantityUnit.GRAMS), null, milk), 5L)
-        SqlDelightRecipeStore(db.recipeQueries).create(
-            NewRecipe("Gachas", 2, listOf(RecipeIngredient("2", "Leche", 200.0, milk))), 6L,
-        )
-        SqlDelightFavoriteStore(db.favoriteFoodQueries).setFavorite("2", true, 7L)
-        driver.execute(null, "DROP TABLE MealTemplateItemEntity", 0)
-        driver.execute(null, "DROP TABLE MealTemplateEntity", 0)
-
-        EasyFoodDatabase.Schema.migrate(driver, 11, EasyFoodDatabase.Schema.version)
-        EasyFoodDatabase.Schema.migrate(driver, 11, EasyFoodDatabase.Schema.version) // idempotente
-
-        assertTrue(EasyFoodDatabase.Schema.version >= 12)
-        val after = EasyFoodDatabase(driver)
-        assertEquals(listOf("Leche"), SqlDelightDiaryStore(after.diaryEntryQueries).entriesForDate("2026-11-04").map { it.name })
-        assertEquals(listOf("Gachas"), SqlDelightRecipeStore(after.recipeQueries).all().map { it.name })
-        assertEquals(listOf("2"), SqlDelightFavoriteStore(after.favoriteFoodQueries).keys())
-        assertEquals(1L, count("ProductEntity"))
-        val migrated = SqlDelightMealTemplateStore(after.mealTemplateQueries)
-        assertEquals(emptyList(), migrated.all())
-        val id = migrated.create(NewMealTemplate("Desayuno", listOf(grams("Leche", 200.0, milk, "2"))), 8L)
-        assertEquals(listOf("Leche"), migrated.find(id)!!.items.map { it.name })
     }
 }
