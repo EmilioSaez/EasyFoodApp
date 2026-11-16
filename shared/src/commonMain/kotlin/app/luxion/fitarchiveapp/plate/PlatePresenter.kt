@@ -92,7 +92,7 @@ class PlatePresenter(
     /** Describe la comida con [text] («2 huevos y una tostada con aceite»): una llamada a la IA sin foto, y luego la misma revisión. */
     suspend fun analyzeText(text: String) {
         val clean = text.trim()
-        if (clean.isEmpty()) return
+        if (clean.isEmpty() || _state.value is PlateState.Analyzing) return // un segundo toque no vuelve a llamar a la IA
         service.blocker()?.let {
             _state.value = PlateState.Blocked(it)
             return
@@ -131,6 +131,7 @@ class PlatePresenter(
 
     /** Envía la foto con las [notes] opcionales («con 200 g de arroz», un objeto de referencia...). */
     suspend fun analyze(notes: String) {
+        if (_state.value is PlateState.Analyzing) return
         val photo = jpeg ?: run {
             _state.value = PlateState.Capture
             return
@@ -266,8 +267,9 @@ class PlatePresenter(
 
     fun setGrams(id: Int, grams: Double) = edit { it.setGrams(id, grams) }
     fun link(id: Int, pick: app.luxion.fitarchiveapp.ui.screens.FoodPick) {
-        // El usuario corrige el enlace de la IA: se recuerda para la próxima vez que salga ese término.
-        (_state.value as? PlateState.Review)?.review?.items?.firstOrNull { it.id == id }?.searchTerm?.let { aliases?.remember(it, pick) }
+        // El usuario corrige el enlace de la IA: se recuerda para la próxima vez que salga ese término (no mientras se guarda: ahí no se edita).
+        val s = _state.value as? PlateState.Review
+        if (s != null && !s.saving) s.review.items.firstOrNull { it.id == id }?.searchTerm?.let { aliases?.remember(it, pick) }
         edit { it.link(id, pick) }
     }
     fun remove(id: Int) = edit { it.remove(id) }

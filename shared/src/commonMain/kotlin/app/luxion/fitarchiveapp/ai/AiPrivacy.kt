@@ -18,8 +18,10 @@ object AiPrivacy {
         "Tu clave de API: solo viaja a Anthropic, en la cabecera de la petición.",
     )
 
-    /** Id del aviso propio de «¿Qué como?», «¿Cómo voy?» y la pregunta libre (se acepta una vez; ver [AiSettingsStore.hasAck]). */
-    /** «advice2»: el aviso se amplió (alimentos de hoy y de la semana), así que se vuelve a pedir aceptarlo. */
+    /**
+     * Id del aviso propio de «¿Qué como?», «¿Cómo voy?», el menú y la pregunta libre (se acepta una vez; ver
+     * [AiSettingsStore.hasAck]). «advice2»: el aviso se amplió (alimentos de hoy y de la semana), así que se vuelve a pedir aceptarlo.
+     */
     const val ADVICE_ACK = "advice2"
 
     const val ADVICE_NOTICE =

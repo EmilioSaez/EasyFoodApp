@@ -82,7 +82,7 @@ data class AiWeekSummary(
             avgSugarsG?.let { "azúcares ${it.oneDecimal()} g" },
         )
         if (extras.isNotEmpty()) append(" Media diaria de " + extras.joinToString(", ") + " (solo días con dato).")
-        if (topFoods.isNotEmpty()) append(" Lo que más ha comido esta semana: " + topFoods.joinToString("; ") { AiText.clean(it, AiText.MAX_NAME) } + ".")
+        if (topFoods.isNotEmpty()) append(" Lo que más ha comido esta semana: <usuario>" + topFoods.joinToString("; ") { AiText.clean(it, AiText.MAX_NAME) } + "</usuario>.")
     }
 }
 
@@ -123,7 +123,7 @@ data class AiAdviceContext(
     /** Qué se ha comido hoy, para poder dar consejos concretos («te falta proteína: otro yogur encajaría»). */
     fun foodsText(): String =
         if (todayFoods.isEmpty()) "Hoy no hay nada apuntado todavía."
-        else "Apuntado hoy: " + todayFoods.joinToString("; ") { AiText.clean(it, AiText.MAX_NAME + 20) } + "."
+        else "Apuntado hoy: <usuario>" + todayFoods.joinToString("; ") { AiText.clean(it, AiText.MAX_NAME + 20) } + "</usuario>."
 
     fun mealText(): String = buildString {
         append("Comida actual: ${mealName(currentMeal)}.")
@@ -197,6 +197,12 @@ object AiText {
     fun clean(raw: String, max: Int): String =
         raw.map { if (it.isISOControl() || it == '<' || it == '>') ' ' else it }.joinToString("")
             .trim().replace(Regex("\\s+"), " ").take(max).trim()
+
+    /**
+     * Como [clean], pero para texto del usuario que se incrusta entre comillas angulares «…»: también quita «» para que
+     * el texto no pueda cerrar la cita y pasar por instrucción.
+     */
+    fun quoted(raw: String, max: Int): String = clean(raw.replace('«', ' ').replace('»', ' '), max)
 }
 
 /** Prompts y esquemas. */

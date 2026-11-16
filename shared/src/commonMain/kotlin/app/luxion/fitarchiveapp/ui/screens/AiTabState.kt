@@ -98,6 +98,8 @@ class AiTabState(
     var addError by mutableStateOf<String?>(null)
         private set
 
+    private val adding = mutableSetOf<Int>()
+
     /** Opciones de [suggestions] que se enlazaron con la base (índice → enlace). */
     var links by mutableStateOf<Map<Int, SuggestionLink>>(emptyMap())
         private set
@@ -142,7 +144,7 @@ class AiTabState(
 
     /** «¿Qué como?»: 3-5 opciones para lo que queda del día. [preferences] es texto libre opcional. */
     suspend fun suggest(preferences: String) {
-        if (busy || !canCall()) return
+        if (!begin()) return
         suggestions = AiLoad.Loading
         added = emptyMap()
         links = emptyMap()
@@ -160,7 +162,7 @@ class AiTabState(
 
     /** «¿Cómo voy?» para el día o la semana. */
     suspend fun review(period: AiReviewPeriod) {
-        if (busy || !canCall()) return
+        if (!begin()) return
         reviewPeriod = period
         review = AiLoad.Loading
         review = when (val r = call(withWeek = period == AiReviewPeriod.WEEK, withFoods = true) { ctx -> advisor.review(ctx, period) }) {
@@ -174,7 +176,7 @@ class AiTabState(
     /** Pregunta libre. Viajan solo los últimos mensajes; la conversación se recorta al mismo tamaño. */
     suspend fun ask(question: String) {
         val q = question.trim().take(AiAdviceLimits.MAX_QUESTION)
-        if (q.isEmpty() || busy || !canCall()) return
+        if (q.isEmpty() || !begin()) return
         chatStatus = AiLoad.Loading
         val history = chat
         when (val r = call(withFoods = true) { ctx -> advisor.ask(ctx, q, history) }) {
@@ -190,7 +192,7 @@ class AiTabState(
 
     /** Menú de [days] días y lista de la compra. [preferences] es texto libre opcional. */
     suspend fun planMeals(days: Int, preferences: String) {
-        if (busy || !canCall()) return
+        if (!begin()) return
         planDays = days.coerceIn(1, AiAdviceLimits.MAX_PLAN_DAYS)
         plan = AiLoad.Loading
         bought = emptySet()
@@ -242,7 +244,7 @@ class AiTabState(
     /** Apunta la opción como entrada rápida en la comida actual (se puede deshacer o ajustar después). */
     suspend fun addToDiary(index: Int) {
         val option = (suggestions as? AiLoad.Done)?.value?.getOrNull(index) ?: return
-        if (index in added) return
+        if (index in added || !adding.add(index)) return // un segundo toque mientras se guarda no apunta otra vez
         val meal = defaultMeal()
         addError = null
         try {
@@ -256,11 +258,15 @@ class AiTabState(
                 carbsG = option.carbsG.rounded(),
                 fatG = option.fatG.rounded(),
             )
-            added = added + (index to AddedSuggestion(diary.add(entry, nowMillis()), meal))
+            val id = diary.add(entry, nowMillis())
+            // Si mientras tanto llegaron otras opciones, el índice ya no es esta: la entrada queda en el diario, sin «Deshacer» aquí.
+            if ((suggestions as? AiLoad.Done)?.value?.getOrNull(index) === option) added = added + (index to AddedSuggestion(id, meal))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             addError = "No se pudo añadir al diario. Inténtalo de nuevo."
+        } finally {
+            adding.remove(index)
         }
     }
 
@@ -274,6 +280,24 @@ class AiTabState(
         } catch (e: Exception) {
             addError = "No se pudo deshacer. Bórralo desde el Diario."
         }
+    }
+
+    /** Hay una comprobación previa (`canCall`) en curso: sin esto, dos toques seguidos pasarían ambos `busy` y harían dos llamadas. */
+    private var starting = false
+
+    /**
+     * Pasa a hacer una llamada solo si no hay otra en marcha ni arrancando y [canCall] da el visto bueno. Tras él (sin
+     * pausas entre medias) el llamador pone su estado en `Loading`.
+     */
+    private suspend fun begin(): Boolean {
+        if (busy || starting) return false
+        starting = true
+        val ok = try {
+            canCall()
+        } finally {
+            starting = false
+        }
+        return ok && !busy
     }
 
     /** Comprueba tope y avisos antes de llamar; si algo falla deja el motivo en el estado de la tarjeta que lo pidió. */

@@ -83,6 +83,8 @@ fun PlatePhotoScreen(
     // La foto solo vive en memoria: se descarta al salir de la pantalla.
     DisposableEffect(presenter) { onDispose { presenter.discardPhoto() } }
     val state by presenter.state.collectAsState()
+    // `textMode` no es observable: se lee tras `state` (que sí lo es) para que la barra superior y los textos se actualicen al cambiar de modo.
+    val textMode = state.let { presenter.textMode }
     var notes by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var meal by remember { mutableStateOf(route.meal ?: mealChoices.defaultMeal()) }
@@ -92,7 +94,7 @@ fun PlatePhotoScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(if (presenter.textMode) "Apuntar por texto" else "Foto del plato") },
+                title = { Text(if (textMode) "Apuntar por texto" else "Foto del plato") },
                 navigationIcon = {
                     IconButton(
                         onClick = { navigator.pop() },
@@ -154,24 +156,24 @@ fun PlatePhotoScreen(
                     verticalArrangement = Arrangement.spacedBy(Spacing.m),
                 ) {
                     CircularProgressIndicator()
-                    Text(if (presenter.textMode) "Leyendo lo que has comido…" else "Mirando tu plato…", style = MaterialTheme.typography.titleMedium)
+                    Text(if (textMode) "Leyendo lo que has comido…" else "Mirando tu plato…", style = MaterialTheme.typography.titleMedium)
                 }
                 is PlateState.NoFood -> EmptyState(
                     icon = "?",
-                    title = if (presenter.textMode) "No veo comida en el texto" else "No veo comida en la foto",
-                    message = s.note ?: if (presenter.textMode) "Descríbela con alimentos y, si puedes, cantidades («200 g de arroz y un huevo»)." else "Prueba con otra foto con el plato bien visible y buena luz.",
-                    primaryAction = if (presenter.textMode) EmptyStateAction("Cambiar el texto") { presenter.editText() } else EmptyStateAction("Otra foto") { presenter.retake() },
+                    title = if (textMode) "No veo comida en el texto" else "No veo comida en la foto",
+                    message = s.note ?: if (textMode) "Descríbela con alimentos y, si puedes, cantidades («200 g de arroz y un huevo»)." else "Prueba con otra foto con el plato bien visible y buena luz.",
+                    primaryAction = if (textMode) EmptyStateAction("Cambiar el texto") { presenter.editText() } else EmptyStateAction("Otra foto") { presenter.retake() },
                     modifier = Modifier.align(Alignment.Center),
                 )
                 is PlateState.Failed -> EmptyState(
                     icon = "!",
-                    title = if (presenter.textMode) "No se pudo leer la descripción" else "No se pudo analizar el plato",
+                    title = if (textMode) "No se pudo leer la descripción" else "No se pudo analizar el plato",
                     message = s.message,
                     tone = EmptyStateTone.Error,
                     primaryAction = if (s.retryable) EmptyStateAction("Reintentar") {
-                        scope.launch { if (presenter.textMode) presenter.analyzeText(presenter.lastDescription) else presenter.analyze(notes) }
+                        scope.launch { if (textMode) presenter.analyzeText(presenter.lastDescription) else presenter.analyze(notes) }
                     } else null,
-                    secondaryAction = if (presenter.textMode) EmptyStateAction("Cambiar el texto") { presenter.editText() } else EmptyStateAction("Otra foto") { presenter.retake() },
+                    secondaryAction = if (textMode) EmptyStateAction("Cambiar el texto") { presenter.editText() } else EmptyStateAction("Otra foto") { presenter.retake() },
                     modifier = Modifier.align(Alignment.Center),
                 )
                 is PlateState.Review -> PlateReviewContent(

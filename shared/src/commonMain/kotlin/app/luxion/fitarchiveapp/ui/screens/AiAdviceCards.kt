@@ -1,5 +1,6 @@
 package app.luxion.fitarchiveapp.ui.screens
 
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,6 +26,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.ai.AiAdviceLimits
@@ -248,8 +250,16 @@ fun AiPlanCard(state: AiTabState) {
                 if (p.value.shopping.isNotEmpty()) {
                     Text("Lista de la compra", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
                     p.value.shopping.forEachIndexed { i, item ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = i in state.bought, onCheckedChange = { state.toggleBought(i) })
+                        // Toda la fila marca el artículo (zona táctil de 48 dp) y un lector de pantalla la anuncia como una casilla con su texto.
+                        Row(
+                            Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(
+                                value = i in state.bought,
+                                role = Role.Checkbox,
+                                onValueChange = { state.toggleBought(i) },
+                            ),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Checkbox(checked = i in state.bought, onCheckedChange = null)
                             Text(
                                 item.text,
                                 style = MaterialTheme.typography.bodyMedium,

@@ -58,7 +58,7 @@ class FoodCatalog(
 
     /** Alimento que el usuario eligió antes para [term] (ver [FoodAliasStore]); `null` si no hay o ya no está en la base. */
     suspend fun resolveAlias(alias: FoodAlias): FoodPick? =
-        search(alias.name, ALTERNATIVES).firstOrNull { it.barcode == alias.barcode && it.result.name == alias.name }
+        search(alias.name, ALIAS_LOOKUP).firstOrNull { it.barcode == alias.barcode && it.result.name == alias.name }
 
     private fun rank(p: FoodPick): Int = when (p.result.source) {
         DataSource.Custom -> 0
@@ -69,5 +69,8 @@ class FoodCatalog(
     companion object {
         const val SEARCH_LIMIT = 20
         const val ALTERNATIVES = 6
+
+        /** Margen al buscar un alimento recordado por su nombre: con pocos resultados, un nombre muy repetido («Leche…») no lo encontraría. */
+        const val ALIAS_LOOKUP = 100
     }
 }

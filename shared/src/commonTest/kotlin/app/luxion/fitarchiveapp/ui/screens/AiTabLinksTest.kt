@@ -116,7 +116,7 @@ class AiTabLinksTest {
         h.refresh()
         h.state.ask("¿Qué me falta?")
         val chat = h.requests.last()
-        assertTrue("Apuntado hoy: Yogur natural · 125 g · 94 kcal; Tostada con aceite · 60 g · 108 kcal." in chat)
+        assertTrue("Apuntado hoy: <usuario>Yogur natural · 125 g · 94 kcal; Tostada con aceite · 60 g · 108 kcal</usuario>." in chat)
 
         h.reply("""{"summary":"Bien","points":[]}""")
         h.state.review(AiReviewPeriod.DAY)
@@ -152,7 +152,7 @@ class AiTabLinksTest {
         h.refresh()
         h.state.review(AiReviewPeriod.WEEK)
         val req = h.requests.last()
-        assertTrue("Lo que más ha comido esta semana: Avena; Plátano." in req)
+        assertTrue("Lo que más ha comido esta semana: <usuario>Avena; Plátano</usuario>." in req)
         assertFalse("Gasto rápido; " in req && "esta semana: Gasto" in req) // las entradas rápidas no cuentan
     }
 
