@@ -78,6 +78,8 @@ data class DiaryUiState(
     val streak: Int = 0,
     /** Objetivo de kcal del día. */
     val goalKcal: Int? = null,
+    /** Kcal de cada día con registro del historial (hasta el fin de la semana mostrada o hoy): el calendario mensual lo usa. */
+    val summaries: Map<String, DaySummary> = emptyMap(),
     val consumedKcal: Double = 0.0,
     val macros: List<MacroProgress> = emptyList(),
     val meals: List<MealUi> = emptyList(),
@@ -154,6 +156,7 @@ fun buildDiaryUiState(
         week = buildWeek(date, today, goals.kcal, byDate),
         streak = DayStatus.streak(today, goals.kcal, byDate),
         goalKcal = goals.kcal,
+        summaries = byDate,
         consumedKcal = meals.sumOf { it.kcal },
         macros = listOf(
             MacroProgress("Proteína", meals.sumOf { it.proteinG }, goals.proteinG?.toDouble()),
@@ -435,6 +438,9 @@ object IsoDate {
         return weekdayNames[(day + 3).mod(7L).toInt()] + " " + long(date).substringBeforeLast(" de ")
     }
 
+    /** Posición del día en la semana: 0 = lunes … 6 = domingo. */
+    fun weekdayIndex(date: String): Int = ((isoDateToEpochDay(date) ?: 0L) + 3).mod(7L).toInt()
+
     /** Lunes de la semana de [date]. */
     fun weekStart(date: String): String {
         val day = isoDateToEpochDay(date) ?: return date
@@ -454,6 +460,22 @@ object IsoDate {
         }
         return "${y.toString().padStart(4, '0')}-${m.toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}"
     }
+
+    /** Primer día del mes de [date]. */
+    fun monthStart(date: String): String = date.substring(0, 8) + "01"
+
+    /** Primer día del mes que queda [months] meses después (o antes, si es negativo) del de [date]. */
+    fun shiftMonth(date: String, months: Int): String {
+        val (y, m, _) = parse(date)
+        val index = y * 12 + (m - 1) + months
+        return "${(index / 12).toString().padStart(4, '0')}-${(index % 12 + 1).toString().padStart(2, '0')}-01"
+    }
+
+    /** Días del mes de [date]. */
+    fun daysInMonth(date: String): Int = parse(date).let { (y, m, _) -> daysInMonth(y, m) }
+
+    /** «noviembre de 2026». */
+    fun monthTitle(date: String): String = parse(date).let { (y, m, _) -> "${monthNames[m - 1]} de $y" }
 
     /** «4 de noviembre de 2026». */
     fun long(date: String): String {

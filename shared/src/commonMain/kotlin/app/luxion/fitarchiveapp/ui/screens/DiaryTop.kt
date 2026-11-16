@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -18,16 +19,13 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -48,6 +46,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -55,14 +54,13 @@ import androidx.compose.ui.unit.sp
 import app.luxion.fitarchiveapp.domain.DayStatus
 import app.luxion.fitarchiveapp.model.epochDayToIsoDate
 import app.luxion.fitarchiveapp.model.isoDateToEpochDay
+import app.luxion.fitarchiveapp.domain.DaySummary
 import app.luxion.fitarchiveapp.ui.components.StreakIcon
 import app.luxion.fitarchiveapp.ui.components.formatKcal
 import app.luxion.fitarchiveapp.ui.theme.PillShape
 import app.luxion.fitarchiveapp.ui.theme.Spacing
 import app.luxion.fitarchiveapp.ui.theme.easyFoodColors
 import kotlin.math.abs
-
-private const val MILLIS_PER_DAY = 86_400_000L
 
 /**
  * Cabecera del Diario (docs/design.md §2.12 y §2.26): «Hoy ▾» (abre el selector de fecha) con el día de la semana debajo,
@@ -365,20 +363,92 @@ private fun MarginBar(consumedKcal: Double, goalKcal: Int) {
     }
 }
 
-/** Selector de fecha del Diario (el «Hoy ▾»). [onPick] recibe la fecha ISO elegida. */
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Selector de fecha (el «Hoy ▾» del Diario): calendario mensual con navegación entre meses. Con [summaries] cada día
+ * muestra bajo el número el [StreakIcon] (activo si ese día se cumplió el objetivo ±[DayStatus.MARGIN]); sin ellos
+ * (p. ej. al elegir el destino de una copia) solo se elige fecha. Tocar un día llama a [onPick] con la fecha ISO.
+ */
 @Composable
-fun DiaryDatePicker(date: String, onPick: (String) -> Unit, onDismiss: () -> Unit) {
-    val initial = isoDateToEpochDay(date)?.times(MILLIS_PER_DAY)
-    val pickerState = rememberDatePickerState(initialSelectedDateMillis = initial)
-    DatePickerDialog(
+fun DiaryDatePicker(
+    date: String,
+    onPick: (String) -> Unit,
+    onDismiss: () -> Unit,
+    today: String = date,
+    goalKcal: Int? = null,
+    summaries: Map<String, DaySummary>? = null,
+) {
+    var month by remember(date) { mutableStateOf(IsoDate.monthStart(date)) }
+    val ui = buildMonth(month, date, today, goalKcal, summaries ?: emptyMap())
+    AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(
-                onClick = { pickerState.selectedDateMillis?.let { onPick(epochDayToIsoDate(it.floorDiv(MILLIS_PER_DAY))) } },
-                enabled = pickerState.selectedDateMillis != null,
-            ) { Text("Aceptar") }
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { month = IsoDate.shiftMonth(month, -1) }, modifier = Modifier.semantics { contentDescription = "Mes anterior" }) {
+                    Text("‹", style = MaterialTheme.typography.titleLarge)
+                }
+                Text(
+                    ui.title.replaceFirstChar { it.uppercase() },
+                    style = MaterialTheme.typography.titleMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = { month = IsoDate.shiftMonth(month, 1) }, modifier = Modifier.semantics { contentDescription = "Mes siguiente" }) {
+                    Text("›", style = MaterialTheme.typography.titleLarge)
+                }
+            }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
-    ) { DatePicker(pickerState) }
+        text = {
+            Column {
+                Row(Modifier.fillMaxWidth()) {
+                    listOf("L", "M", "X", "J", "V", "S", "D").forEach {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+                val cells: List<MonthDayUi?> = List(ui.leadingBlanks) { null } + ui.days
+                cells.chunked(7).forEach { row ->
+                    Row(Modifier.fillMaxWidth()) {
+                        row.forEach { day -> MonthCell(day, showStreak = summaries != null, onPick = onPick, Modifier.weight(1f)) }
+                        repeat(7 - row.size) { Spacer(Modifier.weight(1f)) }
+                    }
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun MonthCell(day: MonthDayUi?, showStreak: Boolean, onPick: (String) -> Unit, modifier: Modifier) {
+    if (day == null) return Spacer(modifier)
+    val scheme = MaterialTheme.colorScheme
+    val textColor = when {
+        day.selected -> scheme.surface
+        day.status == DayStatus.TODAY_PENDING -> scheme.primary
+        day.status == DayStatus.FUTURE -> scheme.onSurfaceVariant
+        else -> scheme.onSurface
+    }
+    Column(
+        modifier
+            .clickable(role = Role.Button, onClick = { onPick(day.date) })
+            .semantics(mergeDescendants = true) {
+                contentDescription = IsoDate.long(day.date) + if (showStreak) ", " + (if (day.streak) "racha cumplida" else "sin racha") else ""
+                selected = day.selected
+            }
+            .padding(vertical = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            Modifier.size(32.dp)
+                .background(if (day.selected) scheme.onSurface else Color.Transparent, CircleShape)
+                .then(if (day.status == DayStatus.TODAY_PENDING && !day.selected) Modifier.border(1.5.dp, scheme.primary, CircleShape) else Modifier),
+            contentAlignment = Alignment.Center,
+        ) { Text(day.dayNumber.toString(), style = MaterialTheme.typography.bodyMedium, color = textColor) }
+        if (showStreak) StreakIcon(active = day.streak, size = 14.dp) else Spacer(Modifier.height(14.dp))
+    }
 }
