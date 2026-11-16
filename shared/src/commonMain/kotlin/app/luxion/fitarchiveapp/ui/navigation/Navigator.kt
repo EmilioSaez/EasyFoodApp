@@ -90,8 +90,8 @@ sealed interface Route {
     /** Pestaña «IA» (placeholder hasta las funciones de los PRs siguientes). */
     data object Ai : Route
 
-    /** Foto del plato: la IA detecta los alimentos y se registran, tras revisarlos, en [meal] y [date] (`null` = la actual / hoy). */
-    data class PlatePhoto(val meal: MealType? = null, val date: String? = null) : Route
+    /** Foto del plato: la IA detecta los alimentos y se registran, tras revisarlos, en [meal] y [date] (`null` = la actual / hoy). Con [text] se describe la comida escribiéndola, sin foto («Apuntar por texto»). */
+    data class PlatePhoto(val meal: MealType? = null, val date: String? = null, val text: Boolean = false) : Route
 
     /** Ajustes de IA: clave, modelo, tope diario, prueba de conexión y uso. */
     data object AiSettings : Route

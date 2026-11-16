@@ -10,6 +10,7 @@ import app.luxion.fitarchiveapp.ai.AiAdvisor
 import app.luxion.fitarchiveapp.ai.AiAdviceSource
 import app.luxion.fitarchiveapp.ai.AiChatTurn
 import app.luxion.fitarchiveapp.ai.AiError
+import app.luxion.fitarchiveapp.ai.AiMealPlan
 import app.luxion.fitarchiveapp.ai.AiModule
 import app.luxion.fitarchiveapp.ai.AiPrivacy
 import app.luxion.fitarchiveapp.ai.AiResult
@@ -19,6 +20,9 @@ import app.luxion.fitarchiveapp.ai.MealSuggestion
 import app.luxion.fitarchiveapp.data.DiaryStore
 import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.model.QuickEntry
+import app.luxion.fitarchiveapp.plate.FoodCatalog
+import app.luxion.fitarchiveapp.plate.PlateItem
+import app.luxion.fitarchiveapp.plate.PlateSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -36,6 +40,27 @@ sealed interface AiLoad<out T> {
 
 private fun AiError.toFailed() = AiLoad.Failed(message, retryable, refusal = this is AiError.Refusal, limit = this is AiError.LimitReached)
 
+/**
+ * Opción de «¿Qué como?» enlazada con la base de alimentos (la del usuario, la genérica o un producto consultado): sus
+ * kcal y macros salen de [pick] × [grams] y no de la estimación de la IA.
+ */
+data class SuggestionLink(val pick: FoodPick, val grams: Double) {
+    private val item get() = PlateItem(0, pick.result.name, grams, PlateSource.Linked(pick))
+    val kcal: Double get() = item.totals.kcal ?: 0.0
+    val proteinG: Double get() = item.totals.proteinG ?: 0.0
+    val carbsG: Double get() = item.totals.carbsG ?: 0.0
+    val fatG: Double get() = item.totals.fatG ?: 0.0
+
+    /** De dónde sale el dato, para mostrarlo («De tu base · Genérico»). */
+    val origin: String get() = "De tu base · " + when (pick.result.source) {
+        app.luxion.fitarchiveapp.ui.components.DataSource.Custom -> "Propio"
+        app.luxion.fitarchiveapp.ui.components.DataSource.Generic -> "Genérico"
+        app.luxion.fitarchiveapp.ui.components.DataSource.OpenFoodFacts -> "Open Food Facts"
+    }
+
+    fun toEntry(date: String, meal: MealType) = item.toEntry(date, meal)
+}
+
 /** Una opción de comida ya añadida al diario: [entryId] sirve para deshacer o ajustarla. */
 data class AddedSuggestion(val entryId: Long, val meal: MealType)
 
@@ -51,6 +76,8 @@ class AiTabState(
     private val today: () -> String,
     private val defaultMeal: () -> MealType,
     private val nowMillis: () -> Long,
+    /** Para enlazar las sugerencias con la base y usar valores reales; sin él, solo cifras de la IA. */
+    private val catalog: FoodCatalog? = null,
 ) {
     private val advisor = AiAdvisor(module.service)
 
@@ -71,6 +98,19 @@ class AiTabState(
     var addError by mutableStateOf<String?>(null)
         private set
 
+    /** Opciones de [suggestions] que se enlazaron con la base (índice → enlace). */
+    var links by mutableStateOf<Map<Int, SuggestionLink>>(emptyMap())
+        private set
+
+    var plan by mutableStateOf<AiLoad<AiMealPlan>>(AiLoad.Idle)
+        private set
+    var planDays by mutableStateOf(3)
+        private set
+
+    /** Artículos de la lista de la compra ya marcados (índice en [AiMealPlan.shopping]). */
+    var bought by mutableStateOf<Set<Int>>(emptySet())
+        private set
+
     var review by mutableStateOf<AiLoad<AiReview>>(AiLoad.Idle)
         private set
     var reviewPeriod by mutableStateOf(AiReviewPeriod.DAY)
@@ -83,7 +123,7 @@ class AiTabState(
 
     val callsLeft: Int get() = (dailyLimit - callsToday).coerceAtLeast(0)
     val limitReached: Boolean get() = gate == AiTabStatus.Ready && callsToday >= dailyLimit
-    private val busy: Boolean get() = suggestions == AiLoad.Loading || review == AiLoad.Loading || chatStatus == AiLoad.Loading
+    private val busy: Boolean get() = suggestions == AiLoad.Loading || review == AiLoad.Loading || chatStatus == AiLoad.Loading || plan == AiLoad.Loading
 
     /** Vuelve a leer ajustes y contador (al abrir la pestaña y tras cada llamada). */
     suspend fun refresh() {
@@ -105,9 +145,13 @@ class AiTabState(
         if (busy || !canCall()) return
         suggestions = AiLoad.Loading
         added = emptyMap()
+        links = emptyMap()
         addError = null
         suggestions = when (val r = call(withCandidates = true) { ctx -> advisor.suggestMeals(ctx, preferences) }) {
-            is AiResult.Ok -> AiLoad.Done(r.value)
+            is AiResult.Ok -> {
+                links = linkSuggestions(r.value)
+                AiLoad.Done(r.value)
+            }
             is AiResult.Err -> r.error.toFailed()
             null -> AiLoad.Failed(LOCAL_DATA_ERROR)
         }
@@ -119,7 +163,7 @@ class AiTabState(
         if (busy || !canCall()) return
         reviewPeriod = period
         review = AiLoad.Loading
-        review = when (val r = call(withWeek = period == AiReviewPeriod.WEEK) { ctx -> advisor.review(ctx, period) }) {
+        review = when (val r = call(withWeek = period == AiReviewPeriod.WEEK, withFoods = true) { ctx -> advisor.review(ctx, period) }) {
             is AiResult.Ok -> AiLoad.Done(r.value)
             is AiResult.Err -> r.error.toFailed()
             null -> AiLoad.Failed(LOCAL_DATA_ERROR)
@@ -133,7 +177,7 @@ class AiTabState(
         if (q.isEmpty() || busy || !canCall()) return
         chatStatus = AiLoad.Loading
         val history = chat
-        when (val r = call { ctx -> advisor.ask(ctx, q, history) }) {
+        when (val r = call(withFoods = true) { ctx -> advisor.ask(ctx, q, history) }) {
             is AiResult.Ok -> {
                 chat = (history + AiChatTurn(true, q) + AiChatTurn(false, r.value)).takeLast(AiAdviceLimits.CHAT_HISTORY_MESSAGES)
                 chatStatus = AiLoad.Done(Unit)
@@ -142,6 +186,52 @@ class AiTabState(
             null -> chatStatus = AiLoad.Failed(LOCAL_DATA_ERROR)
         }
         refresh()
+    }
+
+    /** Menú de [days] días y lista de la compra. [preferences] es texto libre opcional. */
+    suspend fun planMeals(days: Int, preferences: String) {
+        if (busy || !canCall()) return
+        planDays = days.coerceIn(1, AiAdviceLimits.MAX_PLAN_DAYS)
+        plan = AiLoad.Loading
+        bought = emptySet()
+        plan = when (val r = call(withCandidates = true) { ctx -> advisor.planMeals(ctx, preferences, planDays) }) {
+            is AiResult.Ok -> AiLoad.Done(r.value)
+            is AiResult.Err -> r.error.toFailed()
+            null -> AiLoad.Failed(LOCAL_DATA_ERROR)
+        }
+        refresh()
+    }
+
+    fun toggleBought(index: Int) {
+        bought = if (index in bought) bought - index else bought + index
+    }
+
+    fun clearPlan() {
+        plan = AiLoad.Idle
+        bought = emptySet()
+    }
+
+    /**
+     * Enlaza cada opción con la base por su `search_term`. Solo se acepta una coincidencia exacta (sin aflojar la
+     * búsqueda) y con kcal conocidas; si no, la opción conserva las cifras de la IA.
+     */
+    private suspend fun linkSuggestions(options: List<MealSuggestion>): Map<Int, SuggestionLink> {
+        val cat = catalog ?: return emptyMap()
+        val out = mutableMapOf<Int, SuggestionLink>()
+        options.forEachIndexed { i, o ->
+            val grams = o.grams ?: return@forEachIndexed
+            if (o.searchTerm.isBlank()) return@forEachIndexed
+            try {
+                val m = cat.match(o.searchTerm)
+                val pick = m.picks.firstOrNull()
+                if (pick != null && !m.loose && pick.nutrients.kcal != null) out[i] = SuggestionLink(pick, grams)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // sin enlace: se queda con la estimación de la IA
+            }
+        }
+        return out
     }
 
     fun clearChat() {
@@ -156,7 +246,8 @@ class AiTabState(
         val meal = defaultMeal()
         addError = null
         try {
-            val entry = QuickEntry.new(
+            val link = links[index]
+            val entry = link?.toEntry(today(), meal) ?: QuickEntry.new(
                 date = today(),
                 meal = meal,
                 name = option.diaryName,
@@ -192,9 +283,9 @@ class AiTabState(
     }
 
     /** Construye el contexto mínimo y ejecuta [block]; `null` si no se pudo leer la base local. */
-    private suspend fun <T> call(withCandidates: Boolean = false, withWeek: Boolean = false, block: suspend (AiAdviceContext) -> AiResult<T>): AiResult<T>? {
+    private suspend fun <T> call(withCandidates: Boolean = false, withWeek: Boolean = false, withFoods: Boolean = false, block: suspend (AiAdviceContext) -> AiResult<T>): AiResult<T>? {
         val ctx = try {
-            source.build(today(), defaultMeal(), withCandidates = withCandidates, withWeek = withWeek)
+            source.build(today(), defaultMeal(), withCandidates = withCandidates, withWeek = withWeek, withFoods = withFoods)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

@@ -22,6 +22,9 @@ sealed interface PlateState {
     /** Esperando la foto. */
     data object Capture : PlateState
 
+    /** Esperando que el usuario escriba lo que ha comido (sin foto). */
+    data object TextInput : PlateState
+
     /** Foto lista; el usuario puede añadir notas antes de enviarla. */
     data object Ready : PlateState
 
@@ -43,7 +46,7 @@ sealed interface PlateState {
 }
 
 /**
- * Lógica de «Foto del plato»: reduce la foto, la envía a la IA, enlaza cada alimento con la base y guarda solo al
+ * Lógica de «Foto del plato» y «Apuntar por texto»: reduce la foto (o recibe el texto), la envía a la IA, enlaza cada alimento con la base y guarda solo al
  * confirmar. La foto vive únicamente en memoria (nunca se escribe en disco) y se descarta al terminar o salir.
  */
 class PlatePresenter(
@@ -53,7 +56,16 @@ class PlatePresenter(
     private val diary: DiaryStore,
     private val nowMillis: () -> Long = { kotlin.time.Clock.System.now().toEpochMilliseconds() },
     private val prepare: (ByteArray) -> ByteArray? = { downscaleToJpeg(it) },
+    /** Enlaces corregidos por el usuario antes; `null` = no se recuerda nada. */
+    private val aliases: FoodAliasStore? = null,
+    startInText: Boolean = false,
 ) {
+    /** `true` si el usuario describe la comida con texto en lugar de una foto. */
+    var textMode: Boolean = startInText
+        private set
+
+    private var lastText: String = ""
+
     private val _state = MutableStateFlow<PlateState>(initial())
     val state: StateFlow<PlateState> = _state.asStateFlow()
 
@@ -61,13 +73,44 @@ class PlatePresenter(
     private var jpeg: ByteArray? = null
     private var savedIds = mutableSetOf<Int>()
 
-    private fun initial(): PlateState = service.blocker()?.let { PlateState.Blocked(it) } ?: PlateState.Capture
+    private fun initial(): PlateState =
+        service.blocker()?.let { PlateState.Blocked(it) } ?: if (textMode) PlateState.TextInput else PlateState.Capture
 
     /** Vuelve a comprobar los ajustes (p. ej. al volver de «Ajustes de IA»). */
     fun refreshBlocker() {
         val s = _state.value
-        if (s is PlateState.Blocked || s is PlateState.Capture) _state.value = initial()
+        if (s is PlateState.Blocked || s is PlateState.Capture || s is PlateState.TextInput) _state.value = initial()
     }
+
+    /** Cambia a describir la comida con texto (sin foto). */
+    fun startText() {
+        discardPhoto()
+        textMode = true
+        _state.value = initial()
+    }
+
+    /** Describe la comida con [text] («2 huevos y una tostada con aceite»): una llamada a la IA sin foto, y luego la misma revisión. */
+    suspend fun analyzeText(text: String) {
+        val clean = text.trim()
+        if (clean.isEmpty()) return
+        service.blocker()?.let {
+            _state.value = PlateState.Blocked(it)
+            return
+        }
+        textMode = true
+        lastText = clean
+        _state.value = PlateState.Analyzing
+        handle(analyzer.analyzeText(clean))
+    }
+
+    /** Vuelve a pedir el texto (tras un error o «No veo comida»). */
+    fun editText() {
+        textMode = true
+        _state.value = initial()
+    }
+
+    /** Texto de la última descripción, para reintentar. */
+    val lastDescription: String get() = lastText
 
     /** Recibe la foto de la cámara o del selector: la reduce (1024 px, sin metadatos) y pasa a «lista». */
     suspend fun onPhoto(raw: ByteArray) {
@@ -97,7 +140,11 @@ class PlatePresenter(
             return
         }
         _state.value = PlateState.Analyzing
-        when (val r = analyzer.analyze(photo, notes)) {
+        handle(analyzer.analyze(photo, notes))
+    }
+
+    private suspend fun handle(result: AiResult<PlateAnalysis>) {
+        when (val r = result) {
             is AiResult.Err -> _state.value = when (r.error) {
                 AiError.NoKey, AiError.Disabled, AiError.ConsentRequired, is AiError.LimitReached -> PlateState.Blocked(r.error)
                 else -> PlateState.Failed(r.error.message, retryable = true)
@@ -119,10 +166,15 @@ class PlatePresenter(
         }
     }
 
-    /** Enlaza un alimento detectado con la base; sin coincidencia queda como estimación del modelo (marcada). */
+    /**
+     * Enlaza un alimento detectado con la base; sin coincidencia queda como estimación del modelo (marcada). Primero se
+     * mira si el usuario ya corrigió ese término antes ([FoodAliasStore]); si no, se prueban el término de la IA y sus alternativos.
+     */
     private suspend fun link(id: Int, d: DetectedFood): PlateItem {
         val match = try {
-            catalog.match(d.searchTerm)
+            val remembered = aliases?.get(d.searchTerm)?.let { catalog.resolveAlias(it) }
+            val found = catalog.matchAny(d.terms)
+            if (remembered == null) found else FoodMatch(listOf(remembered) + found.picks.filter { it != remembered }, loose = false)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -142,6 +194,7 @@ class PlatePresenter(
             portion = d.portion,
             looseMatch = best != null && match.loose,
             alternatives = match.picks,
+            searchTerm = d.searchTerm,
         )
     }
 
@@ -150,6 +203,7 @@ class PlatePresenter(
      * mejor preguntar que adivinar. Sin pregunta de la IA se usa [DEFAULT_QUESTION].
      */
     private fun questionFor(d: DetectedFood, item: PlateItem): PlateQuestion? {
+        if (textMode) return null // sin foto no hay a quién re-consultar: lo no enlazado queda como estimado, editable
         val text = d.question
             ?: if (d.confidence == PlateConfidence.LOW || item.source !is PlateSource.Linked) DEFAULT_QUESTION else return null
         return PlateQuestion(text, d.options, askedGrams = d.grams)
@@ -164,6 +218,7 @@ class PlatePresenter(
     /** Vuelve a pedir otra foto. */
     fun retake() {
         discardPhoto()
+        textMode = false
         _state.value = initial()
     }
 
@@ -210,7 +265,11 @@ class PlatePresenter(
     fun dismissQuestion(id: Int) = edit { it.dismissQuestion(id) }
 
     fun setGrams(id: Int, grams: Double) = edit { it.setGrams(id, grams) }
-    fun link(id: Int, pick: app.luxion.fitarchiveapp.ui.screens.FoodPick) = edit { it.link(id, pick) }
+    fun link(id: Int, pick: app.luxion.fitarchiveapp.ui.screens.FoodPick) {
+        // El usuario corrige el enlace de la IA: se recuerda para la próxima vez que salga ese término.
+        (_state.value as? PlateState.Review)?.review?.items?.firstOrNull { it.id == id }?.searchTerm?.let { aliases?.remember(it, pick) }
+        edit { it.link(id, pick) }
+    }
     fun remove(id: Int) = edit { it.remove(id) }
     fun addLinked(pick: app.luxion.fitarchiveapp.ui.screens.FoodPick, grams: Double) = edit { it.addLinked(pick, grams) }
     fun addManual(name: String, totals: Nutrients) = edit { it.addManual(name, totals) }

@@ -41,6 +41,25 @@ class FoodCatalog(
         return FoodMatch(emptyList(), loose = false)
     }
 
+    /**
+     * Prueba [terms] por orden (el término principal y los alternativos de la IA) y se queda con el primero que
+     * encuentra sin aflojar la búsqueda; si ninguno la cumple exacta, con el primer enlace aproximado.
+     */
+    suspend fun matchAny(terms: List<String>, limit: Int = ALTERNATIVES): FoodMatch {
+        var loose: FoodMatch? = null
+        for (term in terms.map { it.trim() }.filter { it.isNotEmpty() }.distinct()) {
+            val m = match(term, limit)
+            if (m.picks.isEmpty()) continue
+            if (!m.loose) return m
+            if (loose == null) loose = m
+        }
+        return loose ?: FoodMatch(emptyList(), loose = false)
+    }
+
+    /** Alimento que el usuario eligió antes para [term] (ver [FoodAliasStore]); `null` si no hay o ya no está en la base. */
+    suspend fun resolveAlias(alias: FoodAlias): FoodPick? =
+        search(alias.name, ALTERNATIVES).firstOrNull { it.barcode == alias.barcode && it.result.name == alias.name }
+
     private fun rank(p: FoodPick): Int = when (p.result.source) {
         DataSource.Custom -> 0
         DataSource.Generic -> 1

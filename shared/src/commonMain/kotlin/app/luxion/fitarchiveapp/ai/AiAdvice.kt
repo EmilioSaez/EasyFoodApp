@@ -62,6 +62,8 @@ data class AiWeekSummary(
     val avgFiberG: Double? = null,
     val avgSaltG: Double? = null,
     val avgSugarsG: Double? = null,
+    /** Alimentos más repetidos de la semana (solo nombres), para que el consejo sea concreto. */
+    val topFoods: List<String> = emptyList(),
 ) {
     fun toPromptText(): String = buildString {
         append("Semana en curso: $loggedDays de $daysSoFar días con registro.")
@@ -80,6 +82,7 @@ data class AiWeekSummary(
             avgSugarsG?.let { "azúcares ${it.oneDecimal()} g" },
         )
         if (extras.isNotEmpty()) append(" Media diaria de " + extras.joinToString(", ") + " (solo días con dato).")
+        if (topFoods.isNotEmpty()) append(" Lo que más ha comido esta semana: " + topFoods.joinToString("; ") { AiText.clean(it, AiText.MAX_NAME) } + ".")
     }
 }
 
@@ -94,6 +97,8 @@ data class AiAdviceContext(
     val intake: List<NutrientIntake> = emptyList(),
     val candidates: AiCandidates = AiCandidates(),
     val week: AiWeekSummary? = null,
+    /** Lo apuntado hoy en todas las comidas («Yogur natural · 125 g · 80 kcal»), acotado a [AiAdviceLimits.MAX_TODAY_FOODS]. */
+    val todayFoods: List<String> = emptyList(),
 ) {
     /** Kcal que quedan hasta el objetivo (negativo si se ha pasado); `null` sin objetivo. */
     val remainingKcal: Int? get() = day.goalKcal?.let { (it - day.kcal).roundInt() }
@@ -115,6 +120,11 @@ data class AiAdviceContext(
         }
     }.trimEnd()
 
+    /** Qué se ha comido hoy, para poder dar consejos concretos («te falta proteína: otro yogur encajaría»). */
+    fun foodsText(): String =
+        if (todayFoods.isEmpty()) "Hoy no hay nada apuntado todavía."
+        else "Apuntado hoy: " + todayFoods.joinToString("; ") { AiText.clean(it, AiText.MAX_NAME + 20) } + "."
+
     fun mealText(): String = buildString {
         append("Comida actual: ${mealName(currentMeal)}.")
         if (currentMealFoods.isNotEmpty()) {
@@ -132,6 +142,10 @@ data class MealSuggestion(
     val carbsG: Double,
     val fatG: Double,
     val reason: String,
+    /** Nombre genérico (1 a 3 palabras) para buscar el alimento en la base y usar sus valores reales; vacío si no aplica. */
+    val searchTerm: String = "",
+    /** Gramos de [amount] si es un alimento pesable; `null` en platos o raciones sin peso claro. */
+    val grams: Double? = null,
 ) {
     /** Nombre con la cantidad, tal como se apunta en el diario. */
     val diaryName: String get() = if (amount.isBlank()) name else "$name ($amount)"
@@ -139,6 +153,18 @@ data class MealSuggestion(
 
 /** Un punto concreto del consejo de «¿Cómo voy?». [status]: `ok`, `alto` o `bajo`. */
 data class AiAdvicePoint(val topic: String, val status: String, val advice: String)
+
+/** Comida de un día del menú propuesto. */
+data class PlannedMeal(val meal: String, val name: String)
+
+data class PlannedDay(val day: String, val meals: List<PlannedMeal>)
+
+data class ShoppingItem(val item: String, val quantity: String) {
+    val text: String get() = if (quantity.isBlank()) item else "$item · $quantity"
+}
+
+/** Menú de varios días con su lista de la compra. Solo se muestra; no se guarda ni se apunta en el diario. */
+data class AiMealPlan(val days: List<PlannedDay>, val shopping: List<ShoppingItem>)
 
 data class AiReview(val summary: String, val points: List<AiAdvicePoint>)
 
@@ -157,6 +183,11 @@ object AiAdviceLimits {
     const val SUGGEST_TOKENS = 1400
     const val REVIEW_TOKENS = 900
     const val CHAT_TOKENS = 600
+    const val PLAN_TOKENS = 3000
+    const val MAX_TODAY_FOODS = 15
+    const val MAX_TOP_FOODS = 8
+    const val MAX_PLAN_DAYS = 7
+    const val MAX_SHOPPING_ITEMS = 40
 }
 
 /** Limpieza del texto libre que viaja a la API: sin saltos ni caracteres de control, con longitud acotada. */
@@ -185,6 +216,8 @@ object AiAdvicePrompts {
         appendLine("Da prioridad a los candidatos del usuario (favoritos, recientes, plantillas, recetas) cuando encajen; puedes proponer otras ideas sencillas.")
         appendLine("Cada opción: nombre corto, cantidad concreta (p. ej. «150 g» o «1 ración»), kcal y macros aproximados de esa cantidad, y un motivo de una frase.")
         appendLine("Si ya se ha pasado de kcal, propón opciones ligeras y dilo en el motivo.")
+        appendLine("«search_term»: nombre genérico en español de 1 a 3 palabras para buscar el alimento principal en una tabla de composición («yogur natural», «pechuga pollo plancha»); si el candidato es del usuario, usa su nombre tal cual. Vacío si es un plato compuesto.")
+        appendLine("«grams»: gramos de la cantidad propuesta si el alimento se pesa; 0 si es un plato o ración sin peso claro.")
         appendLine()
         appendLine(ctx.dayText())
         appendLine(ctx.mealText())
@@ -206,6 +239,8 @@ object AiAdvicePrompts {
         appendLine("Solo habla de lo que tenga datos; si falta el dato, no lo inventes. Los máximos y mínimos de fibra, sal y azúcares son orientativos.")
         appendLine()
         appendLine(ctx.dayText())
+        appendLine(ctx.foodsText())
+        appendLine("Cuando aconsejes, apóyate en lo que ya ha comido (nombres) y propón cambios concretos, no genéricos.")
         if (period == AiReviewPeriod.WEEK) ctx.week?.let { appendLine(it.toPromptText()) }
     }.trimEnd()
 
@@ -217,6 +252,7 @@ object AiAdvicePrompts {
         appendLine("Tarea: responde la pregunta del usuario sobre alimentación en un máximo de 6 frases, sin listas largas.")
         appendLine("Contexto de hoy (resumen mínimo):")
         appendLine(ctx.dayText())
+        appendLine(ctx.foodsText())
     }.trimEnd()
 
     fun chatQuestion(question: String): String = "<usuario>${AiText.clean(question, AiAdviceLimits.MAX_QUESTION)}</usuario>"
@@ -231,6 +267,42 @@ object AiAdvicePrompts {
     private fun type(t: String) = buildJsonObject { put("type", t) }
     private fun array(items: JsonObject) = buildJsonObject { put("type", "array"); put("items", items) }
 
+    fun planSystem(ctx: AiAdviceContext, days: Int): String = buildString {
+        appendLine(RULES)
+        appendLine("Tarea: propón un menú de $days días y la lista de la compra para prepararlo.")
+        appendLine("Cada día: nombre del día («Día 1»…) y sus comidas (desayuno, comida, cena y, si encaja, un tentempié), cada una con un nombre corto y sencillo.")
+        appendLine("Ajusta el total diario al objetivo de kcal y macros del usuario, usa sus recetas, plantillas y favoritos cuando encajen y repite ingredientes para que la compra sea corta.")
+        appendLine("Lista de la compra: ingredientes agrupados sin repetir (máximo ${AiAdviceLimits.MAX_SHOPPING_ITEMS}), cada uno con una cantidad aproximada para todo el menú («500 g», «6 unidades»).")
+        appendLine()
+        ctx.day.goalKcal?.let { kcal ->
+            val extra = listOfNotNull(
+                ctx.day.goalProteinG?.let { "proteína ${it.toInt()} g" },
+                ctx.day.goalCarbsG?.let { "hidratos ${it.toInt()} g" },
+                ctx.day.goalFatG?.let { "grasa ${it.toInt()} g" },
+            )
+            appendLine("Objetivo diario: ${kcal.toInt()} kcal" + (if (extra.isEmpty()) "" else ", " + extra.joinToString(", ")) + ".")
+        }
+        if (!ctx.candidates.isEmpty) {
+            appendLine("Candidatos del usuario (nombre · cantidad habitual · kcal):")
+            appendLine(ctx.candidates.toPromptText())
+        }
+    }.trimEnd()
+
+    fun planUser(preferences: String, days: Int): String {
+        val p = AiText.clean(preferences, AiAdviceLimits.MAX_PREFERENCES)
+        return if (p.isEmpty()) "Menú de $days días y lista de la compra." else "Menú de $days días y lista de la compra. Preferencias: <usuario>$p</usuario>"
+    }
+
+    val planSchema: JsonObject = obj(
+        "days" to array(
+            obj(
+                "day" to type("string"),
+                "meals" to array(obj("meal" to type("string"), "name" to type("string"))),
+            ),
+        ),
+        "shopping" to array(obj("item" to type("string"), "quantity" to type("string"))),
+    )
+
     val suggestSchema: JsonObject = obj(
         "options" to array(
             obj(
@@ -241,6 +313,8 @@ object AiAdvicePrompts {
                 "carbsG" to type("number"),
                 "fatG" to type("number"),
                 "reason" to type("string"),
+                "search_term" to type("string"),
+                "grams" to type("number"),
             ),
         ),
     )
@@ -280,6 +354,8 @@ object AiAdviceParsing {
                 carbsG = o.number("carbsG")?.coerceIn(0.0, 500.0) ?: 0.0,
                 fatG = o.number("fatG")?.coerceIn(0.0, 300.0) ?: 0.0,
                 reason = o.text("reason")?.let { AiText.clean(it, 200) }.orEmpty(),
+                searchTerm = o.text("search_term")?.let { AiText.clean(it, 60) }.orEmpty(),
+                grams = o.number("grams")?.takeIf { it in 1.0..2000.0 },
             )
         }.take(AiAdviceLimits.MAX_OPTIONS)
         return if (parsed.isEmpty()) AiResult.Err(AiError.BadResponse("sin opciones válidas")) else AiResult.Ok(parsed)
@@ -298,11 +374,32 @@ object AiAdviceParsing {
         return AiResult.Ok(AiReview(summary, points))
     }
 
+
+    fun plan(json: JsonElement): AiResult<AiMealPlan> {
+        val root = json as? JsonObject ?: return AiResult.Err(AiError.BadResponse("formato inesperado"))
+        val days = ((root["days"] as? JsonArray) ?: JsonArray(emptyList())).mapNotNull { e ->
+            val o = e as? JsonObject ?: return@mapNotNull null
+            val meals = ((o["meals"] as? JsonArray) ?: JsonArray(emptyList())).mapNotNull { m ->
+                val mo = m as? JsonObject ?: return@mapNotNull null
+                val name = mo.text("name")?.let { AiText.clean(it, 100) }?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+                PlannedMeal(AiText.clean(mo.text("meal").orEmpty(), 30), name)
+            }.take(6)
+            if (meals.isEmpty()) null else PlannedDay(AiText.clean(o.text("day").orEmpty(), 30).ifEmpty { "Día" }, meals)
+        }.take(AiAdviceLimits.MAX_PLAN_DAYS)
+        if (days.isEmpty()) return AiResult.Err(AiError.BadResponse("menú vacío"))
+        val shopping = ((root["shopping"] as? JsonArray) ?: JsonArray(emptyList())).mapNotNull { e ->
+            val o = e as? JsonObject ?: return@mapNotNull null
+            val item = o.text("item")?.let { AiText.clean(it, 60) }?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+            ShoppingItem(item, AiText.clean(o.text("quantity").orEmpty(), 30))
+        }.distinctBy { it.item.lowercase() }.take(AiAdviceLimits.MAX_SHOPPING_ITEMS)
+        return AiResult.Ok(AiMealPlan(days, shopping))
+    }
+
     private fun JsonObject.text(key: String): String? = (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
     private fun JsonObject.number(key: String): Double? = (this[key] as? JsonPrimitive)?.doubleOrNull?.takeIf { it.isFinite() }
 }
 
-/** Fachada de las tres funciones de la pestaña: cada una es una única llamada a [AiService] (cuenta contra el tope diario). */
+/** Fachada de las funciones de la pestaña: cada una es una única llamada a [AiService] (cuenta contra el tope diario). */
 class AiAdvisor(private val service: AiService) {
     suspend fun suggestMeals(ctx: AiAdviceContext, preferences: String): AiResult<List<MealSuggestion>> {
         val request = AiRequest(
@@ -314,6 +411,21 @@ class AiAdvisor(private val service: AiService) {
         return when (val r = service.askJson(request)) {
             is AiResult.Err -> r
             is AiResult.Ok -> AiAdviceParsing.suggestions(r.value)
+        }
+    }
+
+    /** Menú de [days] días y lista de la compra (una llamada). */
+    suspend fun planMeals(ctx: AiAdviceContext, preferences: String, days: Int): AiResult<AiMealPlan> {
+        val n = days.coerceIn(1, AiAdviceLimits.MAX_PLAN_DAYS)
+        val request = AiRequest(
+            messages = listOf(AiMessage.user(AiAdvicePrompts.planUser(preferences, n))),
+            system = AiAdvicePrompts.planSystem(ctx, n),
+            maxTokens = AiAdviceLimits.PLAN_TOKENS,
+            jsonSchema = AiAdvicePrompts.planSchema,
+        )
+        return when (val r = service.askJson(request)) {
+            is AiResult.Err -> r
+            is AiResult.Ok -> AiAdviceParsing.plan(r.value)
         }
     }
 
