@@ -426,6 +426,70 @@ class DiaryPresenterTest {
         assertEquals(DiaryPresenter.COPY_ERROR, p.state.value.message)
         assertEquals(1, diary.rows.size)
     }
+
+    @Test
+    fun repeatPreviousMealCopiesYesterdaysMealIntoTheShownDay() = runTest {
+        val grams = Quantity(35.0, QuantityUnit.GRAMS)
+        val diary = FakeDiary(
+            listOf(
+                entry(1, MealType.LUNCH, quantity = grams, date = prev),
+                entry(2, MealType.DINNER, date = prev),
+            ),
+        )
+        val p = presenter(diary)
+        p.load()
+        p.repeatPrevious(MealType.LUNCH)
+        val today = diary.rows.filter { it.date == DAY }
+        assertEquals(listOf(MealType.LUNCH), today.map { it.meal })
+        assertEquals(listOf(grams), today.map { it.quantity })
+        assertEquals(2, diary.rows.count { it.date == prev }) // el origen no cambia
+        assertEquals("Repetido de ayer: 1 alimento", p.state.value.message)
+        assertEquals(1, p.state.value.meals.first { it.meal == MealType.LUNCH }.entries.size)
+    }
+
+    @Test
+    fun repeatPreviousDayCopiesEveryMealAndMapsMealsMissingFromThePreset() = runTest {
+        val diary = FakeDiary(
+            listOf(entry(1, MealType.BREAKFAST, date = prev), entry(2, MealType.LATE_SNACK, date = prev), entry(3, MealType.LUNCH)),
+        )
+        val p = DiaryPresenter(diary, FakeGoals(), backgroundScope + UnconfinedTestDispatcher(testScheduler), DAY, mealsPerDay = 3)
+        p.load()
+        p.repeatPrevious(null)
+        assertEquals(
+            listOf(MealType.LUNCH, MealType.BREAKFAST, MealType.DINNER),
+            diary.rows.filter { it.date == DAY }.map { it.meal },
+        )
+        assertTrue(p.state.value.message!!.startsWith("Repetido de ayer: 2 alimentos"))
+        assertTrue(p.state.value.message!!.contains("más cercana"))
+    }
+
+    @Test
+    fun repeatPreviousReportsWhenYesterdayIsEmptyOrFailsAndWritesNothing() = runTest {
+        val diary = FakeDiary(listOf(entry(1, MealType.BREAKFAST, date = prev)))
+        val p = presenter(diary)
+        p.load()
+        p.repeatPrevious(MealType.LUNCH)
+        assertEquals(DiaryPresenter.REPEAT_EMPTY_MEAL, p.state.value.message)
+        p.consumeMessage()
+        diary.failing = true
+        p.repeatPrevious(null)
+        assertEquals(DiaryPresenter.COPY_ERROR, p.state.value.message)
+        assertEquals(1, diary.rows.size)
+        diary.failing = false
+        p.load("2026-11-10")
+        p.repeatPrevious(null)
+        assertEquals(DiaryPresenter.REPEAT_EMPTY_DAY, p.state.value.message)
+    }
+
+    @Test
+    fun repeatPreviousOnAnotherDayNamesTheSourceDate() = runTest {
+        val diary = FakeDiary(listOf(entry(1, MealType.BREAKFAST, date = "2026-11-09")))
+        val p = presenter(diary)
+        p.load("2026-11-10")
+        p.repeatPrevious(null)
+        assertEquals("Repetido de 9 de noviembre de 2026: 1 alimento", p.state.value.message)
+        assertEquals("2026-11-10", diary.rows.last().date)
+    }
 }
 
 private class FakeTemplates : MealTemplateStore {

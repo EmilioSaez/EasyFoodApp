@@ -79,6 +79,8 @@ fun DiaryTopRow(
     modifier: Modifier = Modifier,
     /** `null` = el día no tiene nada que copiar: la opción no aparece. */
     onCopyDay: (() -> Unit)? = null,
+    /** «Mismo que ayer»: copia el día anterior al mostrado; `null` = la opción no aparece. */
+    onRepeatDay: (() -> Unit)? = null,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -113,6 +115,9 @@ fun DiaryTopRow(
                 modifier = Modifier.semantics { contentDescription = "Más acciones: copiar día, resumen, datos" },
             ) { Text("⋯", style = MaterialTheme.typography.titleLarge) }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                if (onRepeatDay != null) {
+                    DropdownMenuItem(text = { Text("Mismo que ayer") }, onClick = { menuOpen = false; onRepeatDay() })
+                }
                 if (onCopyDay != null) {
                     DropdownMenuItem(text = { Text("Copiar día") }, onClick = { menuOpen = false; onCopyDay() })
                 }
