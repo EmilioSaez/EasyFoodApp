@@ -56,6 +56,8 @@ class NavigatorTest {
         val nav = Navigator()
         nav.navigateTab(TopLevelTab.You)
         nav.push(Route.Recipes)
+        nav.push(Route.Templates)
+        nav.pop()
         nav.push(Route.RecipeDetail(3))
         nav.push(Route.RecipeEdit(3))
         nav.pop()

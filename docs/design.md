@@ -492,6 +492,19 @@ Sustituye la barra de seis pestañas. Código en `ui/navigation/` y `ui/screens/
 - **Hoy:** el FAB «+ Añadir alimento» desaparece (lo sustituye el «+» de la barra). El «+» de cada tarjeta de comida sigue abriendo `Route.Add(meal, date)`; la sesión A lo cambia por `navigator.openAddSheet(meal, date)`.
 - **Sin cambios de base de datos** (ni `.sqm`) ni de exportación.
 
+### 2.23 «Guardado»: recetas y plantillas (rediseño, sesión D)
+`RecipesScreen` (rutas `Route.Recipes` y `Route.Templates`, que solo cambian la pestaña inicial `SavedTab`). Se abre desde «Tú» y desde la hoja «Añadir»; muestra la barra con `TopLevelTab.You`.
+- **Cabecera:** ← · «Guardado» (headlineMedium) · «Para añadir a tu diario de un toque»; debajo, píldoras **Recetas | Plantillas** (`EasyFoodFilterChip`). Sin almacén de plantillas, solo recetas.
+- **Recetas:** tarjeta (`surfaceContainerLowest`, borde `outlineVariant`, `large`) con nombre (titleLarge), «n ingredientes · n raciones», kcal por ración (headlineMedium), `StackedMacroBar`, aviso ámbar si faltan datos y ✎ «Editar <receta>»; tocarla abre el detalle (macros, ingredientes, «Añadir a <comida>»). Botón «Nueva receta» al final de la lista; vacío: «Aún no tienes recetas» · «Crear receta».
+- **Plantillas** (`TemplatesTab`, `TemplateListSection`): «PLANTILLAS · n», una tarjeta por plantilla con «Añadir» (comida y día por defecto, vuelve a Hoy), ✎ para editar y toque para elegir comida y fecha (`AddTemplateDialog`). «Nueva plantilla» al final.
+- Detalle de receta: título headlineMedium, tarjeta de macros con borde, rótulo «INGREDIENTES · n». La edición de recetas y plantillas conserva su formulario.
+- Sin cambios de base de datos ni de exportación.
+
+### 2.24 Coach IA (rediseño, sesión D)
+`AiScreen`, `AiAdviceCards`, `AiCard`. Cabecera «Coach» (headlineMedium) con «Hoy te quedan N de M llamadas» y ⚙ «Ajustes de IA»; barra con `TopLevelTab.You`. Sin clave o desactivada: los estados vacíos de siempre.
+- **Tarjetas** (`AiCard`: `surfaceContainerLowest`, borde, `large`, título titleLarge): «¿Qué como?» (preferencias opcionales, «Sugerir comida»; cada opción en una fila `surfaceContainerHigh` con kcal y macros y botón «Añadir» → entrada rápida en la comida que toca, con «Ajustar» y «Deshacer»), «¿Cómo voy?» (píldoras Hoy / Esta semana, resumen y puntos con insignia **OK / Bajo / Alto**, siempre con texto) y «Pregunta lo que quieras» (conversación en burbujas, «Preguntar», «Borrar conversación»).
+- Aviso de privacidad («Antes de empezar»), límite diario, herramientas (`aiTabActions`) y descargo de responsabilidad se conservan.
+
 #### Puntos de extensión por sesión
 | Sesión | Alcance | Ficheros que posee | Cómo engancha |
 |---|---|---|---|

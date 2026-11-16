@@ -1,5 +1,6 @@
 package app.luxion.fitarchiveapp.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,6 +11,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.ai.AiModule
 import app.luxion.fitarchiveapp.data.DiaryStore
 import app.luxion.fitarchiveapp.ui.navigation.Navigator
@@ -62,12 +64,17 @@ val aiTabCards: List<AiTabCard> = listOf(
     // (vacío: ninguna función propone hoy una tarjeta propia)
 )
 
-/** Tarjeta con el aspecto de la pestaña: fondo `surfaceContainerLow`, título `titleSmall`/`primary`. */
+/** Tarjeta de Coach (§2.24): `surfaceContainerLowest` con borde `outlineVariant`, forma `large` y título `titleLarge`. */
 @Composable
 fun AiCard(title: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Card(modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+    Card(
+        modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
         Column(Modifier.fillMaxWidth().padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-            Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+            Text(title, style = MaterialTheme.typography.titleLarge)
             content()
         }
     }

@@ -65,8 +65,11 @@ sealed interface Route {
         val date: String? = null,
     ) : Route
 
-    /** Lista de recetas. */
+    /** Guardado: lista de recetas (pestaña «Recetas»). */
     data object Recipes : Route
+
+    /** Guardado con la pestaña «Plantillas» abierta (la misma pantalla que [Recipes]). */
+    data object Templates : Route
 
     /** Detalle de una receta: macros, ingredientes y añadirla al diario. */
     data class RecipeDetail(val recipeId: Long) : Route

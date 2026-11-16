@@ -3,6 +3,7 @@ package app.luxion.fitarchiveapp.ui
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.ComposeUiTest
@@ -141,9 +142,9 @@ class AiTabFlowsTest {
         click("Sugerir comida")
         waitForText("Yogur con nueces (150 g)")
         waitForText("Tortilla francesa (1 ración)")
-        waitForText("Añadir al diario")
-        onAllNodesWithText("Añadir al diario")[0].performScrollTo()
-        onAllNodesWithText("Añadir al diario")[0].performClick()
+        waitUntil(timeoutMillis = 20_000) { onAllNodesWithContentDescription("Añadir Yogur con nueces (150 g) al diario").fetchSemanticsNodes().isNotEmpty() }
+        onNodeWithContentDescription("Añadir Yogur con nueces (150 g) al diario").performScrollTo()
+        onNodeWithContentDescription("Añadir Yogur con nueces (150 g) al diario").performClick()
         waitForText("Añadido a Merienda")
         assertEquals(1, apiCalls)
         waitForText("Hoy te quedan 29 de 30 llamadas", substring = true)
@@ -184,7 +185,7 @@ class AiTabFlowsTest {
         waitForText("Tu pregunta")
         onNodeWithText("Tu pregunta").performTextInput("¿Qué ceno?")
         click("Preguntar")
-        waitForText("IA: Prueba con legumbres.")
+        waitForText("Prueba con legumbres.")
         waitForText("Límite diario alcanzado")
     }
 
