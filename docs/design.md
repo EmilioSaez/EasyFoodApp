@@ -518,6 +518,24 @@ Todas usan los tokens de §1.8 y las piezas de `YouComponents.kt`: `ScreenHeader
 - **Ajustes** (`SettingsScreen`, `Route.Settings`): secciones `settingsSections()` — Recordatorios (§2.20), IA (Ajustes de IA, §2.16) y Datos y copias de seguridad (Exportar/importar y copias, §2.18). Recordatorios, Ajustes de IA y Datos adoptan `ScreenHeader`.
 - **Pendiente:** la apariencia (claro/oscuro/sistema) del diseño necesita guardar un ajuste nuevo (cambio de BD) y queda fuera de esta fase; la app sigue al sistema.
 
+### 2.26 Hoy rediseñado (rediseño, Fase 1 · A)
+Sustituye la estructura visual de §2.1/§2.12 (el comportamiento no cambia). Código en `DiaryScreen`, `DiaryTop`, `DiaryHeader`, `IntakeCard`, `DiaryCoachCard` y `components/{MealSection,WaterCard,WeightReminderCard}`.
+```
+Hoy ▾ (headlineMedium) · «lunes 16 de noviembre»   ‹ › · [🔥 12 limón] · ⋯ (Copiar día · Resumen · Datos)
+Franja semanal: 7 círculos de 38 dp (verde completado, ámbar no completado, seleccionado relleno, hoy con aro)
+Tarjeta hero (tokens `hero*`, extraLarge): CONSUMIDAS · «1.215 / 2.100 kcal» · barra limón con marcas del margen
+   «885 kcal restantes» (o «N kcal de más» en ámbar) · «meta 1.890–2.310» · páginas deslizables: Macros / Otros nutrientes
+Peso | Agua (media anchura cada una): último peso + variación (o «Toca pesarse» en ámbar); agua «1,25 / 2 L» con barra y «+ Vaso · + 500 ml · + 1 L»
+COMIDAS · «4 al día»
+Tarjeta de comida: nombre + resumen, ⋯ (Copiar · Guardar como plantilla), «+» redondo → `navigator.openAddSheet(meal, date)`
+Tarjeta Coach (limón): «¿Qué como? Te quedan 885 kcal y 62 g de proteína.» · «Sugerir cena» · «¿Cómo voy?» → `Route.Ai`
+```
+- «Copiar día», Resumen y Datos pasan al menú «⋯» de la cabecera; «Copiar» y «Plantilla» de cada comida, al «⋯» de la tarjeta.
+- Toda la tarjeta de peso abre `Route.Weight`; el aviso semanal (≥ 7 días) solo se muestra en el día de hoy.
+- El «+» de cada comida abre la hoja «Añadir» con la comida y el día mostrado (`contextDate`), así que añadir en un día anterior lo apunta en ese día.
+- El texto «Nada apuntado hoy / este día» se mantiene bajo las tarjetas rápidas cuando el día está vacío.
+- Tokens nuevos (`EasyFoodColors`): `hero`, `onHero`, `onHeroVariant`, `heroTrack`, `heroProtein`, `heroCarbs`, `heroFat`, `heroWarning` (la tarjeta hero es oscura también en el tema claro).
+
 ## 3. Componentes compartidos (en `shared/ui`)
 `EasyFoodTheme` · `CalorieRing` · `MacroProgressRow` · `MacroDot` · `SourceAvatar` / `SourceChip` (enum `DataSource { OpenFoodFacts, Generic, Custom }`) · `DoubtfulChip` · `DoubtfulDataBanner` · `MealSection` · `DiaryEntryRow` · `FoodResultRow` · `QuantitySelector` · `NutritionTable` · `EmptyState` · `NumberField` (OutlinedTextField con sufijo de unidad) · `FoodSearch` (buscador de alimentos de «Añadir» y del editor de recetas) · `DailyKcalChart` (barras de kcal por día con la banda del objetivo, §2.16).
 

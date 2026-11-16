@@ -184,22 +184,22 @@ class AppFlowsTest {
     @Test
     fun waterIsAddedUndoneAndShownAgainstTheGoal() = runApp(recentWeight = true) { db ->
         val water = SqlDelightWaterStore(db.waterQueries)
-        waitForText("0 de 2 L")
+        waitForText("0 / 2 L")
         onNodeWithText("+ Vaso").performClick()
-        waitForText("0,25 de 2 L")
+        waitForText("0,25 / 2 L")
         onNodeWithText("+ 1 L").performClick()
-        waitForText("1,25 de 2 L")
+        waitForText("1,25 / 2 L")
         kotlin.test.assertEquals(1250, kotlinx.coroutines.runBlocking { water.total("2026-11-04") })
 
         onNodeWithText("Deshacer (−1000 ml)").performClick()
-        waitForText("0,25 de 2 L")
+        waitForText("0,25 / 2 L")
         waitGone("Deshacer (−1000 ml)")
         kotlin.test.assertEquals(250, kotlinx.coroutines.runBlocking { water.total("2026-11-04") })
     }
 
     @Test
     fun waterGoalIsEditedInGoalsAndUsedByTheDiary() = runApp(recentWeight = true) { db ->
-        waitForText("0 de 2 L")
+        waitForText("0 / 2 L")
         goTab("Objetivos")
         waitForText("2 L al día")
         // Fuera de pantalla en la columna con scroll: se desplaza hasta el botón antes de pulsarlo.
@@ -207,7 +207,7 @@ class AppFlowsTest {
         waitForText("2,25 L al día")
         kotlin.test.assertEquals(2250, kotlinx.coroutines.runBlocking { SqlDelightWaterStore(db.waterQueries).goalMl() })
         goToday()
-        waitForText("0 de 2,25 L")
+        waitForText("0 / 2,25 L")
     }
 
     @Test
@@ -389,7 +389,7 @@ class AppFlowsTest {
     fun weightReminderLeadsToWeightScreenAndDisappearsOnceRegistered() = runApp { db ->
         waitForText("Toca pesarse")
         waitForText("Aún no has registrado tu peso.")
-        onNodeWithText("Registrar peso").performClick()
+        onNodeWithContentDescription("Registrar peso").performClick() // toda la tarjeta de peso abre el registro
         openWeightForm()
         onNodeWithText("Peso").performTextInput("78,5")
         onNodeWithText("Guardar peso").performClick()
@@ -858,6 +858,7 @@ class AppFlowsTest {
         waitForText("Galletas")
         onNode(hasVerticalScroll()).performScrollToNode(hasContentDescription("Añadir a Almuerzo"))
         onNodeWithContentDescription("Añadir a Almuerzo").performClick()
+        onNodeWithText("Busca un alimento o una marca").performClick()
         addNutellaFromEan()
         waitForAddButton()
         onNodeWithText("Almuerzo").assertIsSelected() // la hora (17:30) sugeriría la merienda, pero viene preseleccionada
@@ -1014,7 +1015,8 @@ class AppFlowsTest {
     @Test
     fun saveAMealAsTemplateFromTheDiaryAndAddItFromTheFoodsTab() = runApp(recentWeight = true, seed = ::seedBreakfast) { db ->
         waitForText("Avena")
-        onNodeWithContentDescription("Guardar Desayuno como plantilla").performClick()
+        onNodeWithContentDescription("Más acciones de Desayuno").performClick()
+        onNodeWithText("Guardar como plantilla").performClick()
         waitForText("Guardar Desayuno como plantilla")
         onNodeWithText("Nombre").performTextReplacement("Mi desayuno")
         onNodeWithText("Guardar").performClick()
@@ -1107,8 +1109,8 @@ class AppFlowsTest {
         waitForText("Nada apuntado hoy")
         onNode(hasVerticalScroll()).performScrollToNode(hasContentDescription("Añadir a Comida")) // la tarjeta de ejercicio la empuja fuera de pantalla
         onNodeWithContentDescription("Añadir a Comida").performClick()
-        waitForText("Entrada rápida · solo kcal y macros")
-        onNodeWithText("Entrada rápida · solo kcal y macros").performClick()
+        waitForText("Entrada rápida")
+        onNodeWithText("Entrada rápida").performClick() // acción de la hoja «Añadir»
         waitForText("Nombre (opcional)")
         onNodeWithText("Añadir al diario").performClick() // sin ningún valor: no guarda y avisa
         waitForText("Indica al menos las kcal o algún macro.")
@@ -1152,7 +1154,8 @@ class AppFlowsTest {
     @Test
     fun summaryIsOpenedFromTheDiaryAndShowsTheEmptyStateWithoutEntries() = runApp(recentWeight = true) { _ ->
         waitForText("Nada apuntado hoy")
-        onNodeWithContentDescription("Resumen semanal y mensual").performClick()
+        onNodeWithContentDescription("Más acciones: copiar día, resumen, datos").performClick()
+        onNodeWithText("Resumen semanal y mensual").performClick()
         waitForTextInPlace("Aún no hay registros")
         onNodeWithText("2–8 nov 2026").assertIsDisplayed()
 

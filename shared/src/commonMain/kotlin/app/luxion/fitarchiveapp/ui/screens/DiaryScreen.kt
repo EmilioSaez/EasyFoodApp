@@ -3,18 +3,16 @@ package app.luxion.fitarchiveapp.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -32,11 +30,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.data.DiaryStore
 import app.luxion.fitarchiveapp.data.GoalStore
@@ -57,7 +50,7 @@ import app.luxion.fitarchiveapp.ui.components.MealSection
 import app.luxion.fitarchiveapp.ui.components.QuantitySelector
 import app.luxion.fitarchiveapp.ui.components.formatGrams
 import app.luxion.fitarchiveapp.ui.components.label
-import app.luxion.fitarchiveapp.ui.components.mealSummary
+import app.luxion.fitarchiveapp.ui.components.macroSummary
 import app.luxion.fitarchiveapp.ui.components.parseNumber
 import app.luxion.fitarchiveapp.ui.navigation.EasyFoodNavigationBar
 import app.luxion.fitarchiveapp.ui.navigation.Navigator
@@ -93,15 +86,21 @@ fun DiaryScreen(
     // Aviso semanal de peso: se recalcula cada vez que se abre el Diario, así desaparece al registrar.
     var weightDue by remember { mutableStateOf(false) }
     var weightDays by remember { mutableStateOf<Long?>(null) }
+    var lastKg by remember { mutableStateOf<Double?>(null) }
+    var weightDelta by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(weightStore, today) {
         try {
             val entries = weightStore.all()
             weightDue = WeightReminder.isDue(entries, today)
             weightDays = WeightReminder.daysSinceLast(entries, today)
+            lastKg = entries.lastOrNull()?.weightKg
+            weightDelta = if (entries.size >= 2) formatKgDelta(entries.last().weightKg - entries[entries.size - 2].weightKg) else null
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
             weightDue = false // el aviso es opcional: si falla la lectura, no se muestra
+            lastKg = null
+            weightDelta = null
         }
     }
     val showWeightReminder = weightDue && state.date == today
@@ -130,7 +129,8 @@ fun DiaryScreen(
                 onPickDate = { pickingDate = true },
                 onSummary = { navigator.push(Route.Summary) },
                 onData = { navigator.push(Route.Data) },
-                modifier = Modifier.padding(horizontal = Spacing.s),
+                onCopyDay = if (state.isEmpty) null else { { copying = CopyRequest(null) } },
+                modifier = Modifier.padding(horizontal = Spacing.screen),
             )
             val onSetGoal = { navigator.push(Route.Goals) }
             if (state.loadFailed) {
@@ -149,12 +149,24 @@ fun DiaryScreen(
                 Column(Modifier.fillMaxWidth().weight(1f)) {
                     LazyColumn(
                         Modifier.fillMaxWidth().weight(1f),
-                        contentPadding = PaddingValues(start = Spacing.l, end = Spacing.l, top = Spacing.s, bottom = 104.dp),
+                        contentPadding = PaddingValues(start = Spacing.screen, end = Spacing.screen, top = Spacing.s, bottom = 104.dp),
                         verticalArrangement = Arrangement.spacedBy(Spacing.m),
                     ) {
                         item("header") { DiaryFullHeader(state, presenter, onSetGoal) }
-                        if (showWeightReminder) item("weight-reminder") { WeightReminderCard(weightDays, registerWeight) }
-                        if (waterStore != null) item("water") { WaterCard(waterStore, state.date) }
+                        item("quick-cards") {
+                            // Peso y agua, a media anchura y a la misma altura.
+                            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(Spacing.m)) {
+                                WeightReminderCard(
+                                    lastKg = lastKg,
+                                    deltaText = weightDelta,
+                                    due = showWeightReminder,
+                                    daysSinceLast = weightDays,
+                                    onRegister = registerWeight,
+                                    modifier = Modifier.weight(0.85f).fillMaxHeight(),
+                                )
+                                if (waterStore != null) WaterCard(waterStore, state.date, Modifier.weight(1.15f).fillMaxHeight())
+                            }
+                        }
                         if (state.isEmpty) {
                             // Ayuda discreta de primer uso: no sustituye a las tarjetas de comida.
                             item("empty-hint") {
@@ -172,13 +184,13 @@ fun DiaryScreen(
                             }
                         }
                         item("meals-row") {
-                            MealsRow(canCopyDay = !state.isEmpty, onCopyDay = { copying = CopyRequest(null) })
+                            MealsRow(mealsPerDay ?: state.meals.size)
                         }
                         items(state.meals, key = { it.meal }) { meal ->
                             MealSection(
                                 title = meal.meal.label,
-                                summary = mealSummary(meal.kcal, meal.proteinG, meal.carbsG, meal.fatG),
-                                onAdd = { navigator.push(Route.Add(meal.meal, date = state.date)) },
+                                summary = macroSummary(meal.kcal, meal.proteinG, meal.carbsG, meal.fatG),
+                                onAdd = { navigator.openAddSheet(meal.meal, state.date) },
                                 onCopy = if (meal.entries.isEmpty()) null else { { copying = CopyRequest(meal.meal) } },
                                 onSaveTemplate = if (meal.entries.isEmpty() || templateStore == null) null else {
                                     { templateError = null; savingTemplate = meal.meal }
@@ -205,6 +217,7 @@ fun DiaryScreen(
                                 }
                             }
                         }
+                        item("coach") { DiaryCoachCard(state, onOpenCoach = { navigator.push(Route.Ai) }) }
                     }
                 }
             }
@@ -282,7 +295,7 @@ private fun DiaryFullHeader(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
-        WeekStrip(state.week, onSelect = presenter::select, onShiftWeek = { presenter.shiftDay(it * 7) })
+        WeekStrip(state.week, onSelect = presenter::select, onShiftWeek = { presenter.shiftDay(it * 7) }, modifier = Modifier.padding(bottom = Spacing.xs))
         GoalCard(state, onSetGoal)
     }
 }
@@ -337,34 +350,16 @@ private fun EntryActionsDialog(
     )
 }
 
-/** Fila «COMIDAS» con «Copiar día» (y su icono) a la derecha; el botón solo aparece si el día tiene entradas. */
+/** Fila «COMIDAS» con las comidas al día a la derecha («4 al día»). */
 @Composable
-private fun MealsRow(canCopyDay: Boolean, onCopyDay: () -> Unit, modifier: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+private fun MealsRow(mealsPerDay: Int, modifier: Modifier = Modifier) {
+    Row(modifier.fillMaxWidth().padding(top = Spacing.s), verticalAlignment = Alignment.CenterVertically) {
         Text(
             "COMIDAS",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f),
         )
-        if (canCopyDay) {
-            TextButton(onClick = onCopyDay) {
-                Text("Copiar día")
-                Spacer(Modifier.width(Spacing.xs))
-                CopyIcon(MaterialTheme.colorScheme.primary)
-            }
-        }
-    }
-}
-
-/** Icono de copiar: dos hojas superpuestas (no hay librería de iconos). */
-@Composable
-private fun CopyIcon(color: Color) {
-    Canvas(Modifier.size(16.dp)) {
-        val stroke = Stroke(width = 1.5.dp.toPx())
-        val corner = CornerRadius(2.dp.toPx())
-        val sheet = Size(10.dp.toPx(), 10.dp.toPx())
-        drawRoundRect(color, topLeft = Offset(5.dp.toPx(), 5.dp.toPx()), size = sheet, cornerRadius = corner, style = stroke)
-        drawRoundRect(color, topLeft = Offset(1.dp.toPx(), 1.dp.toPx()), size = sheet, cornerRadius = corner, style = stroke)
+        Text("$mealsPerDay al día", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

@@ -18,6 +18,7 @@ import app.luxion.fitarchiveapp.domain.IntakeLimit
 import app.luxion.fitarchiveapp.domain.NutrientIntake
 import app.luxion.fitarchiveapp.ui.components.formatGrams
 import app.luxion.fitarchiveapp.ui.theme.Spacing
+import app.luxion.fitarchiveapp.ui.theme.easyFoodColors
 
 /** Texto del total de un nutriente: «12 g de 25 g», «≥ 25 g» sin dato, con «(incompleto)» si faltan datos. */
 fun NutrientIntake.valueText(): String {
@@ -43,24 +44,24 @@ internal fun IntakeLine(intake: List<NutrientIntake>, modifier: Modifier = Modif
 
 @Composable
 private fun IntakeCell(n: NutrientIntake, modifier: Modifier) {
-    val scheme = MaterialTheme.colorScheme
-    val color = if (n.exceeded) scheme.error else scheme.secondary
+    val colors = MaterialTheme.easyFoodColors
+    val color = if (n.exceeded) colors.heroWarning else colors.onHeroVariant
     Column(
         modifier.semantics(mergeDescendants = true) { contentDescription = "${n.label}: ${n.valueText()}" },
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Text(n.label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+        Text(n.label, style = MaterialTheme.typography.labelMedium, color = colors.onHeroVariant, maxLines = 1)
         Text(
             n.cellText(),
             style = MaterialTheme.typography.labelMedium,
-            color = if (n.exceeded) scheme.error else scheme.onSurfaceVariant,
+            color = if (n.exceeded) colors.heroWarning else colors.onHero,
             maxLines = 1,
         )
         LinearProgressIndicator(
             progress = { if (n.hasData && n.goalG > 0) (n.totalG / n.goalG).toFloat().coerceIn(0f, 1f) else 0f },
-            modifier = Modifier.fillMaxWidth().height(4.dp),
+            modifier = Modifier.fillMaxWidth().height(6.dp),
             color = color,
-            trackColor = scheme.surfaceContainerHighest,
+            trackColor = colors.heroTrack,
             strokeCap = StrokeCap.Round,
             gapSize = 0.dp,
             drawStopIndicator = {},
