@@ -5,6 +5,7 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import app.luxion.fitarchiveapp.ui.theme.PillShape
 
 /** `FilterChip` con la selección bien visible: contenedor primario en lugar del gris casi igual al fondo del tema. */
 @Composable
@@ -21,6 +22,7 @@ fun EasyFoodFilterChip(
         label = label,
         modifier = modifier,
         enabled = enabled,
+        shape = PillShape,
         colors = FilterChipDefaults.filterChipColors(
             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
             selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,

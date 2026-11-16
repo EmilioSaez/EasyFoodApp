@@ -1,5 +1,6 @@
 package app.luxion.fitarchiveapp.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.data.DiaryStore
 import app.luxion.fitarchiveapp.data.RecipeStore
 import app.luxion.fitarchiveapp.domain.RecipeCalculator
@@ -162,7 +164,7 @@ private fun RecipeContent(navigator: Navigator, recipe: Recipe, diaryStore: Diar
         ) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                    Text(recipe.name, style = MaterialTheme.typography.headlineSmall)
+                    Text(recipe.name, style = MaterialTheme.typography.headlineMedium)
                     Text(
                         "${recipe.listDetail()} · ${formatGrams(RecipeCalculator.totalGrams(recipe.ingredients))} g",
                         style = MaterialTheme.typography.bodyMedium,
@@ -184,7 +186,11 @@ private fun RecipeContent(navigator: Navigator, recipe: Recipe, diaryStore: Diar
                 }
             }
             item {
-                Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.large) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    shape = MaterialTheme.shapes.large,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                ) {
                     Column(Modifier.padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
                         if (perServing != null) {
                             MacroBlock("Por ración · 1 de ${recipe.servings}", perServing)
@@ -196,9 +202,9 @@ private fun RecipeContent(navigator: Navigator, recipe: Recipe, diaryStore: Diar
             }
             item {
                 Text(
-                    "Ingredientes · ${recipe.ingredients.size}",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
+                    "INGREDIENTES · ${recipe.ingredients.size}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             itemsIndexed(recipe.ingredients) { _, ing ->

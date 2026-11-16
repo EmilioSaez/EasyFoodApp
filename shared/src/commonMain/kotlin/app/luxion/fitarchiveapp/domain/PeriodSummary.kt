@@ -6,6 +6,7 @@ import app.luxion.fitarchiveapp.model.WeightRules
 import app.luxion.fitarchiveapp.model.epochDayToIsoDate
 import app.luxion.fitarchiveapp.model.isoDateToEpochDay
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /** Periodo del resumen (docs/design.md §2.19): semana de lunes a domingo o mes natural. */
 enum class SummaryPeriod { WEEK, MONTH }
@@ -96,7 +97,15 @@ data class PeriodSummary(
     val weight: WeightVsCalories?,
     /** Pesajes del periodo, por fecha (para la gráfica). */
     val weights: List<WeightEntry>,
+    /**
+     * Media móvil de [weights] (ver [WeightProgress.movingAverage]); se calcula con todo el historial hasta hoy, así
+     * que el primer pesaje del periodo ya promedia con los anteriores. Vacía si [weights] lo está.
+     */
+    val weightTrend: List<WeightEntry> = emptyList(),
 ) {
+    /** Adherencia: % de días juzgados que cumplen el objetivo (±10 %); `null` sin objetivo o sin días juzgables. */
+    val adherencePercent: Int? get() = completedDays?.takeIf { judgedDays > 0 }?.let { (it * 100.0 / judgedDays).roundToInt() }
+
     val isEmpty: Boolean get() = loggedDays == 0
     val isCurrent: Boolean get() = range.contains(today)
 }
@@ -181,6 +190,42 @@ object PeriodSummaries {
             worstDay = worstDay,
             weight = weightTrend,
             weights = weightsIn,
+            weightTrend = WeightProgress.movingAverage(weights.filter { it.date <= today }).filter { range.contains(it.date) },
         )
+    }
+}
+
+/** Una magnitud de la semana frente a la anterior; [delta] es `null` si falta alguno de los dos valores. */
+data class MetricChange(val current: Double?, val previous: Double?) {
+    val delta: Double? get() = if (current != null && previous != null) current - previous else null
+}
+
+/**
+ * Semana frente a la anterior: kcal y proteína medias (sobre días con registro) y días cumplidos.
+ * Derivado de dos [PeriodSummary]; el periodo con menos datos sigue siendo comparable porque las medias son por día.
+ */
+data class WeekComparison(
+    val current: PeriodSummary,
+    val previous: PeriodSummary,
+    val kcal: MetricChange,
+    val proteinG: MetricChange,
+    /** `null` en cada lado si no hay objetivo. */
+    val completedDays: MetricChange,
+) {
+    /** Sin registros en ninguna de las dos semanas no hay nada que comparar. */
+    val hasData: Boolean get() = !current.isEmpty || !previous.isEmpty
+
+    companion object {
+        /** `null` si [current] no es una semana o [previous] no es la inmediatamente anterior. */
+        fun of(current: PeriodSummary, previous: PeriodSummary): WeekComparison? {
+            if (current.range.period != SummaryPeriod.WEEK || previous.range != current.range.shifted(-1)) return null
+            return WeekComparison(
+                current = current,
+                previous = previous,
+                kcal = MetricChange(current.averages?.kcal, previous.averages?.kcal),
+                proteinG = MetricChange(current.averages?.proteinG, previous.averages?.proteinG),
+                completedDays = MetricChange(current.completedDays?.toDouble(), previous.completedDays?.toDouble()),
+            )
+        }
     }
 }

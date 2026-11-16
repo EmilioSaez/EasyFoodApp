@@ -26,9 +26,9 @@ internal fun MacrosLine(state: DiaryUiState) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.m)) {
         state.macros.forEach { macro ->
             val color = when (macro.label) {
-                "Proteína" -> colors.macroProtein
-                "Hidratos" -> colors.macroCarbs
-                else -> colors.macroFat
+                "Proteína" -> colors.heroProtein
+                "Hidratos" -> colors.heroCarbs
+                else -> colors.heroFat
             }
             MacroCell(macro.label, macro.consumedG, macro.goalG, color, Modifier.weight(1f))
         }
@@ -37,23 +37,27 @@ internal fun MacrosLine(state: DiaryUiState) {
 
 @Composable
 private fun MacroCell(label: String, consumedG: Double, goalG: Double?, color: Color, modifier: Modifier) {
+    val colors = MaterialTheme.easyFoodColors
     Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             MacroDot(color, size = 8.dp)
-            Text(label, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(start = Spacing.xs))
+            Text(
+                label, style = MaterialTheme.typography.labelMedium, color = colors.onHeroVariant,
+                modifier = Modifier.padding(start = Spacing.xs),
+            )
         }
         Text(
             if (goalG != null) "${formatGrams(consumedG)} / ${formatGrams(goalG)} g" else "${formatGrams(consumedG)} g",
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = colors.onHero,
             maxLines = 1,
         )
         if (goalG != null) {
             LinearProgressIndicator(
                 progress = { if (goalG > 0) (consumedG / goalG).toFloat().coerceIn(0f, 1f) else 0f },
-                modifier = Modifier.fillMaxWidth().height(4.dp),
+                modifier = Modifier.fillMaxWidth().height(6.dp),
                 color = color,
-                trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                trackColor = colors.heroTrack,
                 strokeCap = StrokeCap.Round,
                 gapSize = 0.dp,
                 drawStopIndicator = {},

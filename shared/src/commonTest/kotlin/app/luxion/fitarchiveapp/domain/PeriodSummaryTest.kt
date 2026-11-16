@@ -214,4 +214,104 @@ class PeriodSummaryTest {
         val s = PeriodSummaries.build(week.shifted(-1), today, 2000, emptyList(), emptyList())
         assertTrue(!s.isCurrent)
     }
+
+    // --- Tendencias: media móvil, adherencia y semana frente a semana ---
+
+    private fun build(range: PeriodRange, goal: Int?, entries: List<DiaryEntry>, weights: List<WeightEntry> = emptyList()) =
+        PeriodSummaries.build(range, today, goal, entries, weights)
+
+    @Test
+    fun adherenceIsCompletedOverJudgedDays() {
+        val month = PeriodRange.of(SummaryPeriod.MONTH, today)
+        // Hasta hoy (11) se juzgan los días 1–10 (hoy no, si no está cumplido): 3 cumplidos de 10.
+        val s = build(month, 2000, listOf(day("2026-11-02", 2000.0), day("2026-11-03", 2200.0), day("2026-11-04", 1800.0), day("2026-11-05", 2300.0)))
+        assertEquals(3, s.completedDays)
+        assertEquals(10, s.judgedDays)
+        assertEquals(30, s.adherencePercent)
+    }
+
+    @Test
+    fun adherenceIsNullWithoutGoalOrJudgedDays() {
+        val month = PeriodRange.of(SummaryPeriod.MONTH, today)
+        assertNull(build(month, null, listOf(day("2026-11-02", 2000.0))).adherencePercent)
+        // Mes futuro: ningún día se puede juzgar.
+        assertNull(build(month.shifted(1), 2000, emptyList()).adherencePercent)
+    }
+
+    @Test
+    fun adherenceRoundsToNearestPercent() {
+        val month = PeriodRange.of(SummaryPeriod.MONTH, today)
+        // Días 1–10 juzgados: 7 cumplidos = 70 %.
+        assertEquals(70, build(month, 2000, (1..7).map { day("2026-11-0$it", 2000.0) }).adherencePercent)
+        // Semana con lunes y martes cumplidos; hoy (miércoles) sin registrar no se juzga: 2/2.
+        assertEquals(100, build(week, 2000, listOf(day("2026-11-09", 2000.0), day("2026-11-10", 2000.0))).adherencePercent)
+        // 1 de 3 juzgados = 33,3 → 33; 2 de 3 = 66,7 → 67.
+        val third = PeriodRange(SummaryPeriod.WEEK, "2026-11-09", "2026-11-15")
+        assertEquals(33, PeriodSummaries.build(third, "2026-11-12", 2000, listOf(day("2026-11-09", 2000.0)), emptyList()).adherencePercent)
+        assertEquals(67, PeriodSummaries.build(third, "2026-11-12", 2000, listOf(day("2026-11-09", 2000.0), day("2026-11-10", 2000.0)), emptyList()).adherencePercent)
+    }
+
+    @Test
+    fun weightTrendUsesHistoryBeforeThePeriodButOnlyReturnsPeriodDates() {
+        val weights = listOf(weight("2026-11-01", 82.0), weight("2026-11-05", 80.0), weight("2026-11-10", 79.0), weight("2026-11-11", 78.0))
+        val s = build(week, 2000, listOf(day("2026-11-10", 2000.0)), weights)
+        assertEquals(listOf("2026-11-10", "2026-11-11"), s.weightTrend.map { it.date })
+        assertEquals((82.0 + 80.0 + 79.0) / 3, s.weightTrend[0].weightKg, 1e-9)
+        assertEquals((82.0 + 80.0 + 79.0 + 78.0) / 4, s.weightTrend[1].weightKg, 1e-9)
+    }
+
+    @Test
+    fun weightTrendIgnoresFutureWeights() {
+        val s = build(week, 2000, listOf(day("2026-11-10", 2000.0)), listOf(weight("2026-11-10", 80.0), weight("2026-11-14", 70.0)))
+        assertEquals(listOf("2026-11-10"), s.weightTrend.map { it.date })
+        assertEquals(80.0, s.weightTrend.single().weightKg, 1e-9)
+    }
+
+    @Test
+    fun weekComparisonComparesKcalProteinAndCompletedDays() {
+        val current = build(week, 2000, listOf(day("2026-11-09", 2000.0), day("2026-11-10", 1000.0)))
+        val previous = build(week.shifted(-1), 2000, listOf(day("2026-11-02", 2000.0), day("2026-11-03", 2000.0), day("2026-11-04", 2400.0)))
+        val c = WeekComparison.of(current, previous)!!
+        assertEquals(1500.0, c.kcal.current!!, 1e-9)
+        assertEquals((2000.0 + 2000.0 + 2400.0) / 3, c.kcal.previous!!, 1e-9)
+        assertEquals(1500.0 - 6400.0 / 3, c.kcal.delta!!, 1e-9)
+        assertEquals(1.0, c.completedDays.current!!, 1e-9)
+        assertEquals(2.0, c.completedDays.previous!!, 1e-9) // 2.400 queda fuera del margen
+        assertEquals(-1.0, c.completedDays.delta!!, 1e-9)
+        assertEquals(c.proteinG.current!! - c.proteinG.previous!!, c.proteinG.delta!!, 1e-9)
+        assertTrue(c.hasData)
+    }
+
+    @Test
+    fun weekComparisonWithAnEmptyWeekHasNoDeltaButKeepsTheOtherSide() {
+        val current = build(week, 2000, listOf(day("2026-11-09", 2000.0)))
+        val previous = build(week.shifted(-1), 2000, emptyList())
+        val c = WeekComparison.of(current, previous)!!
+        assertNull(c.kcal.previous)
+        assertNull(c.kcal.delta)
+        assertNull(c.proteinG.delta)
+        assertEquals(0.0, c.completedDays.previous!!, 1e-9) // semana pasada sin registros: 0 cumplidos
+        assertTrue(c.hasData)
+        assertTrue(!WeekComparison.of(build(week, 2000, emptyList()), previous)!!.hasData)
+    }
+
+    @Test
+    fun weekComparisonWithoutGoalHasNoCompletedDays() {
+        val c = WeekComparison.of(
+            build(week, null, listOf(day("2026-11-09", 2000.0))),
+            build(week.shifted(-1), null, listOf(day("2026-11-02", 1800.0))),
+        )!!
+        assertNull(c.completedDays.current)
+        assertNull(c.completedDays.delta)
+        assertEquals(200.0, c.kcal.delta!!, 1e-9)
+    }
+
+    @Test
+    fun weekComparisonRequiresTheImmediatelyPreviousWeek() {
+        val current = build(week, 2000, listOf(day("2026-11-09", 2000.0)))
+        assertNull(WeekComparison.of(current, build(week.shifted(-2), 2000, emptyList())))
+        assertNull(WeekComparison.of(current, current))
+        val month = PeriodRange.of(SummaryPeriod.MONTH, today)
+        assertNull(WeekComparison.of(build(month, 2000, emptyList()), build(month.shifted(-1), 2000, emptyList())))
+    }
 }

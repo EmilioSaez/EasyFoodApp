@@ -1,5 +1,19 @@
 package app.luxion.fitarchiveapp.ui.components
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.material3.OutlinedCard
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.sp
+import app.luxion.fitarchiveapp.ui.theme.PillShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,7 +27,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,7 +43,6 @@ import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.data.WaterStore
 import app.luxion.fitarchiveapp.model.WaterRules
 import app.luxion.fitarchiveapp.ui.theme.Spacing
-import app.luxion.fitarchiveapp.ui.theme.easyFoodColors
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -80,25 +92,30 @@ fun WaterCard(store: WaterStore, date: String, modifier: Modifier = Modifier) {
         }
     }
 
-    Card(
-        modifier.fillMaxWidth(),
+    OutlinedCard(
+        modifier,
         shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column(Modifier.padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("Agua", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                Text(
-                    "${formatLiters(totalMl)} de ${formatLiters(goalMl)} L",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-            }
+            Text("AGUA", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                buildAnnotatedString {
+                    append(formatLiters(totalMl))
+                    withStyle(SpanStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant, fontFamily = MaterialTheme.typography.bodyMedium.fontFamily)) {
+                        append(" / ${formatLiters(goalMl)} L")
+                    }
+                },
+                style = MaterialTheme.typography.headlineMedium,
+                maxLines = 1,
+            )
             LinearProgressIndicator(
                 progress = { WaterRules.progress(totalMl, goalMl).coerceIn(0f, 1f) },
                 modifier = Modifier.fillMaxWidth().height(8.dp),
-                color = MaterialTheme.easyFoodColors.macroCarbs,
-                trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                strokeCap = StrokeCap.Butt,
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                strokeCap = StrokeCap.Round,
                 gapSize = 0.dp,
                 drawStopIndicator = {},
             )
@@ -109,25 +126,34 @@ fun WaterCard(store: WaterStore, date: String, modifier: Modifier = Modifier) {
                     color = MaterialTheme.colorScheme.error,
                 )
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                QuickAdd("+ Vaso", WaterRules.GLASS_ML, Modifier.weight(1f)) { change(it, undo = false) }
-                QuickAdd("+ 500 ml", WaterRules.BOTTLE_ML, Modifier.weight(1f)) { change(it, undo = false) }
-                QuickAdd("+ 1 L", WaterRules.LITER_ML, Modifier.weight(1f)) { change(it, undo = false) }
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                QuickAdd("+ Vaso", WaterRules.GLASS_ML) { change(it, undo = false) }
+                QuickAdd("+ 500 ml", WaterRules.BOTTLE_ML) { change(it, undo = false) }
             }
+            QuickAdd("+ 1 L", WaterRules.LITER_ML) { change(it, undo = false) }
             if (lastAddedMl > 0) {
-                TextButton(onClick = { change(-lastAddedMl, undo = true) }) {
-                    Text("Deshacer (−${lastAddedMl} ml)")
-                }
+                Text(
+                    "Deshacer (−${lastAddedMl} ml)",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clip(PillShape).clickable(role = Role.Button) { change(-lastAddedMl, undo = true) }
+                        .heightIn(min = 40.dp).wrapContentHeight(Alignment.CenterVertically),
+                )
             }
         }
     }
 }
 
+/** Píldora de 40 dp de zona táctil: suma [ml] al agua del día. */
 @Composable
-private fun QuickAdd(label: String, ml: Int, modifier: Modifier, onAdd: (Int) -> Unit) {
-    OutlinedButton(onClick = { onAdd(ml) }, modifier = modifier.heightIn(min = 48.dp)) {
-        Text(label, maxLines = 1)
-    }
+private fun QuickAdd(label: String, ml: Int, onAdd: (Int) -> Unit) {
+    Box(
+        Modifier.heightIn(min = 40.dp).clip(PillShape)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .clickable(role = Role.Button) { onAdd(ml) }
+            .padding(horizontal = Spacing.m),
+        contentAlignment = Alignment.Center,
+    ) { Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1) }
 }
 
 /** Paso del objetivo de agua en Objetivos: un vaso. */

@@ -131,6 +131,7 @@ internal fun ProductEntity.toCached() = CachedProduct(
         ),
         servingSizeG = serving_size_g,
         servingLabel = serving_label,
+        fromCatalog = source == "SUPERMARKET",
     ),
     fetchedAtMillis = cached_at,
 )

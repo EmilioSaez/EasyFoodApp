@@ -39,8 +39,10 @@ LEFT JOIN (
     SELECT barcode, count(*) AS uses FROM DiaryEntryEntity WHERE barcode IS NOT NULL GROUP BY barcode
 ) AS u ON u.barcode = p.barcode
 WHERE ProductFts MATCH :query
-  AND (:onlyMine = 0 OR p.source <> 'GENERIC' OR p.barcode IN (SELECT key FROM FavoriteFoodEntity))
-ORDER BY bm25(ProductFts, 10.0, 3.0) - MIN(COALESCE(u.uses, 0), 10) * 0.8, p.name
+  AND (:onlyMine = 0 OR p.source NOT IN ('GENERIC', 'SUPERMARKET') OR p.barcode IN (SELECT key FROM FavoriteFoodEntity))
+-- Los productos del catálogo de supermercados (nombres en español, docs/supermarket-catalog.md) se priorizan con un bonus de 1,5.
+ORDER BY bm25(ProductFts, 10.0, 3.0) - MIN(COALESCE(u.uses, 0), 10) * 0.8
+    - CASE p.source WHEN 'SUPERMARKET' THEN 1.5 ELSE 0 END, p.name
 LIMIT :limit;
 
 -- Para el vocabulario de la corrección de erratas (se cachea en memoria; `searchVocabularyStamp` detecta cambios).

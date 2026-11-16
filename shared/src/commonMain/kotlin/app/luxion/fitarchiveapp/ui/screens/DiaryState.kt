@@ -78,6 +78,8 @@ data class DiaryUiState(
     val streak: Int = 0,
     /** Objetivo de kcal del día. */
     val goalKcal: Int? = null,
+    /** Kcal de cada día con registro del historial (hasta el fin de la semana mostrada o hoy): el calendario mensual lo usa. */
+    val summaries: Map<String, DaySummary> = emptyMap(),
     val consumedKcal: Double = 0.0,
     val macros: List<MacroProgress> = emptyList(),
     val meals: List<MealUi> = emptyList(),
@@ -154,6 +156,7 @@ fun buildDiaryUiState(
         week = buildWeek(date, today, goals.kcal, byDate),
         streak = DayStatus.streak(today, goals.kcal, byDate),
         goalKcal = goals.kcal,
+        summaries = byDate,
         consumedKcal = meals.sumOf { it.kcal },
         macros = listOf(
             MacroProgress("Proteína", meals.sumOf { it.proteinG }, goals.proteinG?.toDouble()),
@@ -341,16 +344,39 @@ class DiaryPresenter(
         }
     }
 
+    /**
+     * «Mismo que ayer»: copia al día mostrado lo que se apuntó el día anterior, en la misma comida ([meal]) o, con `null`,
+     * el día entero (cada comida a su equivalente). Reutiliza la lógica de [copyMeal] y [copyDay].
+     */
+    fun repeatPrevious(meal: MealType?) {
+        val target = _state.value.date
+        val source = IsoDate.plusDays(target, -1)
+        copy(target, source, empty = if (meal == null) REPEAT_EMPTY_DAY else REPEAT_EMPTY_MEAL, onDone = { count, remapped ->
+            "Repetido de ${previousDayWord(source)}: $count " + (if (count == 1) "alimento" else "alimentos") +
+                if (remapped) " (algunas comidas, a la más cercana)" else ""
+        }) { entries -> if (meal == null) entries to null else entries.filter { it.meal == meal } to meal }
+    }
+
+    private fun previousDayWord(source: String) = if (source == IsoDate.plusDays(today, -1)) "ayer" else IsoDate.long(source)
+
     private val activeMeals get() = MealPlan.preset(mealsPerDay)
 
-    private fun copy(targetDate: String, select: (List<DiaryEntry>) -> Pair<List<DiaryEntry>, MealType?>) {
-        val sourceDate = _state.value.date
+    private fun copy(
+        targetDate: String,
+        sourceDate: String = _state.value.date,
+        empty: String = COPY_EMPTY,
+        onDone: (count: Int, remapped: Boolean) -> String = { count, remapped ->
+            "Copiado a ${IsoDate.long(targetDate)}: $count " + (if (count == 1) "alimento" else "alimentos") +
+                if (remapped) " (algunas comidas, a la más cercana)" else ""
+        },
+        select: (List<DiaryEntry>) -> Pair<List<DiaryEntry>, MealType?>,
+    ) {
         scope.launch {
             val count: Int
             val remapped: Boolean
             try {
                 val (entries, meal) = select(diary.entriesForDate(sourceDate))
-                if (entries.isEmpty()) return@launch fail(COPY_EMPTY)
+                if (entries.isEmpty()) return@launch fail(empty)
                 val plan = DiaryCopy.plan(entries, targetDate, meal, activeMeals)
                 // Instantes crecientes: conservan el orden de las filas dentro de cada comida.
                 val now = nowMillis()
@@ -362,10 +388,7 @@ class DiaryPresenter(
             } catch (e: Exception) {
                 return@launch fail(COPY_ERROR)
             }
-            _state.value = _state.value.copy(
-                message = "Copiado a ${IsoDate.long(targetDate)}: $count " + (if (count == 1) "alimento" else "alimentos") +
-                    if (remapped) " (algunas comidas, a la más cercana)" else "",
-            )
+            _state.value = _state.value.copy(message = onDone(count, remapped))
             load()
         }
     }
@@ -376,6 +399,8 @@ class DiaryPresenter(
         const val COPY_ERROR = "No se pudo copiar. Inténtalo de nuevo."
         const val COPY_EMPTY = "No hay nada que copiar."
         const val COPY_SAME_ERROR = "Elige otro día u otra comida."
+        const val REPEAT_EMPTY_DAY = "El día anterior no tiene nada apuntado."
+        const val REPEAT_EMPTY_MEAL = "El día anterior no hay nada apuntado en esta comida."
         const val SAVE_ERROR = "No se pudo guardar el cambio. Inténtalo de nuevo."
         const val DELETE_ERROR = "No se pudo borrar. Inténtalo de nuevo."
         const val UNDO_ERROR = "No se pudo deshacer el borrado."
@@ -405,6 +430,17 @@ object IsoDate {
     /** Fecha mínima admitida al consultar el historial. */
     const val EARLIEST = "0000-01-01"
 
+    private val weekdayNames = listOf("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
+
+    /** «lunes 16 de noviembre» (día de la semana + día y mes, sin año). */
+    fun weekdayAndDay(date: String): String {
+        val day = isoDateToEpochDay(date) ?: return long(date)
+        return weekdayNames[(day + 3).mod(7L).toInt()] + " " + long(date).substringBeforeLast(" de ")
+    }
+
+    /** Posición del día en la semana: 0 = lunes … 6 = domingo. */
+    fun weekdayIndex(date: String): Int = ((isoDateToEpochDay(date) ?: 0L) + 3).mod(7L).toInt()
+
     /** Lunes de la semana de [date]. */
     fun weekStart(date: String): String {
         val day = isoDateToEpochDay(date) ?: return date
@@ -424,6 +460,22 @@ object IsoDate {
         }
         return "${y.toString().padStart(4, '0')}-${m.toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}"
     }
+
+    /** Primer día del mes de [date]. */
+    fun monthStart(date: String): String = date.substring(0, 8) + "01"
+
+    /** Primer día del mes que queda [months] meses después (o antes, si es negativo) del de [date]. */
+    fun shiftMonth(date: String, months: Int): String {
+        val (y, m, _) = parse(date)
+        val index = y * 12 + (m - 1) + months
+        return "${(index / 12).toString().padStart(4, '0')}-${(index % 12 + 1).toString().padStart(2, '0')}-01"
+    }
+
+    /** Días del mes de [date]. */
+    fun daysInMonth(date: String): Int = parse(date).let { (y, m, _) -> daysInMonth(y, m) }
+
+    /** «noviembre de 2026». */
+    fun monthTitle(date: String): String = parse(date).let { (y, m, _) -> "${monthNames[m - 1]} de $y" }
 
     /** «4 de noviembre de 2026». */
     fun long(date: String): String {

@@ -48,6 +48,18 @@ private sealed interface SearchState {
     data object Failed : SearchState
 }
 
+/** Alimentos propios y productos que casan con [query] (propios primero); lo comparten este buscador y la hoja «Añadir». */
+internal suspend fun searchPicks(
+    query: String,
+    onlyMine: Boolean,
+    searchStore: ProductSearchStore?,
+    customFoods: CustomFoodStore?,
+): List<FoodPick> {
+    val custom = customFoods?.all().orEmpty().filter { it.matches(query) }
+    val products = searchStore?.search(query, onlyMine = onlyMine).orEmpty()
+    return mergePicks(custom, products)
+}
+
 /**
  * Buscador de alimentos compartido por «Añadir» y por el editor de recetas (docs/design.md §2.2): campo de
  * búsqueda (FTS local + alimentos propios) y lista de resultados, mezclando todos los orígenes (cada fila muestra el
@@ -87,9 +99,7 @@ fun FoodSearch(
         state = SearchState.Loading
         delay(SEARCH_DEBOUNCE_MS)
         state = try {
-            val custom = customFoods?.all().orEmpty().filter { it.matches(query) }
-            val products = searchStore?.search(query, onlyMine = onlyMine).orEmpty()
-            SearchState.Done(mergePicks(custom, products))
+            SearchState.Done(searchPicks(query, onlyMine, searchStore, customFoods))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

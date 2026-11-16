@@ -34,6 +34,8 @@ import app.luxion.fitarchiveapp.data.SettingsStore
 import app.luxion.fitarchiveapp.data.WaterStore
 import app.luxion.fitarchiveapp.data.WeightStore
 import app.luxion.fitarchiveapp.data.generic.GenericFoodSeeder
+import app.luxion.fitarchiveapp.data.generic.GenericSeedState
+import app.luxion.fitarchiveapp.data.supermarket.SupermarketSeeder
 import app.luxion.fitarchiveapp.backup.BackupFiles
 import app.luxion.fitarchiveapp.backup.BackupManager
 import app.luxion.fitarchiveapp.export.DataExporter
@@ -46,7 +48,11 @@ import app.luxion.fitarchiveapp.ui.components.SeedProgressBanner
 import app.luxion.fitarchiveapp.ui.navigation.Navigator
 import app.luxion.fitarchiveapp.ui.navigation.PlatformBackHandler
 import app.luxion.fitarchiveapp.ui.navigation.Route
+import app.luxion.fitarchiveapp.ui.navigation.TopLevelTab
 import app.luxion.fitarchiveapp.ui.screens.AddFoodScreen
+import app.luxion.fitarchiveapp.ui.screens.AddSheet
+import app.luxion.fitarchiveapp.ui.screens.AddSheetDeps
+import app.luxion.fitarchiveapp.ui.screens.YouScreen
 import app.luxion.fitarchiveapp.ui.screens.AiScreen
 import app.luxion.fitarchiveapp.ui.screens.AiSettingsScreen
 import app.luxion.fitarchiveapp.ui.screens.CustomFoodScreen
@@ -64,7 +70,9 @@ import app.luxion.fitarchiveapp.ui.screens.RecipeDetailScreen
 import app.luxion.fitarchiveapp.ui.screens.RecipeEditScreen
 import app.luxion.fitarchiveapp.ui.screens.RemindersScreen
 import app.luxion.fitarchiveapp.ui.screens.RecipesScreen
+import app.luxion.fitarchiveapp.ui.screens.SavedTab
 import app.luxion.fitarchiveapp.ui.screens.ScannerScreen
+import app.luxion.fitarchiveapp.ui.screens.SettingsScreen
 import app.luxion.fitarchiveapp.ui.screens.TemplateEditScreen
 import app.luxion.fitarchiveapp.ui.screens.SummaryScreen
 import app.luxion.fitarchiveapp.ui.screens.WeightScreen
@@ -72,6 +80,7 @@ import app.luxion.fitarchiveapp.ui.theme.EasyFoodTheme
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.launch
 
@@ -83,6 +92,8 @@ import kotlinx.coroutines.launch
  * [ai] agrupa la clave y los ajustes de la IA (guardados fuera de la BD exportable); sin él, la IA queda sin clave.
  * [backgroundRefresh] activa el refresco oportunista de los productos de Open Food Facts usados (ver [ProductRefresher]).
  * [backupFiles], si se indica, activa la copia de seguridad periódica (y su sección en «Datos») en esa carpeta.
+ * [launchRoute] es un destino pedido desde fuera (p. ej. el widget de Android): se abre encima del Diario y se avisa
+ * con [onLaunchRouteHandled] para que quien llama lo olvide.
  */
 @Composable
 fun App(
@@ -101,10 +112,13 @@ fun App(
     today: () -> String,
     nowMinutes: () -> Int,
     genericSeeder: GenericFoodSeeder? = null,
+    supermarketSeeder: SupermarketSeeder? = null,
     ai: AiModule? = null,
     backgroundRefresh: Boolean = false,
     reminderScheduler: ReminderScheduler = rememberReminderScheduler(),
     backupFiles: BackupFiles? = null,
+    launchRoute: Route? = null,
+    onLaunchRouteHandled: () -> Unit = {},
 ) {
     EasyFoodTheme {
         Surface(Modifier.fillMaxSize()) {
@@ -141,6 +155,13 @@ fun App(
                 }
             }
             dataPresenter.backups?.let { AutoBackup(it) }
+            LaunchedEffect(launchRoute) {
+                if (launchRoute != null) {
+                    navigator.navigateTab(TopLevelTab.Today)
+                    if (launchRoute != Route.Diary) navigator.push(launchRoute)
+                    onLaunchRouteHandled()
+                }
+            }
             PlatformBackHandler(enabled = navigator.canGoBack) { navigator.pop() }
             val meals = rememberMealsSetting(settingsStore, navigator.current)
             var remindersRevision by remember { mutableIntStateOf(0) }
@@ -168,6 +189,7 @@ fun App(
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
                 Column(Modifier.widthIn(max = 600.dp).fillMaxSize()) {
                     if (genericSeeder != null) GenericSeedProgress(genericSeeder)
+                    if (supermarketSeeder != null) SupermarketSeedProgress(supermarketSeeder, after = genericSeeder)
                     Box(Modifier.weight(1f).fillMaxWidth()) {
                         val mealChoices = MealChoices(meals.count, nowMinutes)
                         if (!meals.loaded) {
@@ -175,6 +197,7 @@ fun App(
                         } else if (meals.needsSetup) {
                             MealsSetupScreen(onConfirm = meals::choose, error = meals.error, saving = meals.saving)
                         } else when (val route = navigator.current) {
+                            Route.You -> YouScreen(navigator, weightStore, goalStore, diaryStore, today, meals.count)
                             Route.Diary -> DiaryScreen(navigator, diaryStore, goalStore, weightStore, today(), meals.count, waterStore, templateStore)
                             is Route.Add -> AddFoodScreen(
                                 navigator,
@@ -194,7 +217,8 @@ fun App(
                             is Route.ProductDetail -> ProductDetailScreen(navigator, route, repository, diaryStore, customFoodStore, favoriteStore, today, mealChoices)
                             Route.Goals -> GoalsScreen(navigator, goalStore, today, meals.count, meals::choose, waterStore)
                             Route.Weight -> WeightScreen(navigator, weightStore, today)
-                            Route.Recipes -> RecipesScreen(navigator, recipeStore)
+                            Route.Recipes -> RecipesScreen(navigator, recipeStore, SavedTab.Recipes, templateStore, diaryStore, today, mealChoices)
+                            Route.Templates -> RecipesScreen(navigator, recipeStore, SavedTab.Templates, templateStore, diaryStore, today, mealChoices)
                             is Route.RecipeDetail -> RecipeDetailScreen(navigator, route, recipeStore, diaryStore, today, mealChoices)
                             is Route.RecipeEdit -> RecipeEditScreen(navigator, route, recipeStore, searchStore, customFoodStore)
                             is Route.TemplateEdit -> if (templateStore != null) {
@@ -204,8 +228,16 @@ fun App(
                             Route.Summary -> SummaryScreen(navigator, diaryStore, goalStore, weightStore, today)
                             Route.Data -> DataScreen(navigator, dataPresenter, today)
                             is Route.PlatePhoto -> PlatePhotoScreen(navigator, route, aiModule, searchStore, customFoodStore, diaryStore, today, mealChoices)
-                            Route.Ai -> AiScreen(navigator, aiModule, aiAdviceSource, diaryStore, today, mealChoices)
+                            Route.Ai -> AiScreen(navigator, aiModule, aiAdviceSource, diaryStore, today, mealChoices, searchStore, customFoodStore)
                             Route.AiSettings -> AiSettingsScreen(navigator, aiModule, today)
+                            Route.Settings -> SettingsScreen(navigator)
+                        }
+                        // Hoja «Añadir» (el «+» de la barra inferior): por encima de cualquier pantalla.
+                        if (meals.loaded && !meals.needsSetup) navigator.addSheet?.let {
+                            AddSheet(
+                                it, navigator,
+                                AddSheetDeps(searchStore, customFoodStore, diaryStore, favoriteStore, templateStore, recipeStore, today, mealChoices),
+                            )
                         }
                     }
                 }
@@ -241,6 +273,17 @@ private const val RECHECK_MILLIS = 6L * 60 * 60 * 1000
 @Composable
 private fun GenericSeedProgress(seeder: GenericFoodSeeder) {
     LaunchedEffect(seeder) { seeder.ensureSeeded() }
+    val state by seeder.state.collectAsState()
+    SeedProgressBanner(state)
+}
+
+/** Carga el catálogo de supermercados tras la base genérica (la búsqueda de lo básico queda lista antes). */
+@Composable
+private fun SupermarketSeedProgress(seeder: SupermarketSeeder, after: GenericFoodSeeder?) {
+    LaunchedEffect(seeder) {
+        after?.state?.first { it == GenericSeedState.Done || it is GenericSeedState.Failed }
+        seeder.ensureSeeded()
+    }
     val state by seeder.state.collectAsState()
     SeedProgressBanner(state)
 }

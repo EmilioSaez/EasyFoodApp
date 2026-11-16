@@ -3,6 +3,7 @@ package app.luxion.fitarchiveapp.export
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import app.luxion.fitarchiveapp.data.SqlDelightDiaryStore
 import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
+import app.luxion.fitarchiveapp.data.supermarket.SupermarketImporter
 import app.luxion.fitarchiveapp.data.SqlDelightProductStore
 import app.luxion.fitarchiveapp.db.EasyFoodDatabase
 import app.luxion.fitarchiveapp.model.MealType
@@ -94,6 +95,22 @@ class DataExporterTest {
         ).joinToString("\n")
         GenericFoodImporter(db.productQueries).import(tsv, 9L)
         assertEquals(1, GenericFoodImporter(db.productQueries).importedCount().toInt())
+
+        val file = ExportCodec.decode(exporter.exportToJson())
+
+        assertEquals(listOf(nutella.barcode), file.products.map { it.barcode })
+    }
+
+    @Test
+    fun excludesEmbeddedSupermarketCatalog() = runTest {
+        products.save(nutella, 1L)
+        val tsv = listOf(
+            "#easyfood-supermarket-products v1",
+            listOf("code", "name", "brand", "kcal", "protein_g", "carbs_g", "fat_g", "saturated_fat_g", "sugars_g", "fiber_g", "salt_g").joinToString("\t"),
+            listOf("8480000000011", "Leche entera", "Hacendado", "64", "3", "5", "3", "", "", "", "").joinToString("\t"),
+        ).joinToString("\n")
+        SupermarketImporter(db.productQueries).import(tsv, 9L)
+        assertEquals(1, SupermarketImporter(db.productQueries).importedCount().toInt())
 
         val file = ExportCodec.decode(exporter.exportToJson())
 

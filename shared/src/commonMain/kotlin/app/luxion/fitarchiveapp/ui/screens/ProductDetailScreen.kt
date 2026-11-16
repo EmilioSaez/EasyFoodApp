@@ -77,6 +77,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 /** Lo que muestra la ficha, venga de un producto (alta) o de una entrada del diario (edición). */
+/** Atribución obligatoria (ODbL) de los datos del catálogo de supermercados, que vienen de Open Food Facts. */
+const val CATALOG_ATTRIBUTION = "datos de Open Food Facts, © Open Food Facts contributors (ODbL)"
+
 private data class FoodDetail(
     val barcode: String?,
     val name: String,
@@ -173,7 +176,7 @@ fun ProductDetailScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Producto") },
+                title = { Text(if (route.entryId != null) "Editar entrada" else "Confirmar alimento") },
                 navigationIcon = {
                     IconButton(
                         onClick = { navigator.pop() },
@@ -289,8 +292,12 @@ private suspend fun load(
             val detail = FoodDetail(
                 barcode = p.barcode, name = p.name, brand = p.brand, nutrients = p.nutrients,
                 servingSizeG = p.servingSizeG, servingLabel = p.servingLabel,
-                source = if (p.barcode.startsWith(GenericFoodFormat.KEY_PREFIX)) DataSource.Generic else DataSource.OpenFoodFacts,
-                sourceNote = note, product = p,
+                source = when {
+                    p.barcode.startsWith(GenericFoodFormat.KEY_PREFIX) -> DataSource.Generic
+                    p.fromCatalog -> DataSource.Supermarket
+                    else -> DataSource.OpenFoodFacts
+                },
+                sourceNote = if (p.fromCatalog) CATALOG_ATTRIBUTION else note, product = p,
                 refreshedAtMillis = result.refreshedAtMillis, changeSummary = result.changeSummary,
                 changedAtMillis = result.changedAtMillis,
             )
@@ -354,6 +361,8 @@ private fun DetailContent(
     var meal by remember(ready) { mutableStateOf(ready.initialMeal) }
     var unit by remember(ready) { mutableStateOf(ready.initialUnit) }
     var amountText by remember(ready) { mutableStateOf(formatGrams(ready.initialAmount).replace(".", "")) }
+    // Día al que se apunta el alta: el de la hoja «Añadir» (o hoy); se puede cambiar aquí.
+    var date by remember(ready) { mutableStateOf(route.date ?: today()) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var correctionBusy by remember { mutableStateOf(false) }
@@ -515,6 +524,7 @@ private fun DetailContent(
         Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
             Column(Modifier.fillMaxWidth().padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
                 error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+                if (!editing) DateStepperRow(date, { date = it })
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                     mealChoices.options(ready.initialMeal).forEach { m ->
                         EasyFoodFilterChip(selected = meal == m, onClick = { meal = m }, label = { Text(m.label) })
@@ -533,7 +543,7 @@ private fun DetailContent(
                                     } else {
                                         diaryStore.add(
                                             NewDiaryEntry(
-                                                date = route.date ?: today(),
+                                                date = date,
                                                 meal = meal,
                                                 barcode = detail.barcode,
                                                 name = detail.name,

@@ -27,6 +27,8 @@ import app.luxion.fitarchiveapp.data.SqlDelightWaterStore
 import app.luxion.fitarchiveapp.data.SqlDelightWeightStore
 import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
 import app.luxion.fitarchiveapp.data.generic.GenericFoodSeeder
+import app.luxion.fitarchiveapp.data.supermarket.SupermarketImporter
+import app.luxion.fitarchiveapp.data.supermarket.SupermarketSeeder
 import app.luxion.fitarchiveapp.db.EasyFoodDatabase
 import app.luxion.fitarchiveapp.export.SqlDelightImportTarget
 import app.luxion.fitarchiveapp.ui.App
@@ -121,6 +123,12 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
             genericSeeder = remember(db) {
                 GenericFoodSeeder(
                     GenericFoodImporter(db.productQueries),
+                    nowMillis = { (NSDate().timeIntervalSince1970 * 1000).toLong() },
+                )
+            },
+            supermarketSeeder = remember(db) {
+                SupermarketSeeder(
+                    SupermarketImporter(db.productQueries),
                     nowMillis = { (NSDate().timeIntervalSince1970 * 1000).toLong() },
                 )
             },

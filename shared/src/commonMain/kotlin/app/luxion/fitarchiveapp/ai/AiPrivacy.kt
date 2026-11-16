@@ -8,7 +8,8 @@ object AiPrivacy {
         "La foto que elijas (reducida a 1024 px como máximo y sin metadatos).",
         "Un resumen mínimo del día: kcal y macros consumidos y tus objetivos de kcal y macros.",
         "La indicación de la tarea (por ejemplo, «lee esta etiqueta»).",
-        "Para sugerencias y consejos: el nombre y las kcal de unos pocos de tus favoritos, recientes, plantillas y recetas, lo ya apuntado en la comida actual, el agua, los totales de fibra, sal y azúcares y las medias de la semana, y el texto que escribas.",
+        "Para sugerencias y consejos: el nombre y las kcal de unos pocos de tus favoritos, recientes, plantillas y recetas, lo apuntado hoy (nombres, gramos y kcal), los alimentos que más repites esta semana, el agua, los totales de fibra, sal y azúcares y las medias de la semana, y el texto que escribas.",
+        "Para apuntar por texto: la frase que escribas, nada más.",
     )
 
     val notSent: List<String> = listOf(
@@ -17,12 +18,15 @@ object AiPrivacy {
         "Tu clave de API: solo viaja a Anthropic, en la cabecera de la petición.",
     )
 
-    /** Id del aviso propio de «¿Qué como?», «¿Cómo voy?» y la pregunta libre (se acepta una vez; ver [AiSettingsStore.hasAck]). */
-    const val ADVICE_ACK = "advice"
+    /**
+     * Id del aviso propio de «¿Qué como?», «¿Cómo voy?», el menú y la pregunta libre (se acepta una vez; ver
+     * [AiSettingsStore.hasAck]). «advice2»: el aviso se amplió (alimentos de hoy y de la semana), así que se vuelve a pedir aceptarlo.
+     */
+    const val ADVICE_ACK = "advice2"
 
     const val ADVICE_NOTICE =
-        "Para responder se envía a Anthropic un resumen mínimo: tus totales y objetivos, lo ya apuntado en la comida actual, " +
-            "agua, y el nombre y las kcal de unos pocos favoritos, recientes, plantillas y recetas, más lo que escribas. " +
+        "Para responder se envía a Anthropic un resumen mínimo: tus totales y objetivos, los nombres, gramos y kcal de lo apuntado hoy, " +
+            "los alimentos que más repites esta semana, agua, y el nombre y las kcal de unos pocos favoritos, recientes, plantillas y recetas, más lo que escribas. " +
             "Nunca tu nombre, correo ni tu historial completo."
 
     const val FOOTER =
