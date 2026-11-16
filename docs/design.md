@@ -318,7 +318,7 @@ Mezcla de la captura de referencia (resumen grande arriba, semana con días y ta
 ```
 Scaffold
 ├─ Cabecera (la fila va anclada; la franja y la tarjeta se desplazan con la lista; ver «Cabecera»)
-│  ├─ Fila: «Hoy ▾» (toca → selector de fecha) · derecha: 🔥 racha (icono de llama + nº de días) · ▥ Resumen (§2.16)
+│  ├─ Fila: «Hoy ▾» (toca → selector de fecha) · derecha: racha (`StreakIcon` + nº de días) · ▥ Resumen (§2.16)
 │  ├─ Franja semanal (7 días, lunes a domingo de la semana del día elegido): inicial (L M X J V S D) · número · punto de estado
 │  └─ Tarjeta de objetivo
 │       «kcal» · «consumidas / objetivo» (displayMedium, cifras tabulares)
@@ -337,7 +337,7 @@ Scaffold
   - **Futuro**: punto neutro (`outlineVariant`).
   - **Sin objetivo definido:** no se puede evaluar; los días con registro salen neutros con punto relleno y los demás vacíos.
   - El día elegido se marca con un círculo (primaryContainer). Tocar un día lo selecciona; deslizar la franja cambia de semana.
-- **Racha.** Número de días completados consecutivos que terminan hoy; si hoy aún no está completado, se cuenta hasta ayer y la racha no se rompe hasta que acaba el día. Se calcula del historial del diario y del objetivo vigente (el objetivo es el mismo todos los días, §2.10), sin tabla nueva. Con racha 0, la llama sale apagada.
+- **Racha.** Número de días completados consecutivos que terminan hoy; si hoy aún no está completado, se cuenta hasta ayer y la racha no se rompe hasta que acaba el día. Se calcula del historial del diario y del objetivo vigente (el objetivo es el mismo todos los días, §2.10), sin tabla nueva. Con racha 0, la llama sale apagada. **Símbolo:** `StreakIcon(active, modifier)` (`ui/components/StreakIcon.kt`), «llama gota» dibujada con `Canvas` en un lienzo de 24: cuerpo `primary` (ultramar) con gota `accent` (limón); sobre la píldora limón, cuerpo `onAccent`; apagada, silueta `onSurfaceVariant` al 38 %. Nítida desde 12 dp. El 🔥 de «🔥 386 kcal» son calorías, no racha, y se queda.
 - **Margen de cumplimiento:** constante única (±10 %) en la lógica (p. ej. `DayStatus.MARGIN`), usada por los colores de la franja, la racha y las marcas del arco.
 - **Cabecera.** Solo la fila (‹ «Hoy ▾» › · racha · Datos) queda anclada. La franja y la tarjeta de objetivo se desplazan con la lista y desaparecen al bajar; no hay cabecera compacta anclada (sustituye a §2.10).
 - **Día sin entradas (hoy, pasado o futuro).** No hay estado vacío que sustituya a la lista: se ven la cabecera con el objetivo y TODAS las tarjetas de comida del preset (§2.9), cada una con «🔥 0 kcal · 0 P | 0 H | 0 G», «Nada apuntado todavía» y su «+». Como ayuda de primer uso hay una línea discreta («Nada apuntado hoy» / «este día») al principio de la lista, sin acciones duplicadas. Sin objetivo, la tarjeta de objetivo trae «Sin objetivo diario» y «Fijar objetivo».
@@ -408,7 +408,7 @@ Scaffold
    ├─ SingleChoiceSegmentedButtonRow: Semana · Mes
    ├─ ‹ [título del periodo] ›   («9–15 nov 2026» · «Noviembre de 2026»); bajo el título, «Esta semana» / «Este mes» si no se está en el actual
    ├─ MEDIA DIARIA: kcal (displayMedium, Sora) · «Objetivo 2.000 kcal · −120 kcal · sobre 5 días con registro» · StackedMacroBar con la media de P/H/G
-   ├─ DÍAS CUMPLIDOS: «5 de 6» (headlineLarge) · en mes, «83 % de adherencia» · 🔥 mejor racha · DailyKcalChart (barras por día + banda del objetivo)
+   ├─ DÍAS CUMPLIDOS: «5 de 6» (headlineLarge) · en mes, «83 % de adherencia» · `StreakIcon` mejor racha · DailyKcalChart (barras por día + banda del objetivo)
    ├─ (solo semana) ESTA SEMANA FRENTE A LA ANTERIOR: kcal al día, proteína al día y días cumplidos, cada uno con su valor, la diferencia y «antes: …»
    ├─ MEJOR DÍA | PEOR DÍA (dos tarjetas): fecha · kcal · diferencia con el objetivo
    └─ PESO FRENTE A CALORÍAS: «Peso: −0,6 kg, de 78,4 a 77,8 kg, con una media de 1.980 kcal al día (−120 kcal frente al objetivo).» · WeightChart del periodo con la media móvil · leyenda «Línea gruesa: media móvil de tus últimos 5 pesajes.»
