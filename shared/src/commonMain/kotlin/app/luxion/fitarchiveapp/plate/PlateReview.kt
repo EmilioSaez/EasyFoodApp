@@ -47,6 +47,8 @@ data class PlateItem(
     val alternatives: List<FoodPick> = emptyList(),
     /** La IA no sabe qué es: pregunta al usuario. `null` si no hay duda o ya se resolvió. */
     val question: PlateQuestion? = null,
+    /** Término con el que la IA lo buscó; sirve para recordar qué alimento eligió el usuario en su lugar. */
+    val searchTerm: String? = null,
 ) {
     val isEstimated: Boolean get() = source is PlateSource.Estimated
 

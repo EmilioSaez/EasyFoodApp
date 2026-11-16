@@ -56,6 +56,8 @@ class AiTabCard(
 val aiTabActions: List<AiTabAction> = listOf(
     aiPlateAction,
 
+    aiTextAction,
+
     aiLabelAction,
 )
 

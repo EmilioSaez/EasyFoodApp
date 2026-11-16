@@ -8,6 +8,8 @@ class AiModule(
     val vault: AiKeyVault,
     val settings: AiSettingsStore,
     val service: AiService,
+    /** Enlaces que el usuario ha corregido en «Foto del plato» y «Apuntar por texto». */
+    val aliases: app.luxion.fitarchiveapp.plate.FoodAliasStore = app.luxion.fitarchiveapp.plate.FoodAliasStore(InMemoryAiPreferences()),
 ) {
     companion object {
         fun create(
@@ -17,7 +19,7 @@ class AiModule(
             client: ClaudeClient = ClaudeClient(apiKey = { vault.read() }),
         ): AiModule {
             val settings = AiSettingsStore(preferences)
-            return AiModule(vault, settings, AiService(vault, settings, today, client))
+            return AiModule(vault, settings, AiService(vault, settings, today, client), app.luxion.fitarchiveapp.plate.FoodAliasStore(preferences))
         }
 
         /** Módulo sin persistencia (tests y vistas previas): sin clave, la IA queda desactivada. */

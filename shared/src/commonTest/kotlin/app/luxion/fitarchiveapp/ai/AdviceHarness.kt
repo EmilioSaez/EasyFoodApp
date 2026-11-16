@@ -23,9 +23,11 @@ internal class AdviceHarness(
     limit: Int = 30,
     goals: DailyGoals = DailyGoals(kcal = 2000),
     meal: MealType = MealType.LUNCH,
+    entries: List<app.luxion.fitarchiveapp.model.DiaryEntry> = emptyList(),
+    catalog: app.luxion.fitarchiveapp.plate.FoodCatalog? = null,
 ) {
     val requests = mutableListOf<String>()
-    val diary = FakeAdviceDiary()
+    val diary = FakeAdviceDiary(entries)
     private var body = ""
     private var status = HttpStatusCode.OK
 
@@ -51,6 +53,7 @@ internal class AdviceHarness(
         today = { TODAY },
         defaultMeal = { meal },
         nowMillis = { 1_000L },
+        catalog = catalog,
     )
 
     suspend fun refresh() = state.refresh()
