@@ -63,7 +63,8 @@ class FoodCatalog(
     private fun rank(p: FoodPick): Int = when (p.result.source) {
         DataSource.Custom -> 0
         DataSource.Generic -> 1
-        DataSource.OpenFoodFacts -> 2
+        DataSource.Supermarket -> 2
+        DataSource.OpenFoodFacts -> 3
     }
 
     companion object {

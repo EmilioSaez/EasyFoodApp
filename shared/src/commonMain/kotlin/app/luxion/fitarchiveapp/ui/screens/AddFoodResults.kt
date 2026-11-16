@@ -38,7 +38,11 @@ fun Product.toFoodResult(): FoodResult {
         key = barcode,
         name = name,
         detail = parts.joinToString(" · ").ifEmpty { if (isGeneric) DataSource.Generic.label else "" },
-        source = if (isGeneric) DataSource.Generic else DataSource.OpenFoodFacts,
+        source = when {
+            isGeneric -> DataSource.Generic
+            fromCatalog -> DataSource.Supermarket
+            else -> DataSource.OpenFoodFacts
+        },
         kcalPer100g = nutrients.kcal,
     )
 }

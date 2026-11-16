@@ -26,6 +26,8 @@ import app.luxion.fitarchiveapp.data.SqlDelightWaterStore
 import app.luxion.fitarchiveapp.data.SqlDelightWeightStore
 import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
 import app.luxion.fitarchiveapp.data.generic.GenericFoodSeeder
+import app.luxion.fitarchiveapp.data.supermarket.SupermarketImporter
+import app.luxion.fitarchiveapp.data.supermarket.SupermarketSeeder
 import app.luxion.fitarchiveapp.export.SqlDelightImportTarget
 import app.luxion.fitarchiveapp.ui.App
 import app.luxion.fitarchiveapp.ui.screens.MigrationErrorScreen
@@ -66,6 +68,10 @@ class MainActivity : ComponentActivity() {
         GenericFoodSeeder(GenericFoodImporter(database.productQueries), nowMillis = System::currentTimeMillis)
     }
 
+    private val supermarketSeeder by lazy {
+        SupermarketSeeder(SupermarketImporter(database.productQueries), nowMillis = System::currentTimeMillis)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Abrir la base aquí (y no al pintar) permite mostrar un aviso si la actualización de la base falla.
@@ -99,6 +105,7 @@ class MainActivity : ComponentActivity() {
                     today = { LocalDate.now().toString() },
                     nowMinutes = { LocalTime.now().let { it.hour * 60 + it.minute } },
                     genericSeeder = genericSeeder,
+                    supermarketSeeder = supermarketSeeder,
                     ai = aiModule,
                     backgroundRefresh = true,
                     backupFiles = backupFiles,

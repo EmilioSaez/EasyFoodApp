@@ -31,6 +31,8 @@ data class Product(
      * [nutrients] lleva los valores corregidos. `null` = producto sin corregir.
      */
     val originalNutrients: Nutrients? = null,
+    /** Viene del catálogo de supermercados embebido (datos de Open Food Facts, ODbL; docs/supermarket-catalog.md). */
+    val fromCatalog: Boolean = false,
 ) {
     /** El usuario ha corregido los valores nutricionales de este producto (ver [ProductCorrection]). */
     val isCorrected: Boolean get() = originalNutrients != null

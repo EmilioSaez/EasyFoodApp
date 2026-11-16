@@ -77,6 +77,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 /** Lo que muestra la ficha, venga de un producto (alta) o de una entrada del diario (edición). */
+/** Atribución obligatoria (ODbL) de los datos del catálogo de supermercados, que vienen de Open Food Facts. */
+const val CATALOG_ATTRIBUTION = "datos de Open Food Facts, © Open Food Facts contributors (ODbL)"
+
 private data class FoodDetail(
     val barcode: String?,
     val name: String,
@@ -289,8 +292,12 @@ private suspend fun load(
             val detail = FoodDetail(
                 barcode = p.barcode, name = p.name, brand = p.brand, nutrients = p.nutrients,
                 servingSizeG = p.servingSizeG, servingLabel = p.servingLabel,
-                source = if (p.barcode.startsWith(GenericFoodFormat.KEY_PREFIX)) DataSource.Generic else DataSource.OpenFoodFacts,
-                sourceNote = note, product = p,
+                source = when {
+                    p.barcode.startsWith(GenericFoodFormat.KEY_PREFIX) -> DataSource.Generic
+                    p.fromCatalog -> DataSource.Supermarket
+                    else -> DataSource.OpenFoodFacts
+                },
+                sourceNote = if (p.fromCatalog) CATALOG_ATTRIBUTION else note, product = p,
                 refreshedAtMillis = result.refreshedAtMillis, changeSummary = result.changeSummary,
                 changedAtMillis = result.changedAtMillis,
             )

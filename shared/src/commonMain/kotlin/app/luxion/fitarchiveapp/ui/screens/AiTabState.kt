@@ -55,6 +55,7 @@ data class SuggestionLink(val pick: FoodPick, val grams: Double) {
     val origin: String get() = "De tu base · " + when (pick.result.source) {
         app.luxion.fitarchiveapp.ui.components.DataSource.Custom -> "Propio"
         app.luxion.fitarchiveapp.ui.components.DataSource.Generic -> "Genérico"
+        app.luxion.fitarchiveapp.ui.components.DataSource.Supermarket -> "Supermercado"
         app.luxion.fitarchiveapp.ui.components.DataSource.OpenFoodFacts -> "Open Food Facts"
     }
 

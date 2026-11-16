@@ -1,7 +1,6 @@
 package app.luxion.fitarchiveapp.export
 
 import app.luxion.fitarchiveapp.data.FavoriteKeys
-import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
 import app.luxion.fitarchiveapp.db.CustomFoodQueries
 import app.luxion.fitarchiveapp.db.DiaryEntryQueries
 import app.luxion.fitarchiveapp.db.FavoriteFoodQueries
@@ -196,7 +195,7 @@ class DataImporter(private val target: ImportTarget) {
         var c = ImportCounts()
         for (p in incoming) {
             // Exportaciones antiguas incluían la base genérica; ya viene con la app, así que no cuenta.
-            if (p.source == GenericFoodImporter.SOURCE) continue
+            if (p.source in EMBEDDED_SOURCES) continue
             if (p.barcode.isBlank() || p.name.isBlank()) {
                 invalid += "Producto sin código de barras o sin nombre"; c = c.copy(invalid = c.invalid + 1); continue
             }

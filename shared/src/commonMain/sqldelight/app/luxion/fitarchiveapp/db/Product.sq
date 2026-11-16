@@ -42,6 +42,14 @@ ON CONFLICT(barcode) DO UPDATE SET
     salt_g = excluded.salt_g, serving_size_g = excluded.serving_size_g, serving_label = excluded.serving_label,
     source = excluded.source, cached_at = excluded.cached_at;
 
+-- Catálogo de supermercados embebido: nunca pisa una fila existente con el mismo EAN.
+insertIfAbsent:
+INSERT INTO ProductEntity(
+    barcode, name, brand, image_url, kcal, protein_g, carbs_g, sugars_g, fat_g,
+    saturated_fat_g, fiber_g, salt_g, serving_size_g, serving_label, source, cached_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(barcode) DO NOTHING;
+
 deleteByBarcode:
 DELETE FROM ProductEntity WHERE barcode = ?;
 

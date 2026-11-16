@@ -34,6 +34,8 @@ import app.luxion.fitarchiveapp.data.SettingsStore
 import app.luxion.fitarchiveapp.data.WaterStore
 import app.luxion.fitarchiveapp.data.WeightStore
 import app.luxion.fitarchiveapp.data.generic.GenericFoodSeeder
+import app.luxion.fitarchiveapp.data.generic.GenericSeedState
+import app.luxion.fitarchiveapp.data.supermarket.SupermarketSeeder
 import app.luxion.fitarchiveapp.backup.BackupFiles
 import app.luxion.fitarchiveapp.backup.BackupManager
 import app.luxion.fitarchiveapp.export.DataExporter
@@ -77,6 +79,7 @@ import app.luxion.fitarchiveapp.ui.theme.EasyFoodTheme
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.launch
 
@@ -106,6 +109,7 @@ fun App(
     today: () -> String,
     nowMinutes: () -> Int,
     genericSeeder: GenericFoodSeeder? = null,
+    supermarketSeeder: SupermarketSeeder? = null,
     ai: AiModule? = null,
     backgroundRefresh: Boolean = false,
     reminderScheduler: ReminderScheduler = rememberReminderScheduler(),
@@ -173,6 +177,7 @@ fun App(
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
                 Column(Modifier.widthIn(max = 600.dp).fillMaxSize()) {
                     if (genericSeeder != null) GenericSeedProgress(genericSeeder)
+                    if (supermarketSeeder != null) SupermarketSeedProgress(supermarketSeeder, after = genericSeeder)
                     Box(Modifier.weight(1f).fillMaxWidth()) {
                         val mealChoices = MealChoices(meals.count, nowMinutes)
                         if (!meals.loaded) {
@@ -256,6 +261,17 @@ private const val RECHECK_MILLIS = 6L * 60 * 60 * 1000
 @Composable
 private fun GenericSeedProgress(seeder: GenericFoodSeeder) {
     LaunchedEffect(seeder) { seeder.ensureSeeded() }
+    val state by seeder.state.collectAsState()
+    SeedProgressBanner(state)
+}
+
+/** Carga el catálogo de supermercados tras la base genérica (la búsqueda de lo básico queda lista antes). */
+@Composable
+private fun SupermarketSeedProgress(seeder: SupermarketSeeder, after: GenericFoodSeeder?) {
+    LaunchedEffect(seeder) {
+        after?.state?.first { it == GenericSeedState.Done || it is GenericSeedState.Failed }
+        seeder.ensureSeeded()
+    }
     val state by seeder.state.collectAsState()
     SeedProgressBanner(state)
 }

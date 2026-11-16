@@ -44,6 +44,7 @@ Riesgo: productos sin código de barras (fruta, pan, carne).
 - [x] Alimentos propios con entrada manual
 - [x] Importar base genérica USDA (SR Legacy, CC0) embebida; BEDCA descartada por licencia (ver docs/generic-foods.md). La importación se lanza en el arranque (`GenericFoodSeeder`) en Android, escritorio e iOS
 - [x] Búsqueda por texto (FTS)
+- [x] Catálogo de supermercados españoles embebido (subconjunto de Open Food Facts, ODbL, sin imágenes), origen «Supermercado» con atribución en la ficha y prioridad en la búsqueda; sin cambio de esquema (`docs/supermarket-catalog.md`)
 - [x] Mostrar el origen del dato en la UI (Open Food Facts, genérico, propio)
 
 ## Fase 5: Objetivos (~1-2 sem)
