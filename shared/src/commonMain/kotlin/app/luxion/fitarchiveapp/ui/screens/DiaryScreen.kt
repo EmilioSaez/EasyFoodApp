@@ -231,6 +231,9 @@ fun DiaryScreen(
             date = state.date,
             onPick = { pickingDate = false; presenter.select(it) },
             onDismiss = { pickingDate = false },
+            today = today,
+            goalKcal = state.goalKcal,
+            summaries = state.summaries,
         )
     }
 
