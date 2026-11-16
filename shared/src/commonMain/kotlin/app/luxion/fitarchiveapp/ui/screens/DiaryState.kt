@@ -341,16 +341,39 @@ class DiaryPresenter(
         }
     }
 
+    /**
+     * «Mismo que ayer»: copia al día mostrado lo que se apuntó el día anterior, en la misma comida ([meal]) o, con `null`,
+     * el día entero (cada comida a su equivalente). Reutiliza la lógica de [copyMeal] y [copyDay].
+     */
+    fun repeatPrevious(meal: MealType?) {
+        val target = _state.value.date
+        val source = IsoDate.plusDays(target, -1)
+        copy(target, source, empty = if (meal == null) REPEAT_EMPTY_DAY else REPEAT_EMPTY_MEAL, onDone = { count, remapped ->
+            "Repetido de ${previousDayWord(source)}: $count " + (if (count == 1) "alimento" else "alimentos") +
+                if (remapped) " (algunas comidas, a la más cercana)" else ""
+        }) { entries -> if (meal == null) entries to null else entries.filter { it.meal == meal } to meal }
+    }
+
+    private fun previousDayWord(source: String) = if (source == IsoDate.plusDays(today, -1)) "ayer" else IsoDate.long(source)
+
     private val activeMeals get() = MealPlan.preset(mealsPerDay)
 
-    private fun copy(targetDate: String, select: (List<DiaryEntry>) -> Pair<List<DiaryEntry>, MealType?>) {
-        val sourceDate = _state.value.date
+    private fun copy(
+        targetDate: String,
+        sourceDate: String = _state.value.date,
+        empty: String = COPY_EMPTY,
+        onDone: (count: Int, remapped: Boolean) -> String = { count, remapped ->
+            "Copiado a ${IsoDate.long(targetDate)}: $count " + (if (count == 1) "alimento" else "alimentos") +
+                if (remapped) " (algunas comidas, a la más cercana)" else ""
+        },
+        select: (List<DiaryEntry>) -> Pair<List<DiaryEntry>, MealType?>,
+    ) {
         scope.launch {
             val count: Int
             val remapped: Boolean
             try {
                 val (entries, meal) = select(diary.entriesForDate(sourceDate))
-                if (entries.isEmpty()) return@launch fail(COPY_EMPTY)
+                if (entries.isEmpty()) return@launch fail(empty)
                 val plan = DiaryCopy.plan(entries, targetDate, meal, activeMeals)
                 // Instantes crecientes: conservan el orden de las filas dentro de cada comida.
                 val now = nowMillis()
@@ -362,10 +385,7 @@ class DiaryPresenter(
             } catch (e: Exception) {
                 return@launch fail(COPY_ERROR)
             }
-            _state.value = _state.value.copy(
-                message = "Copiado a ${IsoDate.long(targetDate)}: $count " + (if (count == 1) "alimento" else "alimentos") +
-                    if (remapped) " (algunas comidas, a la más cercana)" else "",
-            )
+            _state.value = _state.value.copy(message = onDone(count, remapped))
             load()
         }
     }
@@ -376,6 +396,8 @@ class DiaryPresenter(
         const val COPY_ERROR = "No se pudo copiar. Inténtalo de nuevo."
         const val COPY_EMPTY = "No hay nada que copiar."
         const val COPY_SAME_ERROR = "Elige otro día u otra comida."
+        const val REPEAT_EMPTY_DAY = "El día anterior no tiene nada apuntado."
+        const val REPEAT_EMPTY_MEAL = "El día anterior no hay nada apuntado en esta comida."
         const val SAVE_ERROR = "No se pudo guardar el cambio. Inténtalo de nuevo."
         const val DELETE_ERROR = "No se pudo borrar. Inténtalo de nuevo."
         const val UNDO_ERROR = "No se pudo deshacer el borrado."

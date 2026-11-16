@@ -156,6 +156,7 @@ fun AddSheet(target: AddSheetTarget, navigator: Navigator, deps: AddSheetDeps) {
             }
             AddSheetSearch(model, navigator)
             if (model.query.isBlank()) {
+                AddSheetSuggestions(model, navigator)
                 AddSheetActions(model, navigator)
                 AddSheetLists(model, navigator)
             }
