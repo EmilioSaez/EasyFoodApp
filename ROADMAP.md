@@ -117,6 +117,7 @@ Especificación en `docs/design.md` §1.7, §2.6 y §2.12. Cada punto es un PR; 
 Cada punto es un PR.
 
 - [x] Copiar una comida o un día entero a otra fecha o comida desde el Diario («Copiar» en cada tarjeta y «Copiar día»), sin tabla nueva (`docs/design.md` §2.13)
+- [x] «Mismo que ayer» (día entero o por comida, reutilizando la copia) y sugerencias por hábito en la hoja «Añadir» (lo que sueles tomar en cada comida según el historial y el día de la semana); local, sin tabla nueva ni migración (`docs/design.md` §2.27)
 - [x] Favoritos de alimentos: estrella en la ficha y en los resultados de búsqueda, acceso rápido «Favoritos» junto a «Recientes» en la pestaña Alimentos (`docs/design.md` §2.2); migración v9 → v10, incluido en exportar e importar (colección opcional `favorites`, sin subir la versión del formato)
 - [x] Plantillas de comida («mi desayuno de siempre»): guardar una comida del Diario como plantilla o crearla en la pestaña Alimentos (acceso rápido «Plantillas»), añadirla al diario de un toque o eligiendo comida y fecha, y renombrar, editar y borrar (`docs/design.md` §2.17); migración v11 → v12, incluido en exportar e importar (colección opcional `mealTemplates`, sin subir la versión del formato)
 - [x] Entrada rápida de kcal y macros sin alimento (comer fuera): nombre opcional y kcal y macros opcionales para una comida y un día, desde el «+» de cada comida o la pestaña Alimentos; se muestra, edita, borra, suma en totales y progreso y se copia como cualquier entrada (`docs/design.md` §2.16); migración v12 → v13 (`12.sqm`, columna `quick`), incluido en exportar e importar (campo opcional `quick`, sin subir la versión del formato)
@@ -128,6 +129,7 @@ Cada punto es un PR.
 - [x] Totales de fibra, sal, azúcares y saturadas por día en el Diario, con objetivos orientativos y aviso «incompleto» si faltan datos; el diario guarda esos nutrientes al registrar (migración 16). Micronutrientes USDA evaluados y descartados por ahora (`docs/design.md` §2.19)
 - [x] Recordatorios locales: comidas (según las comidas al día, con horas y días editables), pesaje semanal y agua opcional. Permiso `POST_NOTIFICATIONS` en Android 13+, canal y reprogramación tras reiniciar; `UNUserNotificationCenter` en iOS; bandeja del sistema en escritorio mientras la app está abierta. No avisan de lo ya registrado. Pantalla desde Objetivos (🔔); ajustes en `SettingsEntity.reminders` (migración 17.sqm) e incluidos en exportar e importar (§2.20)
 - [x] Resumen semanal y mensual: pantalla `Resumen` (icono ▥ de la fila del Diario) con media de kcal y macros, días cumplidos (objetivo ±10 %), mejor racha del periodo, mejor y peor día, y cambio de peso frente a las kcal medias; selector semana/mes y navegación entre periodos. Derivado de datos existentes: sin migración ni cambios en el formato de exportación (`docs/design.md` §2.19)
+- [x] Tendencias en el Resumen: media móvil del peso (últimos 5 pesajes) en la gráfica, adherencia mensual (% de días en objetivo ±10 %) y comparación de la semana con la anterior (kcal, proteína y días cumplidos). Derivado de datos existentes: sin migración (`docs/design.md` §2.19)
 
 ## Fase 13: IA
 

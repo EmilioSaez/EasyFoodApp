@@ -45,6 +45,8 @@ fun MealSection(
     modifier: Modifier = Modifier,
     onCopy: (() -> Unit)? = null,
     onSaveTemplate: (() -> Unit)? = null,
+    /** «Mismo que ayer»: copia esta comida del día anterior; `null` = la opción no aparece. */
+    onRepeat: (() -> Unit)? = null,
     isEmpty: Boolean = false,
     emptyText: String = "Nada apuntado todavía",
     entries: @Composable ColumnScope.() -> Unit = {},
@@ -69,7 +71,7 @@ fun MealSection(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            if (onCopy != null || onSaveTemplate != null) {
+            if (onCopy != null || onSaveTemplate != null || onRepeat != null) {
                 Box {
                     RoundButton(
                         label = "⋯",
@@ -79,6 +81,9 @@ fun MealSection(
                         onClick = { menuOpen = true },
                     )
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        if (onRepeat != null) {
+                            DropdownMenuItem(text = { Text("Mismo que ayer") }, onClick = { menuOpen = false; onRepeat() })
+                        }
                         if (onCopy != null) {
                             DropdownMenuItem(text = { Text("Copiar") }, onClick = { menuOpen = false; onCopy() })
                         }

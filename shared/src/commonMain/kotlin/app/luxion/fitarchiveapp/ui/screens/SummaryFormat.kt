@@ -29,3 +29,17 @@ fun formatKcalDelta(delta: Double): String = when {
 
 /** «1 día» · «5 días». */
 fun daysText(n: Int): String = if (n == 1) "1 día" else "$n días"
+
+/** «+12 g» · «−5 g» · «Igual» (menos de 0,5 g de diferencia). */
+fun formatGramsDelta(delta: Double): String = when {
+    kotlin.math.abs(delta) < 0.5 -> "Igual"
+    delta > 0 -> "+${formatKcal(delta)} g"
+    else -> "−${formatKcal(-delta)} g"
+}
+
+/** «+2 días» · «−1 día» · «Igual». */
+fun formatDaysDelta(delta: Int): String = when {
+    delta == 0 -> "Igual"
+    delta > 0 -> "+${daysText(delta)}"
+    else -> "−${daysText(-delta)}"
+}

@@ -130,6 +130,7 @@ fun DiaryScreen(
                 onSummary = { navigator.push(Route.Summary) },
                 onData = { navigator.push(Route.Data) },
                 onCopyDay = if (state.isEmpty) null else { { copying = CopyRequest(null) } },
+                onRepeatDay = { presenter.repeatPrevious(null) },
                 modifier = Modifier.padding(horizontal = Spacing.screen),
             )
             val onSetGoal = { navigator.push(Route.Goals) }
@@ -191,6 +192,7 @@ fun DiaryScreen(
                                 title = meal.meal.label,
                                 summary = macroSummary(meal.kcal, meal.proteinG, meal.carbsG, meal.fatG),
                                 onAdd = { navigator.openAddSheet(meal.meal, state.date) },
+                                onRepeat = { presenter.repeatPrevious(meal.meal) },
                                 onCopy = if (meal.entries.isEmpty()) null else { { copying = CopyRequest(meal.meal) } },
                                 onSaveTemplate = if (meal.entries.isEmpty() || templateStore == null) null else {
                                     { templateError = null; savingTemplate = meal.meal }

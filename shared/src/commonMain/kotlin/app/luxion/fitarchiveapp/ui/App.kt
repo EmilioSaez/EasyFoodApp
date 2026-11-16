@@ -48,6 +48,7 @@ import app.luxion.fitarchiveapp.ui.components.SeedProgressBanner
 import app.luxion.fitarchiveapp.ui.navigation.Navigator
 import app.luxion.fitarchiveapp.ui.navigation.PlatformBackHandler
 import app.luxion.fitarchiveapp.ui.navigation.Route
+import app.luxion.fitarchiveapp.ui.navigation.TopLevelTab
 import app.luxion.fitarchiveapp.ui.screens.AddFoodScreen
 import app.luxion.fitarchiveapp.ui.screens.AddSheet
 import app.luxion.fitarchiveapp.ui.screens.AddSheetDeps
@@ -91,6 +92,8 @@ import kotlinx.coroutines.launch
  * [ai] agrupa la clave y los ajustes de la IA (guardados fuera de la BD exportable); sin él, la IA queda sin clave.
  * [backgroundRefresh] activa el refresco oportunista de los productos de Open Food Facts usados (ver [ProductRefresher]).
  * [backupFiles], si se indica, activa la copia de seguridad periódica (y su sección en «Datos») en esa carpeta.
+ * [launchRoute] es un destino pedido desde fuera (p. ej. el widget de Android): se abre encima del Diario y se avisa
+ * con [onLaunchRouteHandled] para que quien llama lo olvide.
  */
 @Composable
 fun App(
@@ -114,6 +117,8 @@ fun App(
     backgroundRefresh: Boolean = false,
     reminderScheduler: ReminderScheduler = rememberReminderScheduler(),
     backupFiles: BackupFiles? = null,
+    launchRoute: Route? = null,
+    onLaunchRouteHandled: () -> Unit = {},
 ) {
     EasyFoodTheme {
         Surface(Modifier.fillMaxSize()) {
@@ -150,6 +155,13 @@ fun App(
                 }
             }
             dataPresenter.backups?.let { AutoBackup(it) }
+            LaunchedEffect(launchRoute) {
+                if (launchRoute != null) {
+                    navigator.navigateTab(TopLevelTab.Today)
+                    if (launchRoute != Route.Diary) navigator.push(launchRoute)
+                    onLaunchRouteHandled()
+                }
+            }
             PlatformBackHandler(enabled = navigator.canGoBack) { navigator.pop() }
             val meals = rememberMealsSetting(settingsStore, navigator.current)
             var remindersRevision by remember { mutableIntStateOf(0) }

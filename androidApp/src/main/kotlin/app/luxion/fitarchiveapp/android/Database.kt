@@ -8,6 +8,9 @@ import app.luxion.fitarchiveapp.db.EasyFoodDatabase
 import io.requery.android.database.sqlite.RequerySQLiteOpenHelperFactory
 import java.time.LocalDate
 
+/** Nombre del archivo de la base de la app (lo comparten la actividad y el widget). */
+const val DATABASE_NAME = "easyfood.db"
+
 /**
  * Base de datos de la app. Usa un SQLite empaquetado (requery): el del sistema Android no incluye el
  * módulo FTS5, que necesita la búsqueda de alimentos (`ProductFts`). [name] `null` = en memoria.
@@ -16,7 +19,7 @@ import java.time.LocalDate
  * migración se aplica en el acto, no en la primera consulta: si falla, se restaura la copia y se lanza
  * [app.luxion.fitarchiveapp.backup.MigrationFailedException].
  */
-fun createDatabase(context: Context, name: String? = "easyfood.db", backups: BackupFiles? = null): EasyFoodDatabase {
+fun createDatabase(context: Context, name: String? = DATABASE_NAME, backups: BackupFiles? = null): EasyFoodDatabase {
     fun open(): Pair<AndroidSqliteDriver, EasyFoodDatabase> {
         val driver = AndroidSqliteDriver(
             EasyFoodDatabase.Schema,

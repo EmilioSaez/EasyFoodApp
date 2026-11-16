@@ -24,6 +24,7 @@ dependencies {
     implementation(compose.foundation)
     implementation(compose.material3)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.kotlinx.coroutines.core)
     implementation(libs.sqldelight.driver.android)
     implementation(libs.requery.sqlite.android)
     androidTestImplementation(libs.androidx.test.ext.junit)

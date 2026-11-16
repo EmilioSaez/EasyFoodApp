@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -36,7 +37,9 @@ import app.luxion.fitarchiveapp.data.WeightStore
 import app.luxion.fitarchiveapp.domain.PeriodRange
 import app.luxion.fitarchiveapp.domain.PeriodSummaries
 import app.luxion.fitarchiveapp.domain.PeriodSummary
+import app.luxion.fitarchiveapp.domain.MetricChange
 import app.luxion.fitarchiveapp.domain.SummaryDay
+import app.luxion.fitarchiveapp.domain.WeekComparison
 import app.luxion.fitarchiveapp.domain.SummaryPeriod
 import app.luxion.fitarchiveapp.domain.WeightProgress
 import app.luxion.fitarchiveapp.domain.WeightVsCalories
@@ -46,6 +49,7 @@ import app.luxion.fitarchiveapp.ui.components.EmptyStateAction
 import app.luxion.fitarchiveapp.ui.components.EmptyStateTone
 import app.luxion.fitarchiveapp.ui.components.StackedMacroBar
 import app.luxion.fitarchiveapp.ui.components.WeightChart
+import app.luxion.fitarchiveapp.ui.components.StreakIcon
 import app.luxion.fitarchiveapp.ui.components.formatKcal
 import app.luxion.fitarchiveapp.ui.navigation.EasyFoodNavigationBar
 import app.luxion.fitarchiveapp.ui.navigation.Navigator
@@ -71,7 +75,8 @@ suspend fun loadPeriodSummary(
 private sealed interface SummaryLoad {
     data object Loading : SummaryLoad
     data object Failed : SummaryLoad
-    data class Ready(val summary: PeriodSummary) : SummaryLoad
+    /** [comparison] solo en semanas: la semana frente a la anterior. */
+    data class Ready(val summary: PeriodSummary, val comparison: WeekComparison?) : SummaryLoad
 }
 
 /**
@@ -98,7 +103,11 @@ fun SummaryScreen(
     LaunchedEffect(range, reload, diaryStore, goalStore, weightStore) {
         load = SummaryLoad.Loading
         load = try {
-            SummaryLoad.Ready(loadPeriodSummary(range, todayIso, diaryStore, goalStore, weightStore))
+            val summary = loadPeriodSummary(range, todayIso, diaryStore, goalStore, weightStore)
+            val comparison = if (range.period == SummaryPeriod.WEEK) {
+                WeekComparison.of(summary, loadPeriodSummary(range.shifted(-1), todayIso, diaryStore, goalStore, weightStore))
+            } else null
+            SummaryLoad.Ready(summary, comparison)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -168,6 +177,7 @@ fun SummaryScreen(
                     } else {
                         item("averages") { AveragesCard(summary) }
                         item("days") { DaysCard(summary) }
+                        if (state.comparison?.hasData == true) item("comparison") { ComparisonCard(state.comparison) }
                         if (summary.bestDay != null) item("best-worst") { BestWorstRow(summary) }
                         item("weight") { WeightCard(summary) }
                     }
@@ -262,7 +272,13 @@ private fun DaysCard(summary: PeriodSummary) {
                     )
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("🔥 ${daysText(summary.bestStreak)}", style = MaterialTheme.typography.titleMedium)
+                    summary.adherencePercent?.takeIf { summary.range.period == SummaryPeriod.MONTH }?.let {
+                        Text("$it % de adherencia", style = MaterialTheme.typography.titleMedium)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                        StreakIcon(active = summary.bestStreak > 0, size = 20.dp)
+                        Text(daysText(summary.bestStreak), style = MaterialTheme.typography.titleMedium)
+                    }
                     Text(
                         "mejor racha",
                         style = MaterialTheme.typography.bodySmall,
@@ -272,6 +288,38 @@ private fun DaysCard(summary: PeriodSummary) {
             }
         }
         DailyKcalChart(summary.days, summary.range.period, summary.goalKcal)
+    }
+}
+
+@Composable
+private fun ComparisonCard(comparison: WeekComparison) {
+    SummaryCard(if (comparison.current.isCurrent) "ESTA SEMANA FRENTE A LA ANTERIOR" else "FRENTE A LA SEMANA ANTERIOR") {
+        ComparisonRow("Kcal al día", comparison.kcal, { "${formatKcal(it)} kcal" }, ::formatKcalDelta)
+        ComparisonRow("Proteína al día", comparison.proteinG, { "${formatKcal(it)} g" }, ::formatGramsDelta)
+        if (comparison.completedDays.current != null || comparison.completedDays.previous != null) {
+            ComparisonRow(
+                "Días cumplidos", comparison.completedDays,
+                { daysText(it.toInt()) }, { formatDaysDelta(it.toInt()) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ComparisonRow(label: String, change: MetricChange, value: (Double) -> String, delta: (Double) -> String) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(change.current?.let(value) ?: "Sin registros", style = MaterialTheme.typography.titleMedium)
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text(change.delta?.let(delta) ?: "—", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "antes: " + (change.previous?.let(value) ?: "sin registros"),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
@@ -317,7 +365,15 @@ private fun WeightCard(summary: PeriodSummary) {
             )
         } else {
             Text(weightTrendText(trend), style = MaterialTheme.typography.bodyLarge)
-            WeightChart(chart)
+            val smoothed = WeightProgress.chart(summary.weights, summary.weightTrend)!!
+            WeightChart(smoothed)
+            if (smoothed.trend.size > 1) {
+                Text(
+                    "Línea gruesa: media móvil de tus últimos ${WeightProgress.MOVING_AVERAGE_WINDOW} pesajes.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

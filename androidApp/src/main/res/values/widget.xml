@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="widget_background">#FFFFFF</color>
+    <color name="widget_text">#1B1D24</color>
+    <color name="widget_text_secondary">#5C6070</color>
+    <color name="widget_button">#E6E8F0</color>
+    <color name="widget_button_text">#1B1D24</color>
+
+    <string name="widget_description">Kcal que te quedan hoy, macros y agua, con accesos rápidos.</string>
+    <string name="widget_kcal_left">kcal restantes</string>
+    <string name="widget_kcal_over">kcal de más</string>
+    <string name="widget_kcal_eaten">kcal hoy</string>
+    <string name="widget_water">Agua</string>
+    <string name="widget_add_water">+ Vaso</string>
+    <string name="widget_quick_entry">Entrada rápida</string>
+    <string name="widget_open_app">Abre EasyFood para empezar</string>
+</resources>
