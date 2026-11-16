@@ -173,7 +173,7 @@ fun ProductDetailScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Producto") },
+                title = { Text(if (route.entryId != null) "Editar entrada" else "Confirmar alimento") },
                 navigationIcon = {
                     IconButton(
                         onClick = { navigator.pop() },
@@ -354,6 +354,8 @@ private fun DetailContent(
     var meal by remember(ready) { mutableStateOf(ready.initialMeal) }
     var unit by remember(ready) { mutableStateOf(ready.initialUnit) }
     var amountText by remember(ready) { mutableStateOf(formatGrams(ready.initialAmount).replace(".", "")) }
+    // Día al que se apunta el alta: el de la hoja «Añadir» (o hoy); se puede cambiar aquí.
+    var date by remember(ready) { mutableStateOf(route.date ?: today()) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var correctionBusy by remember { mutableStateOf(false) }
@@ -515,6 +517,7 @@ private fun DetailContent(
         Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
             Column(Modifier.fillMaxWidth().padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
                 error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+                if (!editing) DateStepperRow(date, { date = it })
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                     mealChoices.options(ready.initialMeal).forEach { m ->
                         EasyFoodFilterChip(selected = meal == m, onClick = { meal = m }, label = { Text(m.label) })
@@ -533,7 +536,7 @@ private fun DetailContent(
                                     } else {
                                         diaryStore.add(
                                             NewDiaryEntry(
-                                                date = route.date ?: today(),
+                                                date = date,
                                                 meal = meal,
                                                 barcode = detail.barcode,
                                                 name = detail.name,
