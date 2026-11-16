@@ -7,6 +7,8 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -56,7 +58,11 @@ class PlatePhotoUiTest {
         ImageIO.write(BufferedImage(64, 48, BufferedImage.TYPE_INT_RGB), "png", it)
     }.toByteArray()
 
-    private fun run(key: String?, block: ComposeUiTest.(EasyFoodDatabase, Navigator) -> Unit) = runComposeUiTest {
+    private fun run(
+        key: String?,
+        route: Route.PlatePhoto = Route.PlatePhoto(MealType.LUNCH),
+        block: ComposeUiTest.(EasyFoodDatabase, Navigator) -> Unit,
+    ) = runComposeUiTest {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         EasyFoodDatabase.Schema.create(driver)
         val db = EasyFoodDatabase(driver)
@@ -69,12 +75,12 @@ class PlatePhotoUiTest {
         val ai = AiModule.create(vault, InMemoryAiPreferences(), { "2026-11-04" }, ClaudeClient(HttpClient(engine), apiKey = { vault.read() }, pause = {}))
         ai.settings.setEnabled(true)
         ai.settings.setConsent(true)
-        val navigator = Navigator(Route.Diary).also { it.push(Route.PlatePhoto(MealType.LUNCH)) }
+        val navigator = Navigator(Route.Diary).also { it.push(route) }
         setContent {
             EasyFoodTheme {
                 Surface {
                     PlatePhotoScreen(
-                        navigator, Route.PlatePhoto(MealType.LUNCH), ai,
+                        navigator, route, ai,
                         SqlDelightProductSearchStore(db.productSearchQueries), customs,
                         SqlDelightDiaryStore(db.diaryEntryQueries), { "2026-11-04" }, MealChoices(4) { 12 * 60 },
                         capture = { onPhoto, _, _ -> Button(onClick = { onPhoto(png) }) { Text("Foto de prueba") } },
@@ -109,6 +115,29 @@ class PlatePhotoUiTest {
         assertTrue(rows.all { it.meal == MealType.LUNCH })
         assertEquals(1, rows.count { it.quick })
         assertEquals(Route.Diary, navigator.current)
+    }
+
+    @Test
+    fun describingTheMealWithTextReachesTheSameReviewAndTheDiary() = run("sk-ant-test-0123456789abcdef", Route.PlatePhoto(MealType.LUNCH, text = true)) { db, navigator ->
+        waitForText("¿Qué has comido?")
+        onNodeWithText("Buscar los alimentos").assertIsNotEnabled()
+        onNodeWithText("Lo que has comido").performTextInput("200 g de arroz y una salsa")
+        onNodeWithText("Buscar los alimentos").performClick()
+        waitForText("Revisa lo que ha visto la IA")
+        waitForText("De tu base")
+        waitForText("ESTIMADO por la IA")
+        assertEquals(0, entries(db).size)
+        onNode(hasText("Añadir al diario", substring = true)).performClick()
+        waitUntil(timeoutMillis = 20_000) { entries(db).size == 2 }
+        assertEquals(Route.Diary, navigator.current)
+    }
+
+    @Test
+    fun theCaptureStepOffersToWriteInstead() = run("sk-ant-test-0123456789abcdef") { _, _ ->
+        onNodeWithText("Prefiero escribir lo que he comido").performClick()
+        waitForText("¿Qué has comido?")
+        onNodeWithText("Mejor con una foto").performClick()
+        onNodeWithText("Foto de prueba").assertIsDisplayed()
     }
 
     @Test

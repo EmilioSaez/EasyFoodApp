@@ -49,7 +49,7 @@ fun aiTabStatus(hasKey: Boolean, enabled: Boolean, consentAccepted: Boolean): Ai
 
 /**
  * Pestaña «IA» (docs/design.md §2.16): sin clave o desactivada, un estado vacío; lista, las tarjetas «¿Qué como?»,
- * «¿Cómo voy?» y la pregunta libre, más las acciones y tarjetas de otras funciones ([aiTabActions], [aiTabCards]).
+ * «¿Cómo voy?», el menú con la lista de la compra y la pregunta libre, más las acciones y tarjetas de otras funciones ([aiTabActions], [aiTabCards]).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,8 +60,10 @@ fun AiScreen(
     diaryStore: DiaryStore,
     today: () -> String,
     mealChoices: MealChoices,
+    searchStore: app.luxion.fitarchiveapp.data.ProductSearchStore? = null,
+    customFoods: app.luxion.fitarchiveapp.data.CustomFoodStore? = null,
 ) {
-    val state = remember(module, source, diaryStore) {
+    val state = remember(module, source, diaryStore, searchStore, customFoods) {
         AiTabState(
             module = module,
             source = source,
@@ -69,6 +71,7 @@ fun AiScreen(
             today = today,
             defaultMeal = mealChoices::defaultMeal,
             nowMillis = { kotlin.time.Clock.System.now().toEpochMilliseconds() },
+            catalog = if (searchStore != null || customFoods != null) app.luxion.fitarchiveapp.plate.FoodCatalog(searchStore, customFoods) else null,
         )
     }
     LaunchedEffect(state) { state.refresh() }
@@ -116,6 +119,7 @@ fun AiScreen(
                 if (aiTabActions.isNotEmpty()) ToolsRow(env)
                 AiSuggestCard(state, navigator)
                 AiReviewCard(state)
+                AiPlanCard(state)
                 AiAskCard(state)
                 aiTabCards.forEach { it.content(env) }
                 Text(

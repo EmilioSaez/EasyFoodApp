@@ -1,5 +1,6 @@
 package app.luxion.fitarchiveapp.ui.screens
 
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import app.luxion.fitarchiveapp.ui.components.EasyFoodFilterChip
@@ -24,6 +26,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.ai.AiAdviceLimits
@@ -86,13 +89,13 @@ fun AiSuggestCard(state: AiTabState, navigator: Navigator) {
             is AiLoad.Failed -> AiFailure(s) { scope.launch { state.suggest(preferences) } }
             is AiLoad.Done -> {
                 s.value.forEachIndexed { i, option ->
-                    SuggestionRow(option, state.added[i], onAdd = { scope.launch { state.addToDiary(i) } },
+                    SuggestionRow(option, state.links[i], state.added[i], onAdd = { scope.launch { state.addToDiary(i) } },
                         onUndo = { scope.launch { state.undoAdd(i) } },
                         onEdit = { id -> navigator.push(Route.QuickEntry(entryId = id)) })
                 }
                 state.addError?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
                 Text(
-                    "Cifras aproximadas. Se apuntan como entrada rápida; puedes ajustarlas después.",
+                    "Lo enlazado con tu base lleva sus valores reales y se apunta como alimento; lo «ESTIMADO» son cifras aproximadas y se apunta como entrada rápida.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -104,6 +107,7 @@ fun AiSuggestCard(state: AiTabState, navigator: Navigator) {
 @Composable
 private fun SuggestionRow(
     option: MealSuggestion,
+    link: SuggestionLink?,
     added: AddedSuggestion?,
     onAdd: () -> Unit,
     onUndo: () -> Unit,
@@ -112,9 +116,16 @@ private fun SuggestionRow(
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
         Column(Modifier.fillMaxWidth().padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             Text(option.diaryName, style = MaterialTheme.typography.titleMedium)
+            // Enlazada con la base: cifras reales de «link» (sin «~»); si no, las aproximadas de la IA.
             Text(
-                "~${option.kcal.int()} kcal · P ${option.proteinG.int()} g · H ${option.carbsG.int()} g · G ${option.fatG.int()} g",
+                if (link != null) "${link.kcal.int()} kcal · P ${link.proteinG.int()} g · H ${link.carbsG.int()} g · G ${link.fatG.int()} g"
+                else "~${option.kcal.int()} kcal · P ${option.proteinG.int()} g · H ${option.carbsG.int()} g · G ${option.fatG.int()} g",
                 style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
+                if (link != null) "${link.origin} · ${link.pick.result.name}" else "ESTIMADO por la IA",
+                style = MaterialTheme.typography.labelSmall,
+                color = if (link != null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
             )
             if (option.reason.isNotBlank()) {
                 Text(option.reason, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -189,6 +200,81 @@ private fun PointRow(point: AiAdvicePoint) {
                 style = MaterialTheme.typography.labelLarge,
             )
             Text(point.advice, style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+/** «Menú y compra»: menú de 3 o 7 días ajustado a tus objetivos y la lista de la compra para prepararlo. Solo se muestra; no toca el diario. */
+@Composable
+fun AiPlanCard(state: AiTabState) {
+    val scope = rememberCoroutineScope()
+    var preferences by remember { mutableStateOf("") }
+    var days by remember { mutableStateOf(3) }
+    val enabled = state.advicePrivacyAccepted && !state.limitReached
+    val running = state.plan == AiLoad.Loading
+    AiCard("Menú y compra") {
+        Text(
+            "Un menú para varios días ajustado a tus objetivos, con tus recetas y favoritos cuando encajan, y la lista de la compra.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            listOf(3, 7).forEach { n ->
+                EasyFoodFilterChip(selected = days == n, onClick = { days = n }, label = { Text("$n días") }, enabled = !running)
+            }
+        }
+        OutlinedTextField(
+            value = preferences,
+            onValueChange = { preferences = it.take(AiAdviceLimits.MAX_PREFERENCES) },
+            label = { Text("Preferencias (opcional): vegetariano, sin lactosa…") },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        AiActionButton("Preparar menú", running, enabled) { scope.launch { state.planMeals(days, preferences) } }
+        when (val p = state.plan) {
+            AiLoad.Idle, AiLoad.Loading -> Unit
+            is AiLoad.Failed -> AiFailure(p) { scope.launch { state.planMeals(days, preferences) } }
+            is AiLoad.Done -> {
+                p.value.days.forEach { day ->
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
+                        Column(Modifier.fillMaxWidth().padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                            Text(day.day, style = MaterialTheme.typography.titleMedium)
+                            day.meals.forEach { m ->
+                                Text(
+                                    if (m.meal.isBlank()) m.name else "${m.meal.replaceFirstChar { it.uppercase() }}: ${m.name}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            }
+                        }
+                    }
+                }
+                if (p.value.shopping.isNotEmpty()) {
+                    Text("Lista de la compra", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                    p.value.shopping.forEachIndexed { i, item ->
+                        // Toda la fila marca el artículo (zona táctil de 48 dp) y un lector de pantalla la anuncia como una casilla con su texto.
+                        Row(
+                            Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(
+                                value = i in state.bought,
+                                role = Role.Checkbox,
+                                onValueChange = { state.toggleBought(i) },
+                            ),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Checkbox(checked = i in state.bought, onCheckedChange = null)
+                            Text(
+                                item.text,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (i in state.bought) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+                }
+                Text(
+                    "Es una propuesta orientativa: no se guarda ni se apunta en el diario. Al cerrar la pestaña se pierde.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                TextButton(onClick = { state.clearPlan() }) { Text("Borrar menú") }
+            }
         }
     }
 }
