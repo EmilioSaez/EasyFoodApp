@@ -51,7 +51,7 @@ En Windows, Kotlin/Native no puede enlazar frameworks de Apple, pero sí compila
 
 ```
 ./gradlew :shared:compileKotlinIosSimulatorArm64 :shared:compileKotlinIosArm64
-./gradlew :shared:jvmTest :desktopApp:compileKotlinJvm
+./gradlew :shared:jvmTest
 ```
 
 Estado (fase 7): ambos targets compilan. La primera comprobación falló por un error real que el resto de targets no veía: `LanTransfer.kt` (commonMain) usaba `Dispatchers.IO`, que es `internal` al compilar para Native. Se sustituyó por `Dispatchers.Default` (Ktor trabaja con E/S no bloqueante, así que no cambia el comportamiento).
