@@ -31,6 +31,8 @@ data class WeightChartModel(
     val yMax: Double,
     /** Valores de las marcas del eje Y, de menor a mayor (incluyen [yMin] y [yMax]). */
     val ticks: List<Double>,
+    /** Media móvil sobre los mismos registros (mismas `x`); vacía si no se pidió. */
+    val trend: List<WeightChartPoint> = emptyList(),
 ) {
     /** Fracción vertical (0..1, abajo arriba) de [kg]. */
     fun yFraction(kg: Double): Float = ((kg - yMin) / (yMax - yMin)).toFloat()
@@ -68,6 +70,9 @@ object WeightProgress {
     const val MIN_TREND_ENTRIES = 3
     const val MIN_TREND_SPAN_DAYS = 7
     const val MAX_PROJECTION_DAYS = 730
+
+    /** Registros que entran en la media móvil de la gráfica (los últimos, con el actual incluido). */
+    const val MOVING_AVERAGE_WINDOW = 5
 
     /** Por debajo de esta pendiente (kg/día) se considera que el peso no se mueve. */
     private const val MIN_SLOPE_KG_PER_DAY = 0.01
@@ -139,8 +144,24 @@ object WeightProgress {
         return WeightSummary(sorted.first(), sorted.last())
     }
 
-    /** Geometría de la gráfica de línea; `null` si no hay registros. */
-    fun chart(visible: List<WeightEntry>): WeightChartModel? {
+    /**
+     * Media móvil sobre los registros (no sobre días naturales): cada registro pasa a ser la media de él y de los
+     * hasta [window] - 1 anteriores, así que los primeros promedian menos. Sin redondear; misma fecha y orden por fecha.
+     */
+    fun movingAverage(entries: List<WeightEntry>, window: Int = MOVING_AVERAGE_WINDOW): List<WeightEntry> {
+        require(window >= 1) { "La ventana debe ser de al menos 1 registro" }
+        val sorted = entries.sortedBy { it.date }.filter { isoDateToEpochDay(it.date) != null }
+        return sorted.mapIndexed { i, e ->
+            val slice = sorted.subList(maxOf(0, i - window + 1), i + 1)
+            e.copy(weightKg = slice.sumOf { it.weightKg } / slice.size)
+        }
+    }
+
+    /**
+     * Geometría de la gráfica de línea; `null` si no hay registros. [trend] (por fecha, p. ej. de [movingAverage])
+     * se dibuja sobre los mismos puntos; las fechas que no estén en [visible] se ignoran.
+     */
+    fun chart(visible: List<WeightEntry>, trend: List<WeightEntry> = emptyList()): WeightChartModel? {
         val sorted = visible.sortedBy { it.date }.filter { isoDateToEpochDay(it.date) != null }
         if (sorted.isEmpty()) return null
         val (yMin, yMax, ticks) = axis(sorted.minOf { it.weightKg }, sorted.maxOf { it.weightKg })
@@ -151,7 +172,11 @@ object WeightProgress {
             val x = if (spanDays == 0f) 0.5f else (isoDateToEpochDay(it.date)!! - firstDay) / spanDays
             WeightChartPoint(x, ((it.weightKg - yMin) / (yMax - yMin)).toFloat(), it)
         }
-        return WeightChartModel(points, yMin, yMax, ticks)
+        val trendByDate = trend.associateBy { it.date }
+        val trendPoints = points.mapNotNull { p ->
+            trendByDate[p.entry.date]?.let { WeightChartPoint(p.x, ((it.weightKg - yMin) / (yMax - yMin)).toFloat(), it) }
+        }
+        return WeightChartModel(points, yMin, yMax, ticks, trendPoints)
     }
 
     private data class Axis(val min: Double, val max: Double, val ticks: List<Double>)

@@ -127,6 +127,7 @@ Cada punto es un PR.
 - [x] Totales de fibra, sal, azúcares y saturadas por día en el Diario, con objetivos orientativos y aviso «incompleto» si faltan datos; el diario guarda esos nutrientes al registrar (migración 16). Micronutrientes USDA evaluados y descartados por ahora (`docs/design.md` §2.19)
 - [x] Recordatorios locales: comidas (según las comidas al día, con horas y días editables), pesaje semanal y agua opcional. Permiso `POST_NOTIFICATIONS` en Android 13+, canal y reprogramación tras reiniciar; `UNUserNotificationCenter` en iOS; bandeja del sistema en escritorio mientras la app está abierta. No avisan de lo ya registrado. Pantalla desde Objetivos (🔔); ajustes en `SettingsEntity.reminders` (migración 17.sqm) e incluidos en exportar e importar (§2.20)
 - [x] Resumen semanal y mensual: pantalla `Resumen` (icono ▥ de la fila del Diario) con media de kcal y macros, días cumplidos (objetivo ±10 %), mejor racha del periodo, mejor y peor día, y cambio de peso frente a las kcal medias; selector semana/mes y navegación entre periodos. Derivado de datos existentes: sin migración ni cambios en el formato de exportación (`docs/design.md` §2.19)
+- [x] Tendencias en el Resumen: media móvil del peso (últimos 5 pesajes) en la gráfica, adherencia mensual (% de días en objetivo ±10 %) y comparación de la semana con la anterior (kcal, proteína y días cumplidos). Derivado de datos existentes: sin migración (`docs/design.md` §2.19)
 
 ## Fase 13: IA
 
