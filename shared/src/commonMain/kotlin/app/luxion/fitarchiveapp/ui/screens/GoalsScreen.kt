@@ -163,7 +163,7 @@ fun GoalsScreen(
                     enabled = resolved.kcal != null,
                     modifier = Modifier.fillMaxWidth().padding(Spacing.l).heightIn(min = 48.dp),
                 ) { Text("Guardar objetivos") }
-                EasyFoodNavigationBar(TopLevelTab.Goals, navigator)
+                EasyFoodNavigationBar(TopLevelTab.You, navigator)
             }
         },
     ) { padding ->

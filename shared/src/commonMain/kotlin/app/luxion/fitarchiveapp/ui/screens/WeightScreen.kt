@@ -198,7 +198,7 @@ fun WeightScreen(navigator: Navigator, weightStore: WeightStore, today: () -> St
     Scaffold(
         topBar = { CenterAlignedTopAppBar(title = { Text("Seguimiento de peso") }) },
         snackbarHost = { SnackbarHost(snackbar) },
-        bottomBar = { EasyFoodNavigationBar(selected = TopLevelTab.Weight, navigator = navigator) },
+        bottomBar = { EasyFoodNavigationBar(selected = TopLevelTab.You, navigator = navigator) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = { resetForm(); formOpen = true },
