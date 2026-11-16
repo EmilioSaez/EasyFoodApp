@@ -37,6 +37,7 @@ class AiAdviceSource(
         currentMeal: MealType,
         withCandidates: Boolean = false,
         withWeek: Boolean = false,
+        withFoods: Boolean = false,
     ): AiAdviceContext {
         val entries = diary.entriesForDate(date)
         val g = goals.get()
@@ -63,6 +64,7 @@ class AiAdviceSource(
             intake = IntakeGuidelines.intake(entries, g.kcal),
             candidates = if (withCandidates) candidates() else AiCandidates(),
             week = if (withWeek) week(date, g.kcal) else null,
+            todayFoods = if (withFoods) entries.take(AiAdviceLimits.MAX_TODAY_FOODS).map(::foodLine) else emptyList(),
         )
     }
 
@@ -127,7 +129,16 @@ class AiAdviceSource(
             avgFiberG = avg("Fibra"),
             avgSaltG = avg("Sal"),
             avgSugarsG = avg("Azúcares"),
+            topFoods = entries.filter { !it.quick }.groupingBy { it.name.lowercase() }.eachCount()
+                .entries.sortedByDescending { it.value }.take(AiAdviceLimits.MAX_TOP_FOODS)
+                .map { e -> entries.first { it.name.lowercase() == e.key }.name },
         )
+    }
+
+    private fun foodLine(e: DiaryEntry): String = buildString {
+        append(e.name)
+        e.grams?.let { append(" · ").append(gramsText(it)).append(" g") }
+        e.totals.kcal?.let { append(" · ").append(round(it).toInt()).append(" kcal") }
     }
 
     private fun gramsText(g: Double): String = if (g == round(g)) round(g).toLong().toString() else (round(g * 10) / 10).toString().replace('.', ',')

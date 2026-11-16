@@ -211,7 +211,7 @@ fun App(
                             Route.Summary -> SummaryScreen(navigator, diaryStore, goalStore, weightStore, today)
                             Route.Data -> DataScreen(navigator, dataPresenter, today)
                             is Route.PlatePhoto -> PlatePhotoScreen(navigator, route, aiModule, searchStore, customFoodStore, diaryStore, today, mealChoices)
-                            Route.Ai -> AiScreen(navigator, aiModule, aiAdviceSource, diaryStore, today, mealChoices)
+                            Route.Ai -> AiScreen(navigator, aiModule, aiAdviceSource, diaryStore, today, mealChoices, searchStore, customFoodStore)
                             Route.AiSettings -> AiSettingsScreen(navigator, aiModule, today)
                             Route.Settings -> SettingsScreen(navigator)
                         }
