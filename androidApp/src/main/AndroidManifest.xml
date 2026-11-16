@@ -56,8 +56,8 @@
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_daily_info" />
         </receiver>
-        <receiver android:name="app.luxion.fitarchiveapp.reminders.ReminderReceiver" android:exported="false" />
-        <receiver android:name="app.luxion.fitarchiveapp.reminders.ReminderBootReceiver" android:exported="true">
+        <receiver android:name="app.luxion.easyfoodapp.reminders.ReminderReceiver" android:exported="false" />
+        <receiver android:name="app.luxion.easyfoodapp.reminders.ReminderBootReceiver" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />

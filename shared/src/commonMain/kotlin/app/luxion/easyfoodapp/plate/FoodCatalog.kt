@@ -1,0 +1,77 @@
+package app.luxion.easyfoodapp.plate
+
+import app.luxion.easyfoodapp.data.CustomFoodStore
+import app.luxion.easyfoodapp.data.ProductSearchStore
+import app.luxion.easyfoodapp.ui.components.DataSource
+import app.luxion.easyfoodapp.ui.screens.FoodPick
+import app.luxion.easyfoodapp.ui.screens.matches
+import app.luxion.easyfoodapp.ui.screens.mergePicks
+
+/** Resultado de enlazar un alimento detectado: [picks] ordenados (el primero es el elegido) y si se tuvo que aflojar la búsqueda. */
+data class FoodMatch(val picks: List<FoodPick>, val loose: Boolean)
+
+/**
+ * Busca alimentos en la base del usuario (genérica en español, productos ya consultados y propios) para que kcal y
+ * macros salgan de datos reales y no del modelo. Es la misma búsqueda que la pestaña Alimentos.
+ */
+class FoodCatalog(
+    private val searchStore: ProductSearchStore?,
+    private val customFoods: CustomFoodStore?,
+) {
+    /** Búsqueda libre (para «Cambiar alimento» y «Añadir»): propios primero, luego genéricos y por último productos. */
+    suspend fun search(text: String, limit: Int = SEARCH_LIMIT): List<FoodPick> {
+        if (text.isBlank()) return emptyList()
+        val custom = customFoods?.all().orEmpty().filter { it.matches(text) }
+        val products = searchStore?.search(text, limit).orEmpty()
+        return mergePicks(custom, products).sortedBy { rank(it) }.take(limit)
+    }
+
+    /**
+     * Enlaza un término de la IA («arroz blanco cocido»). Si no hay coincidencia exacta se van quitando palabras del
+     * final («arroz blanco», «arroz»); en ese caso [FoodMatch.loose] avisa de que hay que revisarlo.
+     */
+    suspend fun match(term: String, limit: Int = ALTERNATIVES): FoodMatch {
+        val words = term.trim().split(Regex("""\s+""")).filter { it.isNotEmpty() }
+        var n = words.size
+        while (n >= 1) {
+            val picks = search(words.take(n).joinToString(" "), limit)
+            if (picks.isNotEmpty()) return FoodMatch(picks, loose = n < words.size)
+            n--
+        }
+        return FoodMatch(emptyList(), loose = false)
+    }
+
+    /**
+     * Prueba [terms] por orden (el término principal y los alternativos de la IA) y se queda con el primero que
+     * encuentra sin aflojar la búsqueda; si ninguno la cumple exacta, con el primer enlace aproximado.
+     */
+    suspend fun matchAny(terms: List<String>, limit: Int = ALTERNATIVES): FoodMatch {
+        var loose: FoodMatch? = null
+        for (term in terms.map { it.trim() }.filter { it.isNotEmpty() }.distinct()) {
+            val m = match(term, limit)
+            if (m.picks.isEmpty()) continue
+            if (!m.loose) return m
+            if (loose == null) loose = m
+        }
+        return loose ?: FoodMatch(emptyList(), loose = false)
+    }
+
+    /** Alimento que el usuario eligió antes para [term] (ver [FoodAliasStore]); `null` si no hay o ya no está en la base. */
+    suspend fun resolveAlias(alias: FoodAlias): FoodPick? =
+        search(alias.name, ALIAS_LOOKUP).firstOrNull { it.barcode == alias.barcode && it.result.name == alias.name }
+
+    private fun rank(p: FoodPick): Int = when (p.result.source) {
+        DataSource.Custom -> 0
+        DataSource.Generic -> 1
+        DataSource.Supermarket -> 2
+        DataSource.OpenFoodFacts -> 3
+    }
+
+    companion object {
+        const val SEARCH_LIMIT = 20
+        const val ALTERNATIVES = 6
+
+        /** Margen al buscar un alimento recordado por su nombre: con pocos resultados, un nombre muy repetido («Leche…») no lo encontraría. */
+        const val ALIAS_LOOKUP = 100
+    }
+}
