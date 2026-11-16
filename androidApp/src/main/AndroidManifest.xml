@@ -24,7 +24,8 @@
         android:theme="@style/Theme.EasyFood">
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -45,6 +46,16 @@
                 <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
             </intent-filter>
         </activity-alias>
+        <!-- Widget de inicio «Hoy»: kcal restantes, macros y agua. Día/hora/zona cambian el «hoy» que muestra. -->
+        <receiver android:name=".widget.DailyWidget" android:exported="true" android:label="EasyFood · Hoy">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_daily_info" />
+        </receiver>
         <receiver android:name="app.luxion.fitarchiveapp.reminders.ReminderReceiver" android:exported="false" />
         <receiver android:name="app.luxion.fitarchiveapp.reminders.ReminderBootReceiver" android:exported="true">
             <intent-filter>

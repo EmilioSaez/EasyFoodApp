@@ -1,10 +1,14 @@
 package app.luxion.fitarchiveapp.android
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import app.luxion.fitarchiveapp.ai.AiModule
 import app.luxion.fitarchiveapp.ai.AndroidAiPreferences
@@ -27,7 +31,9 @@ import app.luxion.fitarchiveapp.data.SqlDelightWeightStore
 import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
 import app.luxion.fitarchiveapp.data.generic.GenericFoodSeeder
 import app.luxion.fitarchiveapp.export.SqlDelightImportTarget
+import app.luxion.fitarchiveapp.android.widget.DailyWidget
 import app.luxion.fitarchiveapp.ui.App
+import app.luxion.fitarchiveapp.ui.navigation.Route
 import app.luxion.fitarchiveapp.ui.screens.MigrationErrorScreen
 import java.io.File
 import java.time.LocalDate
@@ -66,8 +72,12 @@ class MainActivity : ComponentActivity() {
         GenericFoodSeeder(GenericFoodImporter(database.productQueries), nowMillis = System::currentTimeMillis)
     }
 
+    /** Destino pedido por el widget (o `null`); la app lo abre encima del Diario y lo olvida. */
+    private var launchRoute: Route? by mutableStateOf(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (savedInstanceState == null) launchRoute = routeFor(intent)
         // Abrir la base aquí (y no al pintar) permite mostrar un aviso si la actualización de la base falla.
         val failure = try {
             database
@@ -102,12 +112,37 @@ class MainActivity : ComponentActivity() {
                     ai = aiModule,
                     backgroundRefresh = true,
                     backupFiles = backupFiles,
+                    launchRoute = launchRoute,
+                    onLaunchRouteHandled = { launchRoute = null },
                 )
             }
         }
     }
 
-    private companion object {
-        const val DATABASE_NAME = "easyfood.db"
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        routeFor(intent)?.let { launchRoute = it }
+    }
+
+    /** Al salir de primer plano se refresca el widget: ya está registrado lo que se haya apuntado. */
+    override fun onPause() {
+        super.onPause()
+        DailyWidget.requestRefresh(this)
+    }
+
+    private fun routeFor(intent: Intent?): Route? = when (intent?.getStringExtra(EXTRA_DESTINATION)) {
+        DEST_QUICK -> Route.QuickEntry()
+        // El «+ Vaso» y el agua viven en la tarjeta de agua del Diario.
+        DEST_WATER, DEST_DIARY -> Route.Diary
+        else -> null
+    }
+
+    companion object {
+        /** Extra con el destino que pide el widget: [DEST_DIARY], [DEST_WATER] o [DEST_QUICK]. */
+        const val EXTRA_DESTINATION = "app.luxion.fitarchiveapp.android.DESTINATION"
+        const val DEST_DIARY = "diary"
+        const val DEST_WATER = "water"
+        const val DEST_QUICK = "quick"
     }
 }
