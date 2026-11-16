@@ -208,6 +208,6 @@ class AiTabFlowsTest {
     /** Antes el botón «+ Añadir alimento»; ahora el «+» de la barra y el buscador de la hoja «Añadir». */
     private fun ComposeUiTest.openAddFood() {
         onNodeWithContentDescription("Añadir").performClick()
-        onNodeWithText("Busca un alimento o una marca").performClick()
+        waitForText("Busca un alimento o una marca")
     }
 }

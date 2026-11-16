@@ -146,7 +146,7 @@ class AppFlowsTest {
 
     private fun ComposeUiTest.addNutellaByManualEan() {
         openAddFood()
-        onNodeWithText("Escáner").performClick()
+        onNodeWithText("Escanear").performClick()
         onNodeWithText("Código EAN").performTextInput(nutella.barcode)
         onNodeWithText("Buscar producto").performClick()
         waitForAddButton()
@@ -169,7 +169,7 @@ class AppFlowsTest {
         addNutellaByManualEan()
         waitForText("Nutella")
 
-        onNodeWithText("Nutella").performClick()
+        onAllNodesWithText("Nutella").onLast().performClick() // el de la hoja; el otro es el del Diario de debajo
         waitForAddButton()
         clickAddButton()
         waitGoneAddButton()
@@ -624,7 +624,7 @@ class AppFlowsTest {
 
     private fun ComposeUiTest.createPanCasero() {
         openAddFood()
-        onNodeWithText("Alimento propio").performClick()
+        onNodeWithText("Crear alimento propio").performClick()
         waitForText("Valores por 100 g")
         onNodeWithText("Nombre").performTextInput("Pan casero")
         onNodeWithText("Energía").performTextInput("250")
@@ -632,8 +632,9 @@ class AppFlowsTest {
         onNodeWithText("Hidratos").performTextInput("50")
         onNodeWithText("Grasas").performTextInput("2")
         onNodeWithText("Guardar").performClick()
-        waitForText("Buscar alimento")
-        onNodeWithText("Buscar alimento").performTextInput("pan")
+        waitForText("Nada apuntado hoy")
+        openAddFood()
+        onNodeWithText("Busca un alimento o una marca").performTextInput("pan")
         waitForText("Pan casero")
     }
 
@@ -673,7 +674,7 @@ class AppFlowsTest {
         kotlin.test.assertEquals(1, db.customFoodQueries.selectAll().executeAsList().size)
         onNodeWithText("Borrar alimento").performClick()
         onNodeWithText("Borrar").performClick()
-        waitForText("Buscar alimento")
+        waitForText("Nada apuntado hoy")
         kotlin.test.assertEquals(0, db.customFoodQueries.selectAll().executeAsList().size)
     }
 
@@ -681,7 +682,7 @@ class AppFlowsTest {
     fun copyAsCustomFoodPrefillsFormAndSavesCopy() = runApp { db ->
         waitForText("Nada apuntado hoy")
         openAddFood()
-        onNodeWithText("Escáner").performClick()
+        onNodeWithText("Escanear").performClick()
         onNodeWithText("Código EAN").performTextInput(nutella.barcode)
         onNodeWithText("Buscar producto").performClick()
         waitForAddButton()
@@ -706,9 +707,9 @@ class AppFlowsTest {
             "generic:1", "Manzana cruda", null, null, 52.0, 0.3, 14.0, 10.0, 0.2, null, 2.4, null, null, null, "GENERIC", 1L,
         )
         waitForText("Nada apuntado hoy")
-        goTab("Alimentos")
-        waitForText("Buscar alimento")
-        onNodeWithText("Buscar alimento").performTextInput("manzana")
+        openAddFood()
+        waitForText("Busca un alimento o una marca")
+        onNodeWithText("Busca un alimento o una marca").performTextInput("manzana")
         waitForText("Manzana cruda")
         onNodeWithText("Manzana cruda").performClick()
         // Desde la pestaña no hay comida preseleccionada: la ficha propone la que toca por la hora.
@@ -733,7 +734,8 @@ class AppFlowsTest {
     }
 
     private fun ComposeUiTest.addNutellaFromEan() {
-        onNodeWithText("Escáner").performClick()
+        // «Escanear» en la hoja «Añadir»; «Escáner» en la pantalla Añadir antigua (la que abre el «+» de cada comida).
+        onNodeWithText(if (onAllNodes(hasText("Escanear")).fetchSemanticsNodes().isNotEmpty()) "Escanear" else "Escáner").performClick()
         onNodeWithText("Código EAN").performTextInput(nutella.barcode)
         onNodeWithText("Buscar producto").performClick()
     }
@@ -850,45 +852,42 @@ class AppFlowsTest {
     }
 
     @Test
-    fun foodsTabHasNoMealPickerNorSourceFilters() = runApp(recentWeight = true) { _ ->
+    fun addSheetOffersSearchActionsAndListsWithoutSourceFilters() = runApp(recentWeight = true) { _ ->
         waitForText("Nada apuntado hoy")
-        goTab("Alimentos")
-        waitForText("Buscar alimento")
+        openAddFood()
         onNodeWithText("Recientes").assertIsDisplayed()
-        onNodeWithText("Escáner").assertIsDisplayed()
-        onNodeWithText("Alimento propio").assertIsDisplayed()
-        for (gone in listOf("Todos", "Genérico", "Open Food Facts", "Propios", "Código EAN")) {
-            kotlin.test.assertTrue(onAllNodes(hasText(gone)).fetchSemanticsNodes().isEmpty(), gone)
+        onNodeWithText("Favoritos").assertIsDisplayed()
+        listOf("Escanear", "Foto del plato", "Etiqueta", "Entrada rápida", "Crear alimento propio").forEach {
+            onNodeWithText(it).assertIsDisplayed()
         }
-        kotlin.test.assertTrue(onAllNodes(hasText("▾", substring = true)).fetchSemanticsNodes().isEmpty())
         waitForText("Aún no hay recientes")
     }
 
     @Test
-    fun recentsListShowsDiaryFoodsAndTheButtonReturnsToIt() = runApp(recentWeight = true) { _ ->
+    fun recentsListShowsDiaryFoodsAndOpensConfirm() = runApp(recentWeight = true) { _ ->
         waitForText("Nada apuntado hoy")
         addNutellaByManualEan()
         waitForText("Nutella")
 
-        goTab("Alimentos")
-        waitForText("ÚLTIMOS ALIMENTOS · 1")
-        onNodeWithText("Nutella").assertIsDisplayed()
+        openAddFood()
+        waitForText("Nutella")
 
-        onNodeWithText("Buscar alimento").performTextInput("zzzz")
+        onNodeWithText("Busca un alimento o una marca").performTextInput("zzzz")
         waitForText("Sin resultados para «zzzz»")
-        kotlin.test.assertTrue(onAllNodes(hasText("ÚLTIMOS ALIMENTOS", substring = true)).fetchSemanticsNodes().isEmpty())
-        onNodeWithText("Recientes").performClick()
-        waitForText("ÚLTIMOS ALIMENTOS · 1")
+        // Con texto se ven los resultados en lugar de acciones y listas; al borrarlo vuelven los recientes.
+        kotlin.test.assertTrue(onAllNodes(hasText("Escanear")).fetchSemanticsNodes().isEmpty())
+        onNodeWithContentDescription("Borrar búsqueda").performClick()
+        waitForText("Nutella")
 
-        onNodeWithText("Nutella").performClick()
+        onAllNodesWithText("Nutella").onLast().performClick() // el de la hoja; el otro es el del Diario de debajo
         waitForAddButton()
     }
 
     @Test
-    fun foodsTabHasFavoritesShortcut() = runApp(recentWeight = true) { _ ->
+    fun addSheetHasFavoritesTab() = runApp(recentWeight = true) { _ ->
         waitForText("Nada apuntado hoy")
-        goTab("Alimentos")
-        waitForText("Buscar alimento")
+        openAddFood()
+        waitForText("Busca un alimento o una marca")
         onNodeWithText("Favoritos").assertIsDisplayed()
         onNodeWithText("Favoritos").performClick()
         waitForText("Aún no tienes favoritos")
@@ -907,9 +906,9 @@ class AppFlowsTest {
         },
     ) { db ->
         waitForText("Nada apuntado hoy")
-        goTab("Alimentos")
-        waitForText("Buscar alimento")
-        onNodeWithText("Buscar alimento").performTextInput("pan")
+        openAddFood()
+        waitForText("Busca un alimento o una marca")
+        onNodeWithText("Busca un alimento o una marca").performTextInput("pan")
         waitForText("Resultados · 1")
 
         onNodeWithContentDescription("Añadir Pan casero a favoritos").performClick()
@@ -919,8 +918,10 @@ class AppFlowsTest {
         val id = db.customFoodQueries.selectAll().executeAsOne().id
         kotlin.test.assertEquals(listOf("custom:$id"), db.favoriteFoodQueries.selectKeys().executeAsList())
 
+        onNodeWithContentDescription("Borrar búsqueda").performClick()
+        waitForText("Favoritos")
         onNodeWithText("Favoritos").performClick()
-        waitForText("FAVORITOS · 1")
+        waitForText("Pan casero")
         onNodeWithText("Pan casero").assertIsDisplayed()
 
         onNodeWithContentDescription("Quitar Pan casero de favoritos").performClick()
@@ -934,9 +935,9 @@ class AppFlowsTest {
         addNutellaByManualEan()
         waitForText("Nutella")
 
-        goTab("Alimentos")
-        waitForText("ÚLTIMOS ALIMENTOS · 1")
-        onNodeWithText("Nutella").performClick()
+        openAddFood()
+        waitForText("Nutella")
+        onAllNodesWithText("Nutella").onLast().performClick() // el de la hoja; el otro es el del Diario de debajo
         waitForAddButton()
 
         onNodeWithContentDescription("Añadir Nutella a favoritos").performClick()
@@ -946,10 +947,11 @@ class AppFlowsTest {
         kotlin.test.assertEquals(listOf(nutella.barcode), db.favoriteFoodQueries.selectKeys().executeAsList())
 
         onNodeWithContentDescription("Atrás").performClick()
-        waitForText("Buscar alimento")
+        waitForText("Nutella")
+        openAddFood()
         onNodeWithText("Favoritos").performClick()
-        waitForText("FAVORITOS · 1")
-        onNodeWithText("Nutella").assertIsDisplayed()
+        waitForText("Nutella")
+        onNodeWithContentDescription("Quitar Nutella de favoritos").assertIsDisplayed()
     }
 
     private fun seedBreakfast(db: EasyFoodDatabase) = kotlinx.coroutines.runBlocking {
@@ -982,10 +984,10 @@ class AppFlowsTest {
         kotlin.test.assertEquals(listOf("Mi desayuno"), db.mealTemplateQueries.selectAll().executeAsList().map { it.name })
         kotlin.test.assertEquals(1, db.mealTemplateQueries.selectAllItems().executeAsList().size)
 
-        goTab("Alimentos")
-        waitForText("Buscar alimento")
+        openAddFood()
+        waitForText("Busca un alimento o una marca")
         onNodeWithText("Plantillas").performClick()
-        waitForText("PLANTILLAS · 1")
+        waitForText("Mi desayuno")
         onNodeWithContentDescription("Añadir Mi desayuno al diario").performClick()
 
         // Vuelve al Diario con los alimentos de la plantilla añadidos de un toque.
@@ -996,13 +998,13 @@ class AppFlowsTest {
     @Test
     fun tappingATemplateLetsYouPickTheMealAndAddsEveryFoodWithItsQuantity() = runApp(recentWeight = true, seed = { seedTemplate(it) }) { db ->
         waitForText("Nada apuntado hoy")
-        goTab("Alimentos")
-        waitForText("Buscar alimento")
+        openAddFood()
+        waitForText("Busca un alimento o una marca")
         onNodeWithText("Plantillas").performClick()
-        waitForText("PLANTILLAS · 1")
+        waitForText("Mi desayuno")
         onNodeWithText("Mi desayuno").performClick()
         waitForText("Añadir a")
-        onNodeWithText("Desayuno").performClick()
+        onAllNodesWithText("Desayuno").onLast().performClick() // el del diálogo, que se compone el último
         onAllNodesWithText("Añadir").onLast().performClick() // el del diálogo, que se compone el último
 
         waitUntil(timeoutMillis = 20_000) { db.diaryEntryQueries.selectByDate("2026-11-04").executeAsList().size == 2 }
@@ -1016,23 +1018,29 @@ class AppFlowsTest {
     @Test
     fun renameAndDeleteATemplateFromItsEditScreen() = runApp(recentWeight = true, seed = { seedTemplate(it) }) { db ->
         waitForText("Nada apuntado hoy")
-        goTab("Alimentos")
-        waitForText("Buscar alimento")
+        openAddFood()
+        waitForText("Busca un alimento o una marca")
         onNodeWithText("Plantillas").performClick()
-        waitForText("PLANTILLAS · 1")
+        waitForText("Mi desayuno")
         onNodeWithContentDescription("Editar Mi desayuno").performClick()
         waitForText("Editar plantilla")
         onNodeWithText("Nombre").performTextReplacement("Desayuno de siempre")
         onNodeWithText("Guardar cambios").performClick()
-        waitForText("Desayuno de siempre")
+        waitForText("Nada apuntado hoy") // al guardar se vuelve a Hoy: la hoja se cierra al abrir la edición
         kotlin.test.assertEquals(listOf("Desayuno de siempre"), db.mealTemplateQueries.selectAll().executeAsList().map { it.name })
         kotlin.test.assertEquals(2, db.mealTemplateQueries.selectAllItems().executeAsList().size)
 
+        openAddFood()
+        onNodeWithText("Plantillas").performClick()
+        waitForText("Desayuno de siempre")
         onNodeWithContentDescription("Editar Desayuno de siempre").performClick()
         waitForText("Editar plantilla")
         onNodeWithText("Borrar").performClick()
         waitForText("¿Borrar la plantilla?")
         onAllNodesWithText("Borrar").onLast().performClick()
+        waitForText("Nada apuntado hoy")
+        openAddFood()
+        onNodeWithText("Plantillas").performClick()
         waitForText("Aún no tienes plantillas")
         kotlin.test.assertEquals(0, db.mealTemplateQueries.selectAll().executeAsList().size)
         kotlin.test.assertEquals(0, db.mealTemplateQueries.selectAllItems().executeAsList().size)
@@ -1116,6 +1124,26 @@ class AppFlowsTest {
         waitForText("Nada apuntado hoy")
     }
 
+    @Test
+    fun addSheetOpenedFromAPreviousDayAddsThereWithTheMealPickedInTheSheet() = runApp(recentWeight = true) { db ->
+        waitForText("Nada apuntado hoy")
+        onNodeWithContentDescription("Día anterior").performClick()
+        openAddFood()
+        waitUntil(timeoutMillis = 20_000) { onAllNodes(hasText("· ayer", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        onNodeWithText("Cena").performClick()
+        waitForText("a Cena · ayer")
+        addNutellaFromEan()
+        waitForAddButton()
+        // «Confirmar alimento» conserva la comida elegida y el día de la hoja.
+        waitForText("Confirmar alimento")
+        onNodeWithText("Cena").assertIsSelected()
+        clickAddButton()
+        waitGoneAddButton()
+        val rows = db.diaryEntryQueries.selectAll().executeAsList()
+        kotlin.test.assertEquals(listOf("2026-11-03"), rows.map { it.date })
+        kotlin.test.assertEquals(listOf("DINNER"), rows.map { it.meal })
+    }
+
     // --- Navegación «Hoy · + · Tú» (Fase 0 del rediseño): ayudas para los antiguos clics en pestañas ---
 
     private fun isTab(label: String) = hasText(label) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)
@@ -1133,9 +1161,9 @@ class AppFlowsTest {
         waitForIdle()
     }
 
-    /** Antes el botón «+ Añadir alimento»; ahora el «+» de la barra y el buscador de la hoja «Añadir». */
+    /** Antes el botón «+ Añadir alimento»; ahora el «+» de la barra, que abre la hoja «Añadir» (con el buscador, las acciones y las listas). */
     private fun ComposeUiTest.openAddFood() {
         onNodeWithContentDescription("Añadir").performClick()
-        onNodeWithText("Busca un alimento o una marca").performClick()
+        waitForText("Busca un alimento o una marca")
     }
 }
