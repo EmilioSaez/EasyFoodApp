@@ -1,5 +1,6 @@
 package app.luxion.fitarchiveapp.ui.components
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.ColumnScope
@@ -11,25 +12,30 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import app.luxion.fitarchiveapp.ui.theme.Spacing
 
 /**
- * Tarjeta de una comida (Desayuno, Comida…): título en Sora 18 con «Copiar» y «Plantilla» (guardar como plantilla) justo a su derecha
- * (si hay [onCopy] / [onSaveTemplate]), resumen debajo
- * y el «+» cuadrado de 36 dp en la cabecera (docs/design.md §2.14). [entries] recibe las filas ([DiaryEntryRow]);
- * si [isEmpty], se muestra [emptyText] en su lugar.
+ * Tarjeta de una comida (Desayuno, Comida…): título (titleLarge), resumen debajo, menú «⋯» (copiar y guardar como
+ * plantilla, si hay [onCopy] / [onSaveTemplate]) y el «+» redondo de 44 dp en la cabecera (docs/design.md §2.14 y §2.26).
+ * [entries] recibe las filas ([DiaryEntryRow]); si [isEmpty], se muestra [emptyText] en su lugar.
  */
 @Composable
 fun MealSection(
@@ -43,6 +49,7 @@ fun MealSection(
     emptyText: String = "Nada apuntado todavía",
     entries: @Composable ColumnScope.() -> Unit = {},
 ) {
+    var menuOpen by remember { mutableStateOf(false) }
     OutlinedCard(
         modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
@@ -50,40 +57,44 @@ fun MealSection(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Row(
-            Modifier.fillMaxWidth().padding(start = Spacing.l, end = Spacing.xs, top = Spacing.s, bottom = Spacing.s),
+            Modifier.fillMaxWidth().padding(start = Spacing.l, end = Spacing.m, top = Spacing.m, bottom = Spacing.s),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.s),
         ) {
             Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(title, style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp, lineHeight = 24.sp))
-                    if (onCopy != null) {
-                        TextButton(onClick = onCopy, modifier = Modifier.semantics { contentDescription = "Copiar $title" }) { Text("Copiar") }
-                    }
-                    if (onSaveTemplate != null) {
-                        TextButton(
-                            onClick = onSaveTemplate,
-                            modifier = Modifier.semantics { contentDescription = "Guardar $title como plantilla" },
-                        ) { Text("Plantilla") }
-                    }
-                }
+                Text(title, style = MaterialTheme.typography.titleLarge)
                 Text(
                     summary,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            // «+» cuadrado primary de 36 dp (zona táctil de 48): añade a esta comida.
-            Box(
-                Modifier.size(48.dp)
-                    .clickable(role = Role.Button, onClick = onAdd)
-                    .semantics { contentDescription = "Añadir a $title" },
-                contentAlignment = Alignment.Center,
-            ) {
-                Box(
-                    Modifier.size(36.dp).background(MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small),
-                    contentAlignment = Alignment.Center,
-                ) { Text("+", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onPrimary) }
+            if (onCopy != null || onSaveTemplate != null) {
+                Box {
+                    RoundButton(
+                        label = "⋯",
+                        description = "Más acciones de $title",
+                        container = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        content = MaterialTheme.colorScheme.onSurface,
+                        onClick = { menuOpen = true },
+                    )
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        if (onCopy != null) {
+                            DropdownMenuItem(text = { Text("Copiar") }, onClick = { menuOpen = false; onCopy() })
+                        }
+                        if (onSaveTemplate != null) {
+                            DropdownMenuItem(text = { Text("Guardar como plantilla") }, onClick = { menuOpen = false; onSaveTemplate() })
+                        }
+                    }
+                }
             }
+            RoundButton(
+                label = "+",
+                description = "Añadir a $title",
+                container = MaterialTheme.colorScheme.primary,
+                content = MaterialTheme.colorScheme.onPrimary,
+                onClick = onAdd,
+            )
         }
         if (isEmpty) {
             Text(
@@ -96,4 +107,16 @@ fun MealSection(
             entries()
         }
     }
+}
+
+/** Botón redondo de 44 dp de la cabecera de una comida. */
+@Composable
+private fun RoundButton(label: String, description: String, container: Color, content: Color, onClick: () -> Unit) {
+    Box(
+        Modifier.size(44.dp)
+            .background(container, CircleShape)
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = description },
+        contentAlignment = Alignment.Center,
+    ) { Text(label, style = MaterialTheme.typography.titleLarge, color = content) }
 }

@@ -14,10 +14,8 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -40,8 +38,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.luxion.fitarchiveapp.data.GoalStore
 import app.luxion.fitarchiveapp.data.WaterStore
@@ -61,7 +57,6 @@ import app.luxion.fitarchiveapp.ui.components.formatKcal
 import app.luxion.fitarchiveapp.ui.components.parseNumber
 import app.luxion.fitarchiveapp.ui.navigation.EasyFoodNavigationBar
 import app.luxion.fitarchiveapp.ui.navigation.Navigator
-import app.luxion.fitarchiveapp.ui.navigation.Route
 import app.luxion.fitarchiveapp.ui.navigation.TopLevelTab
 import app.luxion.fitarchiveapp.ui.theme.Spacing
 import app.luxion.fitarchiveapp.ui.theme.easyFoodColors
@@ -128,21 +123,7 @@ fun GoalsScreen(
     val hasManual = kcalText != null || proteinText != null || carbsText != null || fatText != null
 
     Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Objetivos") },
-                actions = {
-                    IconButton(
-                        onClick = { navigator.push(Route.Reminders) },
-                        modifier = Modifier.semantics { contentDescription = "Recordatorios" },
-                    ) { Text("🔔", style = MaterialTheme.typography.titleMedium) }
-                    IconButton(
-                        onClick = { navigator.push(Route.Data) },
-                        modifier = Modifier.semantics { contentDescription = "Datos: exportar e importar" },
-                    ) { Text("⇅", style = MaterialTheme.typography.titleLarge) }
-                },
-            )
-        },
+        topBar = { ScreenHeader("Objetivos", onBack = { navigator.pop() }) },
         snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
             Column {
@@ -161,15 +142,15 @@ fun GoalsScreen(
                         }
                     },
                     enabled = resolved.kcal != null,
-                    modifier = Modifier.fillMaxWidth().padding(Spacing.l).heightIn(min = 48.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screen, vertical = Spacing.md).heightIn(min = 52.dp),
                 ) { Text("Guardar objetivos") }
-                EasyFoodNavigationBar(TopLevelTab.Goals, navigator)
+                EasyFoodNavigationBar(TopLevelTab.You, navigator)
             }
         },
     ) { padding ->
         Column(
-            Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = Spacing.l),
-            verticalArrangement = Arrangement.spacedBy(Spacing.xl),
+            Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(start = Spacing.screen, end = Spacing.screen, bottom = Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.lg),
         ) {
             ResultCard(resolved.kcal, plan, custom, Modifier.padding(top = Spacing.s))
 
@@ -250,6 +231,7 @@ fun GoalsScreen(
             }
 
             Section("Actividad física") {
+              YouCard(contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = Spacing.xs)) {
                 ActivityLevel.entries.forEach { level ->
                     Row(
                         Modifier.fillMaxWidth().heightIn(min = 56.dp)
@@ -272,6 +254,7 @@ fun GoalsScreen(
                         )
                     }
                 }
+              }
             }
 
             StepsSection(stepsState, stepsSuggestion, onApply = { activity = it })
@@ -321,7 +304,7 @@ private fun DataCell(label: String, modifier: Modifier = Modifier, content: @Com
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
-        Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+        SectionLabel(title)
         content()
     }
 }
@@ -333,43 +316,42 @@ private fun ResultCard(
     custom: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val hero = heroColors()
     Card(
         modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        ),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(containerColor = hero.container, contentColor = hero.content),
     ) {
-        Column(Modifier.padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+        Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
             val label = when {
                 custom -> "Objetivo diario · Personalizado"
                 else -> "Objetivo diario"
             }
-            Text(label, style = MaterialTheme.typography.labelLarge)
+            Text(label.uppercase(), style = MaterialTheme.typography.labelMedium, color = hero.muted)
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
                     targetKcal?.let { formatKcal(it.toDouble()) } ?: "—",
                     style = MaterialTheme.typography.displayMedium,
                 )
-                Text("kcal", Modifier.padding(start = Spacing.s, bottom = Spacing.s), style = MaterialTheme.typography.titleMedium)
+                Text("kcal", Modifier.padding(start = Spacing.s, bottom = Spacing.s), style = MaterialTheme.typography.titleMedium, color = hero.muted)
             }
             Row(Modifier.fillMaxWidth()) {
-                Stat("Metabolismo basal", plan?.bmrKcal, Modifier.weight(1f))
-                Stat("Gasto total (TDEE)", plan?.tdeeKcal, Modifier.weight(1f))
+                Stat("Metabolismo basal", plan?.bmrKcal, hero.muted, Modifier.weight(1f))
+                Stat("Gasto total (TDEE)", plan?.tdeeKcal, hero.muted, Modifier.weight(1f))
             }
             Text(
                 "Mifflin-St Jeor: TMB = 10·kg + 6,25·cm − 5·edad + 5 (hombre) / −161 (mujer); TDEE = TMB × actividad",
                 style = MaterialTheme.typography.bodySmall,
+                color = hero.muted,
             )
         }
     }
 }
 
 @Composable
-private fun Stat(label: String, kcal: Int?, modifier: Modifier = Modifier) {
+private fun Stat(label: String, kcal: Int?, labelColor: androidx.compose.ui.graphics.Color, modifier: Modifier = Modifier) {
     Column(modifier) {
-        Text(label, style = MaterialTheme.typography.bodySmall)
+        Text(label, style = MaterialTheme.typography.bodySmall, color = labelColor)
         Text(
             kcal?.let { "${formatKcal(it.toDouble())} kcal" } ?: "—",
             style = MaterialTheme.typography.titleMedium,
@@ -398,12 +380,8 @@ private fun MacroSplitCard(
     val f = resolved.fatG ?: 0
     val (pp, cp, fp) = GoalsPlanner.macroPercents(p, c, f)
     val colors = MaterialTheme.easyFoodColors
-    Card(
-        Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
-        Column(Modifier.padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
+    YouCard {
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Reparto de macros", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
                 if (hasManual) TextButton(onClick = onReset) { Text("Restablecer") }

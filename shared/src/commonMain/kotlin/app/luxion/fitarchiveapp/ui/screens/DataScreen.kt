@@ -20,7 +20,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
@@ -105,17 +104,7 @@ fun DataScreen(navigator: Navigator, presenter: DataPresenter, today: () -> Stri
     var channel by remember { mutableStateOf(Channel.File) }
 
     Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Datos") },
-                navigationIcon = {
-                    IconButton(
-                        onClick = { navigator.pop() },
-                        modifier = Modifier.semantics { contentDescription = "Volver" },
-                    ) { Text("‹", style = MaterialTheme.typography.titleLarge) }
-                },
-            )
-        },
+        topBar = { ScreenHeader("Datos", onBack = { navigator.pop() }) },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Column(

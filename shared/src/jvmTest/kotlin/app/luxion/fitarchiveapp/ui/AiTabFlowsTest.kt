@@ -1,5 +1,11 @@
 package app.luxion.fitarchiveapp.ui
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasScrollAction
@@ -117,7 +123,7 @@ class AiTabFlowsTest {
 
     private fun ComposeUiTest.openAiTab() {
         waitForText("Nada apuntado hoy")
-        onAllNodesWithText("IA").onLast().performClick()
+        goTab("IA")
     }
 
     private fun ComposeUiTest.click(text: String) {
@@ -136,14 +142,14 @@ class AiTabFlowsTest {
         click("Sugerir comida")
         waitForText("Yogur con nueces (150 g)")
         waitForText("Tortilla francesa (1 ración)")
-        waitForText("Añadir al diario")
-        onAllNodesWithText("Añadir al diario")[0].performScrollTo()
-        onAllNodesWithText("Añadir al diario")[0].performClick()
+        waitUntil(timeoutMillis = 20_000) { onAllNodesWithContentDescription("Añadir Yogur con nueces (150 g) al diario").fetchSemanticsNodes().isNotEmpty() }
+        onNodeWithContentDescription("Añadir Yogur con nueces (150 g) al diario").performScrollTo()
+        onNodeWithContentDescription("Añadir Yogur con nueces (150 g) al diario").performClick()
         waitForText("Añadido a Merienda")
         assertEquals(1, apiCalls)
         waitForText("Hoy te quedan 29 de 30 llamadas", substring = true)
 
-        onNodeWithText("Diario").performClick()
+        goToday()
         waitForText("Yogur con nueces (150 g)")
     }
 
@@ -179,7 +185,30 @@ class AiTabFlowsTest {
         waitForText("Tu pregunta")
         onNodeWithText("Tu pregunta").performTextInput("¿Qué ceno?")
         click("Preguntar")
-        waitForText("IA: Prueba con legumbres.")
+        waitForText("Prueba con legumbres.")
         waitForText("Límite diario alcanzado")
+    }
+
+    // --- Navegación «Hoy · + · Tú» (Fase 0 del rediseño): ayudas para los antiguos clics en pestañas ---
+
+    private fun isTab(label: String) = hasText(label) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)
+
+    /** Antes «Diario» en la barra inferior; ahora «Hoy». */
+    private fun ComposeUiTest.goToday() {
+        onNode(isTab("Hoy")).performClick()
+    }
+
+    /** Antes una pestaña (Alimentos, Recetas, Mi peso, Objetivos, IA); ahora una fila de «Tú». */
+    private fun ComposeUiTest.goTab(label: String) {
+        onNode(isTab("Tú")).performClick()
+        waitForIdle()
+        onNode(hasText(if (label == "IA") "Coach IA" else label) and hasClickAction()).performScrollTo().performClick()
+        waitForIdle()
+    }
+
+    /** Antes el botón «+ Añadir alimento»; ahora el «+» de la barra y el buscador de la hoja «Añadir». */
+    private fun ComposeUiTest.openAddFood() {
+        onNodeWithContentDescription("Añadir").performClick()
+        waitForText("Busca un alimento o una marca")
     }
 }

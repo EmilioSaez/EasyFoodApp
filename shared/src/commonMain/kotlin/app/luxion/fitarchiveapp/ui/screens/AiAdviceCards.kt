@@ -10,12 +10,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import app.luxion.fitarchiveapp.ui.components.EasyFoodFilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -26,6 +24,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -37,7 +37,9 @@ import app.luxion.fitarchiveapp.ai.MealSuggestion
 import app.luxion.fitarchiveapp.ui.components.label
 import app.luxion.fitarchiveapp.ui.navigation.Navigator
 import app.luxion.fitarchiveapp.ui.navigation.Route
+import app.luxion.fitarchiveapp.ui.theme.PillShape
 import app.luxion.fitarchiveapp.ui.theme.Spacing
+import app.luxion.fitarchiveapp.ui.theme.easyFoodColors
 import kotlinx.coroutines.launch
 import kotlin.math.round
 
@@ -60,7 +62,7 @@ private fun AiFailure(failed: AiLoad.Failed, onRetry: (() -> Unit)?) {
 /** Botón de una acción de IA: deshabilitado en curso, sin aviso aceptado o con el tope alcanzado. */
 @Composable
 private fun AiActionButton(text: String, running: Boolean, enabled: Boolean, onClick: () -> Unit) {
-    Button(onClick = onClick, enabled = enabled && !running, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+    Button(onClick = onClick, enabled = enabled && !running, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
         Text(if (running) "Pensando…" else text)
     }
 }
@@ -73,7 +75,7 @@ fun AiSuggestCard(state: AiTabState, navigator: Navigator) {
     val enabled = state.advicePrivacyAccepted && !state.limitReached
     AiCard("¿Qué como?") {
         Text(
-            "Ideas para lo que queda del día según tus kcal y macros restantes y lo que sueles comer.",
+            "Con lo que te queda hoy y tus favoritos.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -81,6 +83,7 @@ fun AiSuggestCard(state: AiTabState, navigator: Navigator) {
             value = preferences,
             onValueChange = { preferences = it.take(AiAdviceLimits.MAX_PREFERENCES) },
             label = { Text("Preferencias (opcional): sin gluten, rápido…") },
+            shape = MaterialTheme.shapes.small,
             modifier = Modifier.fillMaxWidth(),
         )
         AiActionButton("Sugerir comida", state.suggestions == AiLoad.Loading, enabled) { scope.launch { state.suggest(preferences) } }
@@ -113,26 +116,35 @@ private fun SuggestionRow(
     onUndo: () -> Unit,
     onEdit: (Long) -> Unit,
 ) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.fillMaxWidth().padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-            Text(option.diaryName, style = MaterialTheme.typography.titleMedium)
-            // Enlazada con la base: cifras reales de «link» (sin «~»); si no, las aproximadas de la IA.
-            Text(
-                if (link != null) "${link.kcal.int()} kcal · P ${link.proteinG.int()} g · H ${link.carbsG.int()} g · G ${link.fatG.int()} g"
-                else "~${option.kcal.int()} kcal · P ${option.proteinG.int()} g · H ${option.carbsG.int()} g · G ${option.fatG.int()} g",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Text(
-                if (link != null) "${link.origin} · ${link.pick.result.name}" else "ESTIMADO por la IA",
-                style = MaterialTheme.typography.labelSmall,
-                color = if (link != null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                    Text(option.diaryName, style = MaterialTheme.typography.titleMedium)
+                    // Enlazada con la base: cifras reales de «link» (sin «~»); si no, las aproximadas de la IA.
+                    Text(
+                        if (link != null) "${link.kcal.int()} kcal · P ${link.proteinG.int()} · H ${link.carbsG.int()} · G ${link.fatG.int()}"
+                        else "~${option.kcal.int()} kcal · P ${option.proteinG.int()} · H ${option.carbsG.int()} · G ${option.fatG.int()}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        if (link != null) "${link.origin} · ${link.pick.result.name}" else "ESTIMADO por la IA",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (link != null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+                    )
+                }
+                if (added == null) {
+                    Button(
+                        onClick = onAdd,
+                        modifier = Modifier.heightIn(min = 44.dp).semantics { contentDescription = "Añadir ${option.diaryName} al diario" },
+                    ) { Text("Añadir") }
+                }
+            }
             if (option.reason.isNotBlank()) {
                 Text(option.reason, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            if (added == null) {
-                OutlinedButton(onClick = onAdd, modifier = Modifier.heightIn(min = 48.dp)) { Text("Añadir al diario") }
-            } else {
+            if (added != null) {
                 Text("Añadido a ${added.meal.label}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     TextButton(onClick = { onEdit(added.entryId) }) { Text("Ajustar") }
@@ -186,19 +198,24 @@ private fun ReviewContent(review: AiReview) {
 
 @Composable
 private fun PointRow(point: AiAdvicePoint) {
-    val (mark, color) = when (point.status) {
-        "alto" -> "▲" to MaterialTheme.colorScheme.error
-        "bajo" -> "▼" to MaterialTheme.colorScheme.tertiary
-        else -> "✓" to MaterialTheme.colorScheme.primary
+    val colors = MaterialTheme.easyFoodColors
+    val (badge, container, content) = when (point.status) {
+        "alto" -> Triple("Alto", colors.warningContainer, colors.onWarningContainer)
+        "bajo" -> Triple("Bajo", colors.warningContainer, colors.onWarningContainer)
+        else -> Triple("OK", MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
     }
-    val statusText = when (point.status) { "alto" -> "alto"; "bajo" -> "bajo"; else -> "bien" }
-    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-        Text(mark, color = color, style = MaterialTheme.typography.titleMedium)
-        Column {
+    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md), verticalAlignment = Alignment.Top) {
+        Surface(color = container, shape = PillShape) {
             Text(
-                listOf(point.topic.replaceFirstChar { it.uppercase() }, statusText).filter { it.isNotEmpty() }.joinToString(" · "),
-                style = MaterialTheme.typography.labelLarge,
+                badge,
+                style = MaterialTheme.typography.labelMedium,
+                color = content,
+                modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs),
             )
+        }
+        Column(Modifier.weight(1f)) {
+            val topic = point.topic.replaceFirstChar { it.uppercase() }
+            if (topic.isNotEmpty()) Text(topic, style = MaterialTheme.typography.labelLarge)
             Text(point.advice, style = MaterialTheme.typography.bodyMedium)
         }
     }
@@ -235,7 +252,7 @@ fun AiPlanCard(state: AiTabState) {
             is AiLoad.Failed -> AiFailure(p) { scope.launch { state.planMeals(days, preferences) } }
             is AiLoad.Done -> {
                 p.value.days.forEach { day ->
-                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
+                    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.fillMaxWidth().padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                             Text(day.day, style = MaterialTheme.typography.titleMedium)
                             day.meals.forEach { m ->
@@ -293,16 +310,26 @@ fun AiAskCard(state: AiTabState) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         state.chat.forEach { turn ->
-            Text(
-                (if (turn.fromUser) "Tú: " else "IA: ") + turn.text,
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (turn.fromUser) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = if (turn.fromUser) Arrangement.End else Arrangement.Start) {
+                Surface(
+                    color = if (turn.fromUser) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier.fillMaxWidth(0.88f),
+                ) {
+                    Text(
+                        turn.text,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (turn.fromUser) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(Spacing.md),
+                    )
+                }
+            }
         }
         OutlinedTextField(
             value = question,
             onValueChange = { question = it.take(AiAdviceLimits.MAX_QUESTION) },
             label = { Text("Tu pregunta") },
+            shape = MaterialTheme.shapes.small,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
             supportingText = { Text("${question.length}/${AiAdviceLimits.MAX_QUESTION}") },
             modifier = Modifier.fillMaxWidth(),

@@ -1,45 +1,91 @@
 package app.luxion.fitarchiveapp.ui.components
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import app.luxion.fitarchiveapp.ui.theme.PillShape
 import app.luxion.fitarchiveapp.ui.theme.Spacing
 import app.luxion.fitarchiveapp.ui.theme.easyFoodColors
 
-/** Aviso del Diario cuando toca pesarse, a lo ancho (52 dp) en ámbar; [daysSinceLast] es `null` si nunca se ha registrado el peso. */
+/**
+ * Tarjeta rápida de peso del Diario (media anchura): último peso («78,4 kg») y, o bien el cambio respecto al anterior
+ * ([deltaText]), o bien —si [due], toca pesarse— el aviso en ámbar con los días desde el último registro. Toda la tarjeta
+ * abre el registro de peso. [daysSinceLast] es `null` si nunca se ha registrado.
+ */
 @Composable
-fun WeightReminderCard(daysSinceLast: Long?, onRegister: () -> Unit, modifier: Modifier = Modifier) {
+fun WeightReminderCard(
+    lastKg: Double?,
+    deltaText: String?,
+    due: Boolean,
+    daysSinceLast: Long?,
+    onRegister: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val colors = MaterialTheme.easyFoodColors
-    Card(
-        modifier.fillMaxWidth(),
+    OutlinedCard(
+        modifier,
         shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = colors.warningContainer),
+        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
-        Row(
-            Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(start = Spacing.l, end = Spacing.s),
-            verticalAlignment = Alignment.CenterVertically,
+        Column(
+            Modifier.fillMaxWidth()
+                .clickable(role = Role.Button, onClick = onRegister)
+                .semantics { contentDescription = "Registrar peso" }
+                .padding(Spacing.l),
+            verticalArrangement = Arrangement.spacedBy(Spacing.s),
         ) {
-            Column(Modifier.weight(1f).padding(vertical = Spacing.xs)) {
-                Text("Toca pesarse", style = MaterialTheme.typography.titleMedium, color = colors.onWarningContainer)
+            Text("PESO", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                if (lastKg == null) buildAnnotatedString { append("—") } else buildAnnotatedString {
+                    append(formatGrams(lastKg))
+                    withStyle(SpanStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant, fontFamily = MaterialTheme.typography.bodyMedium.fontFamily)) { append(" kg") }
+                },
+                style = MaterialTheme.typography.headlineMedium,
+                maxLines = 1,
+            )
+            if (due) {
+                Badge("Toca pesarse", colors.warningContainer, colors.onWarningContainer)
                 Text(
                     if (daysSinceLast == null) "Aún no has registrado tu peso."
                     else "Hace $daysSinceLast días que no registras tu peso.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = colors.onWarningContainer,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            } else if (deltaText != null) {
+                Badge(deltaText, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
             }
-            TextButton(onClick = onRegister) { Text("Registrar peso", color = colors.onWarningContainer) }
         }
     }
+}
+
+@Composable
+private fun Badge(text: String, container: androidx.compose.ui.graphics.Color, content: androidx.compose.ui.graphics.Color) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelMedium,
+        color = content,
+        maxLines = 1,
+        modifier = Modifier.clip(PillShape).background(container).padding(horizontal = Spacing.s, vertical = Spacing.xxs),
+    )
 }

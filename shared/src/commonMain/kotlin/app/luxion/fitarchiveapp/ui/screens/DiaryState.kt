@@ -405,6 +405,14 @@ object IsoDate {
     /** Fecha mínima admitida al consultar el historial. */
     const val EARLIEST = "0000-01-01"
 
+    private val weekdayNames = listOf("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
+
+    /** «lunes 16 de noviembre» (día de la semana + día y mes, sin año). */
+    fun weekdayAndDay(date: String): String {
+        val day = isoDateToEpochDay(date) ?: return long(date)
+        return weekdayNames[(day + 3).mod(7L).toInt()] + " " + long(date).substringBeforeLast(" de ")
+    }
+
     /** Lunes de la semana de [date]. */
     fun weekStart(date: String): String {
         val day = isoDateToEpochDay(date) ?: return date
