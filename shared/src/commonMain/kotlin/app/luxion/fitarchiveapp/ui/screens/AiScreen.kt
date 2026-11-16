@@ -85,7 +85,7 @@ fun AiScreen(
                 },
             )
         },
-        bottomBar = { EasyFoodNavigationBar(TopLevelTab.Ai, navigator) },
+        bottomBar = { EasyFoodNavigationBar(TopLevelTab.You, navigator) },
     ) { padding ->
         val open = EmptyStateAction("Ajustes de IA") { navigator.push(Route.AiSettings) }
         when (state.gate) {

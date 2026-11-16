@@ -1,5 +1,7 @@
 package app.luxion.fitarchiveapp.ui
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.ComposeUiTest
@@ -119,6 +121,7 @@ class AppFlowsTest {
 
     /** Espera a que el texto exista; si hay listas perezosas, las desplaza hasta él (el Diario no compone lo que queda fuera de pantalla). */
     private fun ComposeUiTest.waitForText(text: String) = waitUntil(timeoutMillis = 20_000) {
+        waitForIdle() // las fuentes del tema se cargan de forma asíncrona
         if (onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty()) return@waitUntil true
         val scrollables = onAllNodes(hasScrollAction()).fetchSemanticsNodes().size
         for (i in 0 until scrollables) {
@@ -142,7 +145,7 @@ class AppFlowsTest {
         waitUntil(timeoutMillis = 20_000) { onAllNodes(addButton()).fetchSemanticsNodes().isEmpty() }
 
     private fun ComposeUiTest.addNutellaByManualEan() {
-        onNodeWithText("+ Añadir alimento").performClick()
+        openAddFood()
         onNodeWithText("Escáner").performClick()
         onNodeWithText("Código EAN").performTextInput(nutella.barcode)
         onNodeWithText("Buscar producto").performClick()
@@ -197,20 +200,20 @@ class AppFlowsTest {
     @Test
     fun waterGoalIsEditedInGoalsAndUsedByTheDiary() = runApp(recentWeight = true) { db ->
         waitForText("0 de 2 L")
-        onNodeWithText("Objetivos").performClick()
+        goTab("Objetivos")
         waitForText("2 L al día")
         // Fuera de pantalla en la columna con scroll: se desplaza hasta el botón antes de pulsarlo.
         onNodeWithContentDescription("Subir el objetivo de agua").performScrollTo().performClick()
         waitForText("2,25 L al día")
         kotlin.test.assertEquals(2250, kotlinx.coroutines.runBlocking { SqlDelightWaterStore(db.waterQueries).goalMl() })
-        onNodeWithText("Diario").performClick()
+        goToday()
         waitForText("0 de 2,25 L")
     }
 
     @Test
     fun tdeeGoalsAreCalculatedAndSaved() = runApp { db ->
         waitForText("Nada apuntado hoy")
-        onNodeWithText("Objetivos").performClick()
+        goTab("Objetivos")
         waitForText("Tus datos")
         onNodeWithText("Edad").performTextInput("30")
         onNodeWithText("Peso").performTextInput("80")
@@ -229,7 +232,7 @@ class AppFlowsTest {
                 .create(NewCustomFood("Pan casero", null, Nutrients(250.0, 8.0, 50.0, 2.0)), 1L)
         }
         waitForText("Nada apuntado hoy")
-        onNodeWithText("Recetas").performClick()
+        goTab("Recetas")
         waitForText("Aún no tienes recetas")
         onNodeWithText("Crear receta").performClick()
         waitForText("Nueva receta")
@@ -287,7 +290,7 @@ class AppFlowsTest {
 
     private fun ComposeUiTest.openWeight() {
         waitForText("Nada apuntado hoy")
-        onNodeWithText("Mi peso").performClick()
+        goTab("Mi peso")
         waitForText("Registrar peso")
     }
 
@@ -355,7 +358,7 @@ class AppFlowsTest {
         waitForText("Peso guardado")
         kotlin.test.assertEquals(1, weights(db).size)
 
-        onNodeWithText("Diario").performClick()
+        goToday()
         waitForText("Nada apuntado hoy")
         kotlin.test.assertTrue(onAllNodes(hasText("Toca pesarse")).fetchSemanticsNodes().isEmpty())
     }
@@ -367,15 +370,15 @@ class AppFlowsTest {
         }
         // La pantalla ya se compuso vacía; reabrirla desde otra pestaña fuerza la relectura.
         waitForText("Nada apuntado hoy")
-        onNodeWithText("Objetivos").performClick()
-        onNodeWithText("Diario").performClick()
+        goTab("Objetivos")
+        goToday()
         waitForText("Hace 7 días que no registras tu peso.")
 
         kotlinx.coroutines.runBlocking {
             SqlDelightWeightStore(db.weightEntryQueries).save(NewWeightEntry("2026-11-01", 79.0), 2L) // 3 días
         }
-        onNodeWithText("Objetivos").performClick()
-        onNodeWithText("Diario").performClick()
+        goTab("Objetivos")
+        goToday()
         waitForText("Nada apuntado hoy")
         waitGone("Toca pesarse")
     }
@@ -484,9 +487,9 @@ class AppFlowsTest {
 
         fun ComposeUiTest.openDiary() {
             // En Objetivos el texto también es el título: la pestaña es el último nodo.
-            onAllNodesWithText("Objetivos").onLast().performClick()
+            goTab("Objetivos")
             waitForText("Tus datos")
-            onNodeWithText("Diario").performClick()
+            goToday()
         }
 
         fun ComposeUiTest.assertGoalOnThreeDays(goal: String) {
@@ -505,7 +508,7 @@ class AppFlowsTest {
         assertGoalOnThreeDays("2.000")
 
         // Cambiar el objetivo desde la pantalla de Objetivos lo cambia en todos los días.
-        onAllNodesWithText("Objetivos").onLast().performClick()
+        goTab("Objetivos")
         waitForText("Tus datos")
         onNodeWithText("Edad").performTextInput("30")
         onNodeWithText("Peso").performTextInput("80")
@@ -532,9 +535,9 @@ class AppFlowsTest {
 
     /** Los datos se insertan tras el primer render: se vuelve al Diario para que se recarguen. */
     private fun ComposeUiTest.reloadDiary() {
-        onAllNodesWithText("Objetivos").onLast().performClick()
+        goTab("Objetivos")
         waitForText("Tus datos")
-        onNodeWithText("Diario").performClick()
+        goToday()
     }
 
     @Test
@@ -620,7 +623,7 @@ class AppFlowsTest {
     }
 
     private fun ComposeUiTest.createPanCasero() {
-        onNodeWithText("+ Añadir alimento").performClick()
+        openAddFood()
         onNodeWithText("Alimento propio").performClick()
         waitForText("Valores por 100 g")
         onNodeWithText("Nombre").performTextInput("Pan casero")
@@ -677,7 +680,7 @@ class AppFlowsTest {
     @Test
     fun copyAsCustomFoodPrefillsFormAndSavesCopy() = runApp { db ->
         waitForText("Nada apuntado hoy")
-        onNodeWithText("+ Añadir alimento").performClick()
+        openAddFood()
         onNodeWithText("Escáner").performClick()
         onNodeWithText("Código EAN").performTextInput(nutella.barcode)
         onNodeWithText("Buscar producto").performClick()
@@ -703,7 +706,7 @@ class AppFlowsTest {
             "generic:1", "Manzana cruda", null, null, 52.0, 0.3, 14.0, 10.0, 0.2, null, 2.4, null, null, null, "GENERIC", 1L,
         )
         waitForText("Nada apuntado hoy")
-        onNodeWithText("Alimentos").performClick()
+        goTab("Alimentos")
         waitForText("Buscar alimento")
         onNodeWithText("Buscar alimento").performTextInput("manzana")
         waitForText("Manzana cruda")
@@ -790,7 +793,7 @@ class AppFlowsTest {
     @Test
     fun foodDetailOffersOnlyActiveMealsWithTheNearestOneSelected() = runApp(mealsPerDay = 3, nowMinutes = 12 * 60 + 30) { db ->
         waitForText("Nada apuntado hoy")
-        onNodeWithText("+ Añadir alimento").performClick()
+        openAddFood()
         addNutellaFromEan()
         waitForAddButton()
         onNodeWithText("Comida").assertIsSelected()
@@ -833,12 +836,12 @@ class AppFlowsTest {
     ) { db ->
         waitForText("Galletas")
         kotlin.test.assertTrue(onAllNodes(hasText("Recena")).fetchSemanticsNodes().isEmpty())
-        onNodeWithText("Objetivos").performClick()
+        goTab("Objetivos")
         waitForText("Comidas al día")
         onNode(hasVerticalScroll()).performScrollToNode(hasText("6 comidas"))
         onNodeWithText("6 comidas").performClick()
         waitUntil(timeoutMillis = 20_000) { meals(db) == 6 }
-        onNodeWithText("Diario").performClick()
+        goToday()
         waitForText("Galletas")
         onNode(hasVerticalScroll()).performScrollToNode(hasText("Recena"))
         onNodeWithText("Recena").assertIsDisplayed()
@@ -849,7 +852,7 @@ class AppFlowsTest {
     @Test
     fun foodsTabHasNoMealPickerNorSourceFilters() = runApp(recentWeight = true) { _ ->
         waitForText("Nada apuntado hoy")
-        onNodeWithText("Alimentos").performClick()
+        goTab("Alimentos")
         waitForText("Buscar alimento")
         onNodeWithText("Recientes").assertIsDisplayed()
         onNodeWithText("Escáner").assertIsDisplayed()
@@ -867,7 +870,7 @@ class AppFlowsTest {
         addNutellaByManualEan()
         waitForText("Nutella")
 
-        onNodeWithText("Alimentos").performClick()
+        goTab("Alimentos")
         waitForText("ÚLTIMOS ALIMENTOS · 1")
         onNodeWithText("Nutella").assertIsDisplayed()
 
@@ -884,7 +887,7 @@ class AppFlowsTest {
     @Test
     fun foodsTabHasFavoritesShortcut() = runApp(recentWeight = true) { _ ->
         waitForText("Nada apuntado hoy")
-        onNodeWithText("Alimentos").performClick()
+        goTab("Alimentos")
         waitForText("Buscar alimento")
         onNodeWithText("Favoritos").assertIsDisplayed()
         onNodeWithText("Favoritos").performClick()
@@ -904,7 +907,7 @@ class AppFlowsTest {
         },
     ) { db ->
         waitForText("Nada apuntado hoy")
-        onNodeWithText("Alimentos").performClick()
+        goTab("Alimentos")
         waitForText("Buscar alimento")
         onNodeWithText("Buscar alimento").performTextInput("pan")
         waitForText("Resultados · 1")
@@ -931,7 +934,7 @@ class AppFlowsTest {
         addNutellaByManualEan()
         waitForText("Nutella")
 
-        onNodeWithText("Alimentos").performClick()
+        goTab("Alimentos")
         waitForText("ÚLTIMOS ALIMENTOS · 1")
         onNodeWithText("Nutella").performClick()
         waitForAddButton()
@@ -979,7 +982,7 @@ class AppFlowsTest {
         kotlin.test.assertEquals(listOf("Mi desayuno"), db.mealTemplateQueries.selectAll().executeAsList().map { it.name })
         kotlin.test.assertEquals(1, db.mealTemplateQueries.selectAllItems().executeAsList().size)
 
-        onNodeWithText("Alimentos").performClick()
+        goTab("Alimentos")
         waitForText("Buscar alimento")
         onNodeWithText("Plantillas").performClick()
         waitForText("PLANTILLAS · 1")
@@ -993,7 +996,7 @@ class AppFlowsTest {
     @Test
     fun tappingATemplateLetsYouPickTheMealAndAddsEveryFoodWithItsQuantity() = runApp(recentWeight = true, seed = { seedTemplate(it) }) { db ->
         waitForText("Nada apuntado hoy")
-        onNodeWithText("Alimentos").performClick()
+        goTab("Alimentos")
         waitForText("Buscar alimento")
         onNodeWithText("Plantillas").performClick()
         waitForText("PLANTILLAS · 1")
@@ -1013,7 +1016,7 @@ class AppFlowsTest {
     @Test
     fun renameAndDeleteATemplateFromItsEditScreen() = runApp(recentWeight = true, seed = { seedTemplate(it) }) { db ->
         waitForText("Nada apuntado hoy")
-        onNodeWithText("Alimentos").performClick()
+        goTab("Alimentos")
         waitForText("Buscar alimento")
         onNodeWithText("Plantillas").performClick()
         waitForText("PLANTILLAS · 1")
@@ -1038,7 +1041,7 @@ class AppFlowsTest {
     @Test
     fun aiTabShowsConfigureKeyAndOpensSettingsWithoutTouchingTheRestOfTheApp() = runApp(recentWeight = true) { _ ->
         waitForText("Nada apuntado hoy")
-        onAllNodesWithText("IA").onLast().performClick()
+        goTab("IA")
         waitForText("Configura tu clave")
 
         onNodeWithText("Ajustes de IA").performClick()
@@ -1049,7 +1052,7 @@ class AppFlowsTest {
 
         onNodeWithContentDescription("Atrás").performClick()
         waitForText("Configura tu clave")
-        onNodeWithText("Diario").performClick()
+        goToday()
         waitForText("Nada apuntado hoy")
     }
 
@@ -1096,6 +1099,7 @@ class AppFlowsTest {
 
     /** Espera a que el texto exista sin desplazar listas (el resumen se compone entero arriba del todo). */
     private fun ComposeUiTest.waitForTextInPlace(text: String) = waitUntil(timeoutMillis = 20_000) {
+        waitForIdle()
         onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty()
     }
 
@@ -1110,5 +1114,28 @@ class AppFlowsTest {
         waitForTextInPlace("Noviembre de 2026")
         onNodeWithContentDescription("Volver").performClick()
         waitForText("Nada apuntado hoy")
+    }
+
+    // --- Navegación «Hoy · + · Tú» (Fase 0 del rediseño): ayudas para los antiguos clics en pestañas ---
+
+    private fun isTab(label: String) = hasText(label) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)
+
+    /** Antes «Diario» en la barra inferior; ahora «Hoy». */
+    private fun ComposeUiTest.goToday() {
+        onNode(isTab("Hoy")).performClick()
+    }
+
+    /** Antes una pestaña (Alimentos, Recetas, Mi peso, Objetivos, IA); ahora una fila de «Tú». */
+    private fun ComposeUiTest.goTab(label: String) {
+        onNode(isTab("Tú")).performClick()
+        waitForIdle()
+        onNode(hasText(if (label == "IA") "Coach IA" else label) and hasClickAction()).performClick()
+        waitForIdle()
+    }
+
+    /** Antes el botón «+ Añadir alimento»; ahora el «+» de la barra y el buscador de la hoja «Añadir». */
+    private fun ComposeUiTest.openAddFood() {
+        onNodeWithContentDescription("Añadir").performClick()
+        onNodeWithText("Busca un alimento o una marca").performClick()
     }
 }

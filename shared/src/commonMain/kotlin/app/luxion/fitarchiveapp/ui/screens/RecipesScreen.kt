@@ -76,7 +76,7 @@ fun RecipesScreen(navigator: Navigator, recipeStore: RecipeStore) {
                 ) { Text("Nueva receta") }
             }
         },
-        bottomBar = { EasyFoodNavigationBar(selected = TopLevelTab.Recipes, navigator = navigator) },
+        bottomBar = { EasyFoodNavigationBar(selected = TopLevelTab.You, navigator = navigator) },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             when (val s = state) {

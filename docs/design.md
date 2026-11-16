@@ -1,5 +1,7 @@
 # EasyFood: especificación de diseño (Material 3 / Compose Multiplatform)
 
+> **Rediseño (épica `epic/rediseno`).** Manda la identidad «ultramar y limón» de §1.8 y la navegación «Hoy · + · Tú» de §2.22. Los tokens de §1.1 a §1.7 son históricos. Lienzo de diseño: https://claude.ai/artifact/KoNWb3xaaBCkzk5gw2rCw9
+
 Lienzo con las pantallas: https://claude.ai/artifact/8K3RKHCUXz6peLbMoUVom5
 Mockups a 390 dp de ancho (teléfono). En escritorio se usan las mismas pantallas en una columna de 600 dp como máximo, centrada.
 
@@ -110,6 +112,19 @@ Se copia la configuración de tema de ApexApp (`ApexApp/app/src/main/java/app/lu
 **Implementación (Fase 11):** hoy EasyFood ya no fuerza oscuro: `EasyFoodTheme(darkTheme = isSystemInDarkTheme())` elige la paleta según el sistema en las tres plataformas (antes siempre oscuro; se cambia porque la especificación pide seguir al sistema y la paleta clara existe en el origen). En Android, `Theme.EasyFood` (`values` y `values-night`) da a la ventana el fondo y las barras del sistema de cada paleta. Los estilos tipográficos que ApexApp no define (displaySmall, headlineMedium/Small, titleSmall, bodySmall) conservan la escala M3 pero con Inter, para no mezclar con la fuente del sistema. `Spacing` conserva `xxs`, `s`, `m`, `l` (alias de `sm`, `md`, `lg`), pasa `xl`/`xxl`/`xxxl` a 24/32/48 y añade `screen` = 20. `easyFoodColors` oscuro: proteína `FF5C5E`, hidratos `6FB1FF`, grasa `BDBDBD`, aviso `FFB454` sobre `5C3A0E`/`FFE0B8`; claro: proteína `B41319`, hidratos `1F5FA8`, grasa `5F5F5F`, aviso `8A5000` sobre `FFDDB0`/`2E1A00` (contraste ≥ 4,5:1 sobre todos los `surfaceContainer*`). Licencia de las fuentes: `docs/licenses/fonts-OFL.md`.
 
 **Hecho por:** copia de valores, no dependencia entre proyectos. Las fuentes se copian a `shared/src/commonMain/composeResources/font/` con su licencia (OFL) si la trae el origen.
+
+### 1.8 Identidad «ultramar y limón» (rediseño, Fase 0)
+Sustituye a §1.1 y §1.7 (sin rojo). Código en `ui/theme/`: `Color.kt` (esquemas y `EasyFoodColors`), `Type.kt`, `Shape.kt`, `Spacing.kt` y `EasyFoodTheme.kt`. Sigue al sistema (claro/oscuro), sin color dinámico. **Ningún composable lleva un color o una forma sueltos: se usan estos tokens.**
+
+**Roles M3** (claro / oscuro): primary `3446E0` / `A5B3FF` (onPrimary `FFFFFF` / `0D1020`) · primaryContainer `DDE1FF` / `26307A` · secondary `4A5070` / `A9AFCB` · secondaryContainer `ECEEF6` / `1F2440` · **tertiary = éxito** `17795A` / `6FDBB0` (container `D9F2E8` / `12362B`) · **error = aviso ámbar** `8A4B00` / `FFC46B` (container `FFEBC9` / `3A2A0C`) · background y surface `F5F6FA` / `0D1020` · onSurface `12152B` / `EEF0FA` · onSurfaceVariant `4A5070` / `A9AFCB` · surfaceContainerLowest/Low (tarjetas) `FFFFFF` / `0A0C1A`, `161A30` · surfaceContainer `F0F2F8` / `1B2038` · High `ECEEF6` / `1F2440` · Highest `E3E6F1` / `2B3152` · outline `636A8A` / `7C84A8` · outlineVariant `DADDEA` / `2B3152`.
+
+**Colores extra** (`MaterialTheme.easyFoodColors`): `accent` limón `DDEB4A` / `E3F067` con `onAccent` `12152B` (botón «+», racha, tarjeta Coach; nunca como texto sobre fondo claro) · macros: proteína `6A3FD0` / `B79CFF`, hidratos `A85F00` / `FFB44D`, grasa `0B7F78` / `5FD9CE` (cada macro va siempre con su texto) · aviso: `warningContainer` `FFEBC9` / `3A2A0C`, `onWarningContainer` `3A2000` / `FFE0B8`, `warning` `8A4B00` / `FFC46B`. Todo texto cumple AA (4,5:1) sobre su fondo.
+
+**Tipografía** (fuentes variables OFL en `composeResources/font/`: `bricolage.ttf`, `figtree.ttf`; licencias en `docs/licenses/fonts-OFL.md`): Bricolage Grotesque (Bold/SemiBold, cifras tabulares) para display, headline y titleLarge; Figtree para title medium/small, body y label. displayMedium 56/60 (kcal consumidas) · displaySmall 44/48 · headlineMedium 28/32 (título de pantalla) · titleLarge 20/26 (título de tarjeta de comida) · titleMedium 16/22 · bodyMedium 14/20 · labelMedium 12/16 con 1 sp (rótulos de sección en mayúsculas).
+
+**Formas** (`EasyFoodShapes`): extraSmall 12 (campos) · small 16 (chips) · medium 20 (avisos, botón «+», tarjetas pequeñas) · large 24 (tarjetas) · extraLarge 32 (hojas); botones y chips de filtro, `PillShape`. **Espaciado** (`Spacing`): xs 4, sm 8, md 12, lg 16, xl 24, xxl 32, xxxl 48; margen de pantalla 20.
+
+**Componentes comunes que ya usan los tokens:** `EasyFoodFilterChip` (píldora, seleccionado en `primaryContainer`), `EasyFoodNavigationBar` (§2.22), `EmptyState`, `DoubtfulDataBanner`, `Sources`, `NutritionTable`, `StackedMacroBar`, `WaterCard`, `WeightReminderCard`. Las sesiones de pantalla los rediseñan dentro de su alcance.
 
 ## 2. Pantallas
 
@@ -468,8 +483,29 @@ Segunda página de la tarjeta de kcal del Diario (`NutrientPager` en `DiaryTop.k
 - **Datos.** Un único JSON en la columna `SettingsEntity.reminders` (`ReminderSettings`), nulo = sin configurar. Migración `17.sqm` (reconstruye la tabla para ser idempotente; la fila existente conserva `meals_per_day`).
 - **Exportar e importar.** Campo opcional `ExportFile.reminders`, **sin subir `schemaVersion`**: los archivos antiguos no lo traen. Como las comidas al día, solo se toma si el dispositivo aún no los ha configurado; se sanea (días 1 a 7, horas 0 a 1439).
 
+### 2.22 Navegación «Hoy · + · Tú» y hoja «Añadir» (rediseño, Fase 0)
+Sustituye la barra de seis pestañas. Código en `ui/navigation/` y `ui/screens/`.
+- **Barra inferior** (`EasyFoodNavigationBar(selected: TopLevelTab, navigator)`): `Hoy` · **«+» limón** · `Tú`. `TopLevelTab` = `Today` (`Route.Diary`) y `You` (`Route.You`). El «+» no es un destino: llama a `navigator.openAddSheet()`. Las pantallas que cuelgan de «Tú» (peso, resumen, objetivos, Coach, recetas, ajustes…) muestran la barra con `TopLevelTab.You`; tocar «Tú» desde una de ellas vuelve al centro «Tú». Se llega a ellas con `navigator.push(Route.X)`, así que «atrás» vuelve a «Tú». `navigateTab` reinicia la pila (y cierra la hoja).
+- **Hoja «Añadir»** (`AddSheet`, un `ModalBottomSheet`; la pinta `App` por encima de cualquier pantalla). Estado en el `Navigator`: `addSheet: AddSheetTarget?` (`meal`, `date`; `null` = cerrada), `openAddSheet(meal = null, date = contextDate)`, `closeAddSheet()`. `Navigator.contextDate` lo fija «Hoy» con el día que muestra (así el «+» de la barra apunta al día elegido). **Cualquier `navigator.push(...)` cierra la hoja.**
+- **Huecos de la hoja** (un fichero por hueco, para no pisarse): `AddSheetSearch` (buscador), `AddSheetActions` (Escanear, Foto del plato IA, Etiqueta IA, Entrada rápida) y `AddSheetLists` (Recientes, Favoritos, Plantillas, Recetas). Firma común: `(target: AddSheetTarget, navigator: Navigator)`. En la Fase 0 enlazan con las pantallas existentes (`Route.Add`, `Scanner`, `PlatePhoto`, `LabelPhoto`, `QuickEntry`, `Recipes`).
+- **«Tú»** (`YouScreen`): en la Fase 0 es una lista (`youLinks()`) con todo lo que antes tenía pestaña o icono: Mi peso, Resumen, Objetivos, Coach IA, Recetas, Alimentos, Recordatorios, Ajustes de IA y Datos. `NavigatorTest.youLinksKeepEveryFormerTabAndIconReachable` garantiza que nada se pierde mientras cada sesión rediseña lo suyo.
+- **Hoy:** el FAB «+ Añadir alimento» desaparece (lo sustituye el «+» de la barra). El «+» de cada tarjeta de comida sigue abriendo `Route.Add(meal, date)`; la sesión A lo cambia por `navigator.openAddSheet(meal, date)`.
+- **Sin cambios de base de datos** (ni `.sqm`) ni de exportación.
+
+#### Puntos de extensión por sesión
+| Sesión | Alcance | Ficheros que posee | Cómo engancha |
+|---|---|---|---|
+| **A · Hoy** | Pantalla Hoy: cabecera, franja semanal, tarjeta de objetivo, peso y agua como tarjetas rápidas, tarjetas de comida con «⋯», tarjeta Coach | `DiaryScreen.kt`, `Diary*.kt`, `IntakeCard.kt`, `components/{MealSection,DiaryEntryRow,WaterCard,WeightReminderCard}.kt` | Abre `navigator.openAddSheet(meal, date)`; peso → `Route.Weight`; Coach → `Route.Ai` |
+| **B · Añadir** | Contenido de la hoja (buscador, acciones, listas) y «Confirmar alimento» | `AddSheet*.kt`, `AddFood*.kt`, `FoodSearch.kt`, `ProductDetail*.kt`, `Scanner*.kt`, `QuickEntry*.kt`, `CustomFood*.kt`, `LabelPhoto*.kt`, `PlatePhoto*.kt` | Rellena los tres huecos; mantiene las rutas existentes mientras migra |
+| **C · Tú** | `YouScreen` real, Peso, Resumen, Objetivos, Ajustes (recordatorios, IA, datos, copias, tema) | `YouScreen.kt`, `Weight*.kt`, `Summary*.kt`, `Goals*.kt`, `Reminders*.kt`, `AiSettings*.kt`, `Data*.kt` | Sustituye `youLinks()`; nuevas rutas en `Route` con una línea cada una |
+| **D · Recetas y Coach** | Recetas y plantillas (lista, detalle, edición) y Coach IA | `Recipe*.kt`, `Template*.kt`, `Ai*.kt` (menos `AiSettings*`) | Se abren desde «Tú» y desde el hueco `AddSheetLists`; Coach desde la tarjeta de Hoy |
+
+Reglas para no pisarse: (1) cada sesión edita solo sus ficheros; (2) `Route`, `Navigator`, `App.kt` y `ui/theme/` son compartidos: cambios mínimos y mergear la épica antes de tocarlos; (3) tokens nuevos se añaden a `ui/theme/` en su propio commit; (4) las pantallas nuevas usan solo tokens (§1.8); (5) los tests de UI usan los ayudantes `goToday()`, `goTab(...)` y `openAddFood()` de `AppFlowsTest`.
+
 ## 3. Componentes compartidos (en `shared/ui`)
 `EasyFoodTheme` · `CalorieRing` · `MacroProgressRow` · `MacroDot` · `SourceAvatar` / `SourceChip` (enum `DataSource { OpenFoodFacts, Generic, Custom }`) · `DoubtfulChip` · `DoubtfulDataBanner` · `MealSection` · `DiaryEntryRow` · `FoodResultRow` · `QuantitySelector` · `NutritionTable` · `EmptyState` · `NumberField` (OutlinedTextField con sufijo de unidad) · `FoodSearch` (buscador de alimentos de «Añadir» y del editor de recetas) · `DailyKcalChart` (barras de kcal por día con la banda del objetivo, §2.16).
 
 ## 4. Navegación
+> **Rediseño:** la barra inferior es «Hoy · + · Tú» (§2.22); lo que sigue es histórico salvo lo indicado allí.
+
 Diario ⇄ Añadir (con `meal` como argumento) → Escáner / Alimento propio → Ficha → vuelve al Diario con la entrada añadida y el snackbar «Añadido a Merienda · Deshacer». Objetivos y Recetas se abren desde la barra inferior (Recetas → Detalle → Editar, o Recetas → Nueva receta → Buscador de ingredientes). Formato de números: locale es-ES (1.215 · 4,6 g). La pestaña «IA» (§2.16) es la sexta de la barra inferior y abre «Ajustes de IA». El Resumen (§2.19) se abre con el icono ▥ de la fila del Diario y vuelve a él.

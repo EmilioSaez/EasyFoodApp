@@ -3,13 +3,18 @@ package app.luxion.fitarchiveapp.ui.navigation
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.ui.screens.CustomFoodFormState
 
 /** Destinos de la app (docs/design.md §4). Los argumentos viajan en la propia ruta. */
 sealed interface Route {
-    /** Diario del día (pantalla de inicio). */
+    /** «Hoy»: el diario del día (pantalla de inicio). */
     data object Diary : Route
+
+    /** «Tú»: centro de peso, resumen, objetivos, Coach, recetas y ajustes (destino de la barra inferior). */
+    data object You : Route
 
     /**
      * Añadir alimento; [meal] es la comida preseleccionada (`null` desde la pestaña: se elige en la ficha).
@@ -97,14 +102,13 @@ sealed interface Route {
     data object AiSettings : Route
 }
 
-/** Pestañas de la barra inferior. */
+/** Destino pendiente de la hoja «Añadir»: [meal] y [date] (`null` = la que toca / hoy) viajan a las pantallas que abre. */
+data class AddSheetTarget(val meal: MealType? = null, val date: String? = null)
+
+/** Destinos de la barra inferior «Hoy · + · Tú» (el «+» no es un destino: abre la hoja «Añadir», ver [Navigator.openAddSheet]). */
 enum class TopLevelTab(val label: String, val icon: String, val route: Route) {
-    Diary("Diario", "▤", Route.Diary),
-    Foods("Alimentos", "⌕", Route.Add()),
-    Recipes("Recetas", "≣", Route.Recipes),
-    Weight("Mi peso", "↗", Route.Weight),
-    Goals("Objetivos", "◎", Route.Goals),
-    Ai("IA", "✦", Route.Ai),
+    Today("Hoy", "▤", Route.Diary),
+    You("Tú", "◉", Route.You),
 }
 
 /**
@@ -115,10 +119,26 @@ enum class TopLevelTab(val label: String, val icon: String, val route: Route) {
 class Navigator(start: Route = Route.Diary) {
     private val stack = mutableStateListOf(start)
 
+    /** Hoja «Añadir» abierta (`null` = cerrada). La pinta `App`; se abre con [openAddSheet]. */
+    var addSheet: AddSheetTarget? by mutableStateOf(null)
+        private set
+
+    /** Día que muestra la pantalla actual (la fija «Hoy»); es la fecha por defecto de la hoja «Añadir» (`null` = hoy). */
+    var contextDate: String? by mutableStateOf(null)
+
+    fun openAddSheet(meal: MealType? = null, date: String? = contextDate) {
+        addSheet = AddSheetTarget(meal, date)
+    }
+
+    fun closeAddSheet() {
+        addSheet = null
+    }
+
     val current: Route get() = stack.last()
     val canGoBack: Boolean get() = stack.size > 1
 
     fun push(route: Route) {
+        addSheet = null
         stack.add(route)
     }
 
@@ -134,15 +154,18 @@ class Navigator(start: Route = Route.Diary) {
         stack[stack.lastIndex] = route
     }
 
-    /** Cambia de pestaña: pila nueva con el Diario como raíz (salvo que la pestaña sea el Diario). */
+    /** Cambia de pestaña: pila nueva con el Diario como raíz (salvo que la pestaña sea Hoy). */
     fun navigateTab(tab: TopLevelTab) {
+        addSheet = null
+        contextDate = null
         stack.clear()
         stack.add(Route.Diary)
-        if (tab != TopLevelTab.Diary) stack.add(tab.route)
+        if (tab != TopLevelTab.Today) stack.add(tab.route)
     }
 
     /** Vuelve al Diario vaciando la pila (tras añadir un alimento). */
     fun popToDiary() {
+        addSheet = null
         stack.clear()
         stack.add(Route.Diary)
     }

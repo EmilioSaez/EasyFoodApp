@@ -105,8 +105,9 @@ fun DiaryScreen(
         }
     }
     val showWeightReminder = weightDue && state.date == today
-    val registerWeight = { navigator.navigateTab(TopLevelTab.Weight) }
+    val registerWeight = { navigator.push(Route.Weight) }
 
+    LaunchedEffect(state.date) { navigator.contextDate = state.date } // fecha por defecto de la hoja «Añadir»
     LaunchedEffect(presenter) { presenter.load() }
     LaunchedEffect(state.message) {
         state.message?.let {
@@ -118,14 +119,7 @@ fun DiaryScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { navigator.push(Route.Add(date = state.date)) },
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            ) { Text("+ Añadir alimento") }
-        },
-        bottomBar = { EasyFoodNavigationBar(TopLevelTab.Diary, navigator) },
+        bottomBar = { EasyFoodNavigationBar(TopLevelTab.Today, navigator) },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             // Fila anclada: «Hoy ▾», día anterior/siguiente, racha y datos.
@@ -138,7 +132,7 @@ fun DiaryScreen(
                 onData = { navigator.push(Route.Data) },
                 modifier = Modifier.padding(horizontal = Spacing.s),
             )
-            val onSetGoal = { navigator.navigateTab(TopLevelTab.Goals) }
+            val onSetGoal = { navigator.push(Route.Goals) }
             if (state.loadFailed) {
                 Column(Modifier.fillMaxWidth().weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                     EmptyState(
