@@ -36,7 +36,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -56,6 +55,7 @@ import androidx.compose.ui.unit.sp
 import app.luxion.fitarchiveapp.domain.DayStatus
 import app.luxion.fitarchiveapp.model.epochDayToIsoDate
 import app.luxion.fitarchiveapp.model.isoDateToEpochDay
+import app.luxion.fitarchiveapp.ui.components.StreakIcon
 import app.luxion.fitarchiveapp.ui.components.formatKcal
 import app.luxion.fitarchiveapp.ui.theme.PillShape
 import app.luxion.fitarchiveapp.ui.theme.Spacing
@@ -128,7 +128,7 @@ fun DiaryTopRow(
     }
 }
 
-/** Píldora limón con la llama y los días de racha; con racha 0 sale apagada. */
+/** Píldora limón con la llama propia (StreakIcon) y los días de racha; con racha 0 sale apagada. */
 @Composable
 private fun Streak(days: Int) {
     val colors = MaterialTheme.easyFoodColors
@@ -140,7 +140,12 @@ private fun Streak(days: Int) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
     ) {
-        Text("🔥", style = MaterialTheme.typography.titleMedium, modifier = Modifier.alpha(if (days > 0) 1f else 0.4f))
+        StreakIcon(
+            active = days > 0,
+            size = 20.dp,
+            tint = if (days > 0) colors.onAccent else Color.Unspecified,
+            dropColor = if (days > 0) colors.accent else Color.Unspecified,
+        )
         Text(
             days.toString(),
             style = MaterialTheme.typography.titleMedium,

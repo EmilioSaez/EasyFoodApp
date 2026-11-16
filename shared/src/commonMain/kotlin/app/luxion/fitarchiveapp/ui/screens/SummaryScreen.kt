@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -48,6 +49,7 @@ import app.luxion.fitarchiveapp.ui.components.EmptyStateAction
 import app.luxion.fitarchiveapp.ui.components.EmptyStateTone
 import app.luxion.fitarchiveapp.ui.components.StackedMacroBar
 import app.luxion.fitarchiveapp.ui.components.WeightChart
+import app.luxion.fitarchiveapp.ui.components.StreakIcon
 import app.luxion.fitarchiveapp.ui.components.formatKcal
 import app.luxion.fitarchiveapp.ui.navigation.EasyFoodNavigationBar
 import app.luxion.fitarchiveapp.ui.navigation.Navigator
@@ -273,7 +275,10 @@ private fun DaysCard(summary: PeriodSummary) {
                     summary.adherencePercent?.takeIf { summary.range.period == SummaryPeriod.MONTH }?.let {
                         Text("$it % de adherencia", style = MaterialTheme.typography.titleMedium)
                     }
-                    Text("🔥 ${daysText(summary.bestStreak)}", style = MaterialTheme.typography.titleMedium)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                        StreakIcon(active = summary.bestStreak > 0, size = 20.dp)
+                        Text(daysText(summary.bestStreak), style = MaterialTheme.typography.titleMedium)
+                    }
                     Text(
                         "mejor racha",
                         style = MaterialTheme.typography.bodySmall,
