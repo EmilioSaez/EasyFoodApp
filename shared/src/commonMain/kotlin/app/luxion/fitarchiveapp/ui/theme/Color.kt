@@ -22,6 +22,15 @@ data class EasyFoodColors(
     val warning: Color,
     val accent: Color,
     val onAccent: Color,
+    /** Tarjeta «hero» de Hoy (kcal): fondo, texto, texto atenuado, pista de las barras, macros y aviso sobre ese fondo. */
+    val hero: Color,
+    val onHero: Color,
+    val onHeroVariant: Color,
+    val heroTrack: Color,
+    val heroProtein: Color,
+    val heroCarbs: Color,
+    val heroFat: Color,
+    val heroWarning: Color,
 )
 
 internal val DarkEasyFoodColors = EasyFoodColors(
@@ -33,6 +42,14 @@ internal val DarkEasyFoodColors = EasyFoodColors(
     warning = Color(0xFFFFC46B),
     accent = Color(0xFFE3F067),
     onAccent = Color(0xFF12152B),
+    hero = Color(0xFF1F2440),
+    onHero = Color(0xFFEEF0FA),
+    onHeroVariant = Color(0xFFA9AFCB),
+    heroTrack = Color(0xFF343B64),
+    heroProtein = Color(0xFFB79CFF),
+    heroCarbs = Color(0xFFFFB44D),
+    heroFat = Color(0xFF5FD9CE),
+    heroWarning = Color(0xFFFFC46B),
 )
 
 internal val LightEasyFoodColors = EasyFoodColors(
@@ -44,6 +61,14 @@ internal val LightEasyFoodColors = EasyFoodColors(
     warning = Color(0xFF8A4B00),
     accent = Color(0xFFDDEB4A),
     onAccent = Color(0xFF12152B),
+    hero = Color(0xFF12152B),
+    onHero = Color(0xFFF5F6FA),
+    onHeroVariant = Color(0xFFB9BFDD),
+    heroTrack = Color(0xFF2B3052),
+    heroProtein = Color(0xFFB79CFF),
+    heroCarbs = Color(0xFFFFB44D),
+    heroFat = Color(0xFF5FD9CE),
+    heroWarning = Color(0xFFFFC46B),
 )
 
 val LocalEasyFoodColors = staticCompositionLocalOf { DarkEasyFoodColors }
