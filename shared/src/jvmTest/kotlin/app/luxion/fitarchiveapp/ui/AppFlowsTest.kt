@@ -1056,6 +1056,21 @@ class AppFlowsTest {
     }
 
     @Test
+    fun savedScreenFromYouHasRecipesAndTemplatesTabsAndAddsATemplate() = runApp(recentWeight = true, seed = { seedTemplate(it) }) { db ->
+        waitForText("Nada apuntado hoy")
+        goTab("Recetas")
+        waitForText("Guardado")
+        waitForText("Aún no tienes recetas")
+        onNodeWithText("Plantillas").performClick()
+        waitForText("PLANTILLAS · 1")
+        onNodeWithContentDescription("Añadir Mi desayuno al diario").performClick()
+
+        // Vuelve al Diario con los alimentos de la plantilla añadidos.
+        waitUntil(timeoutMillis = 20_000) { db.diaryEntryQueries.selectByDate("2026-11-04").executeAsList().size == 2 }
+        waitForText("Merienda")
+    }
+
+    @Test
     fun renameAndDeleteATemplateFromItsEditScreen() = runApp(recentWeight = true, seed = { seedTemplate(it) }) { db ->
         waitForText("Nada apuntado hoy")
         openAddFood()

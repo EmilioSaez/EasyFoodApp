@@ -67,6 +67,7 @@ import app.luxion.fitarchiveapp.ui.screens.RecipeDetailScreen
 import app.luxion.fitarchiveapp.ui.screens.RecipeEditScreen
 import app.luxion.fitarchiveapp.ui.screens.RemindersScreen
 import app.luxion.fitarchiveapp.ui.screens.RecipesScreen
+import app.luxion.fitarchiveapp.ui.screens.SavedTab
 import app.luxion.fitarchiveapp.ui.screens.ScannerScreen
 import app.luxion.fitarchiveapp.ui.screens.SettingsScreen
 import app.luxion.fitarchiveapp.ui.screens.TemplateEditScreen
@@ -199,7 +200,8 @@ fun App(
                             is Route.ProductDetail -> ProductDetailScreen(navigator, route, repository, diaryStore, customFoodStore, favoriteStore, today, mealChoices)
                             Route.Goals -> GoalsScreen(navigator, goalStore, today, meals.count, meals::choose, waterStore)
                             Route.Weight -> WeightScreen(navigator, weightStore, today)
-                            Route.Recipes -> RecipesScreen(navigator, recipeStore)
+                            Route.Recipes -> RecipesScreen(navigator, recipeStore, SavedTab.Recipes, templateStore, diaryStore, today, mealChoices)
+                            Route.Templates -> RecipesScreen(navigator, recipeStore, SavedTab.Templates, templateStore, diaryStore, today, mealChoices)
                             is Route.RecipeDetail -> RecipeDetailScreen(navigator, route, recipeStore, diaryStore, today, mealChoices)
                             is Route.RecipeEdit -> RecipeEditScreen(navigator, route, recipeStore, searchStore, customFoodStore)
                             is Route.TemplateEdit -> if (templateStore != null) {
