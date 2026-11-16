@@ -43,4 +43,14 @@ class SummaryFormatTest {
         assertEquals("15", dayAxisLabel(SummaryPeriod.MONTH, 14, "2026-11-15"))
         assertNull(dayAxisLabel(SummaryPeriod.MONTH, 2, "2026-11-03"))
     }
+
+    @Test
+    fun gramsAndDaysDeltasUseATypographicMinus() {
+        assertEquals("+12 g", formatGramsDelta(12.0))
+        assertEquals("−5 g", formatGramsDelta(-5.0))
+        assertEquals("Igual", formatGramsDelta(0.3))
+        assertEquals("+2 días", formatDaysDelta(2))
+        assertEquals("−1 día", formatDaysDelta(-1))
+        assertEquals("Igual", formatDaysDelta(0))
+    }
 }

@@ -7,6 +7,7 @@ import app.luxion.fitarchiveapp.data.SqlDelightWeightStore
 import app.luxion.fitarchiveapp.db.EasyFoodDatabase
 import app.luxion.fitarchiveapp.domain.PeriodRange
 import app.luxion.fitarchiveapp.domain.SummaryPeriod
+import app.luxion.fitarchiveapp.domain.WeekComparison
 import app.luxion.fitarchiveapp.model.DailyGoals
 import app.luxion.fitarchiveapp.model.MealType
 import app.luxion.fitarchiveapp.model.NewDiaryEntry
@@ -70,5 +71,27 @@ class SummaryLoadTest {
 
         val november = load(db, PeriodRange.of(SummaryPeriod.MONTH, "2026-11-04"), "2026-11-04")
         assertEquals(true, november.isEmpty)
+    }
+
+    @Test
+    fun weekComparisonAndWeightTrendComeFromStoredData() = withDb { db ->
+        SqlDelightGoalStore(db.dailyGoalQueries).save(DailyGoals(kcal = 2000))
+        log(db, "2026-11-02", 200.0, 1000.0) // semana anterior: 2.000 kcal
+        log(db, "2026-11-03", 100.0, 1000.0) // semana anterior: 1.000 kcal
+        log(db, "2026-11-09", 200.0, 1000.0) // semana actual: 2.000 kcal
+        val weights = SqlDelightWeightStore(db.weightEntryQueries)
+        weights.save(NewWeightEntry("2026-11-02", 82.0), 1L)
+        weights.save(NewWeightEntry("2026-11-09", 80.0), 2L)
+        weights.save(NewWeightEntry("2026-11-10", 79.0), 3L)
+
+        val range = PeriodRange.of(SummaryPeriod.WEEK, "2026-11-10")
+        val current = load(db, range, "2026-11-10")
+        val comparison = WeekComparison.of(current, load(db, range.shifted(-1), "2026-11-10"))!!
+
+        assertEquals(500.0, comparison.kcal.delta!!, 1e-9) // 2.000 frente a 1.500
+        assertEquals(0.0, comparison.completedDays.delta!!, 1e-9) // 1 y 1 cumplidos
+        // La media móvil del lunes incluye el pesaje de la semana anterior.
+        assertEquals(listOf("2026-11-09", "2026-11-10"), current.weightTrend.map { it.date })
+        assertEquals(81.0, current.weightTrend[0].weightKg, 1e-9)
     }
 }

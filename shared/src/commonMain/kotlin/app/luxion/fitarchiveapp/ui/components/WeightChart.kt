@@ -44,7 +44,8 @@ fun WeightChart(model: WeightChartModel, modifier: Modifier = Modifier, goalKg: 
         (if (model.points.size == 1) "registro" else "registros") +
         ", de ${formatDayMonth(first.date)} a ${formatDayMonth(last.date)}, " +
         "último ${formatKg(last.weightKg)}" +
-        (if (showGoal) ", objetivo ${formatKg(goalKg)}" else "")
+        (if (showGoal) ", objetivo ${formatKg(goalKg)}" else "") +
+        (if (model.trend.size > 1) ", con media móvil, última ${formatKg(model.trend.last().entry.weightKg)}" else "")
 
     Canvas(modifier.fillMaxWidth().height(200.dp).semantics { contentDescription = description }) {
         val tickLabels: List<Pair<Double, TextLayoutResult>> =
@@ -84,6 +85,16 @@ fun WeightChart(model: WeightChartModel, modifier: Modifier = Modifier, goalKg: 
                 strokeWidth = 2.dp.toPx(),
                 pathEffect = PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 6.dp.toPx())),
             )
+        }
+
+        // Media móvil: línea más gruesa en el color del objetivo, bajo los puntos.
+        if (model.trend.size > 1) {
+            val trendPts = model.trend.map { Offset(px(it.x), py(it.y)) }
+            val path = Path().apply {
+                moveTo(trendPts.first().x, trendPts.first().y)
+                trendPts.drop(1).forEach { lineTo(it.x, it.y) }
+            }
+            drawPath(path, goalColor, style = Stroke(3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
         }
 
         val pts = model.points.map { Offset(px(it.x), py(it.y)) }

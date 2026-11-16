@@ -353,4 +353,38 @@ class WeightProgressTest {
         assertTrue(est.kgPerWeek < 0)
         assertTrue(est.daysLeft > 60)
     }
+
+    // --- Media móvil ---
+
+    @Test
+    fun movingAverageIsTrailingOverRecordsNotDays() {
+        val avg = WeightProgress.movingAverage(
+            listOf(w("2026-11-10", 80.0), w("2026-11-01", 82.0), w("2026-11-03", 81.0), w("2026-11-20", 79.0)),
+            window = 3,
+        )
+        assertEquals(listOf("2026-11-01", "2026-11-03", "2026-11-10", "2026-11-20"), avg.map { it.date })
+        assertEquals(82.0, avg[0].weightKg, 1e-9) // solo un registro
+        assertEquals(81.5, avg[1].weightKg, 1e-9) // media de 2
+        assertEquals(81.0, avg[2].weightKg, 1e-9) // 82, 81, 80
+        assertEquals(80.0, avg[3].weightKg, 1e-9) // 81, 80, 79: el hueco de días no cuenta
+    }
+
+    @Test
+    fun movingAverageHandlesEmptyAndWindowOne() {
+        assertEquals(emptyList(), WeightProgress.movingAverage(emptyList()))
+        val raw = listOf(w("2026-11-01", 80.0), w("2026-11-02", 79.0))
+        assertEquals(raw, WeightProgress.movingAverage(raw, window = 1))
+    }
+
+    @Test
+    fun chartCarriesTrendOnTheSamePointsAndWithinTheAxis() {
+        val raw = listOf(w("2026-11-01", 80.0), w("2026-11-03", 78.0), w("2026-11-05", 79.0))
+        val model = WeightProgress.chart(raw, WeightProgress.movingAverage(raw))!!
+        assertEquals(model.points.map { it.x }, model.trend.map { it.x })
+        assertEquals(79.0, model.trend.last().entry.weightKg, 1e-9)
+        assertTrue(model.trend.all { it.y in 0f..1f })
+        assertTrue(WeightProgress.chart(raw)!!.trend.isEmpty())
+        // Las fechas de la tendencia que no están en la gráfica se ignoran.
+        assertEquals(1, WeightProgress.chart(raw.take(1), WeightProgress.movingAverage(raw))!!.trend.size)
+    }
 }
