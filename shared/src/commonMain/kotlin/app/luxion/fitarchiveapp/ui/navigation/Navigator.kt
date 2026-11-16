@@ -100,6 +100,9 @@ sealed interface Route {
 
     /** Ajustes de IA: clave, modelo, tope diario, prueba de conexión y uso. */
     data object AiSettings : Route
+
+    /** Ajustes: recordatorios, IA, datos y copias (cuelga de «Tú»). */
+    data object Settings : Route
 }
 
 /** Destino pendiente de la hoja «Añadir»: [meal] y [date] (`null` = la que toca / hoy) viajan a las pantallas que abre. */

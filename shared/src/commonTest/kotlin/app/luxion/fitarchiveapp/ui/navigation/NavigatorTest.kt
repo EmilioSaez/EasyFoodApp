@@ -1,6 +1,8 @@
 package app.luxion.fitarchiveapp.ui.navigation
 
 import app.luxion.fitarchiveapp.model.MealType
+import app.luxion.fitarchiveapp.ui.screens.YOU_CARD_ROUTES
+import app.luxion.fitarchiveapp.ui.screens.settingsSections
 import app.luxion.fitarchiveapp.ui.screens.youLinks
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -91,8 +93,9 @@ class NavigatorTest {
 
     @Test
     fun youLinksKeepEveryFormerTabAndIconReachable() {
-        val routes = youLinks().map { it.route }
-        listOf(Route.Weight, Route.Summary, Route.Goals, Route.Ai, Route.Recipes, Route.Add(), Route.Reminders, Route.AiSettings, Route.Data)
+        // «Tú» (lista y tarjetas) y «Ajustes». Alimentos se abre desde la hoja «Añadir» (sesión B).
+        val routes = youLinks().map { it.route } + YOU_CARD_ROUTES + settingsSections().flatMap { s -> s.links.map { it.route } }
+        listOf(Route.Weight, Route.Summary, Route.Goals, Route.Ai, Route.Recipes, Route.Settings, Route.Reminders, Route.AiSettings, Route.Data)
             .forEach { assertTrue(it in routes, "falta $it en «Tú»") }
     }
 

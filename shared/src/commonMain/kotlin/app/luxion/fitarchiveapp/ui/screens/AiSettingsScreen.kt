@@ -16,7 +16,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -60,17 +59,7 @@ fun AiSettingsScreen(navigator: Navigator, module: AiModule, today: () -> String
     LaunchedEffect(state) { state.refresh() }
 
     Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Ajustes de IA") },
-                navigationIcon = {
-                    IconButton(
-                        onClick = { navigator.pop() },
-                        modifier = Modifier.semantics { contentDescription = "Atrás" },
-                    ) { Text("←", style = MaterialTheme.typography.titleLarge) }
-                },
-            )
-        },
+        topBar = { ScreenHeader("Ajustes de IA", onBack = { navigator.pop() }, backDescription = "Atrás") },
     ) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = Spacing.screen, vertical = Spacing.l),

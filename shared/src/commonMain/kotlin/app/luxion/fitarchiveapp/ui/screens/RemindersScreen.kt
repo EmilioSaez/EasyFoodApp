@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import app.luxion.fitarchiveapp.ui.components.EasyFoodFilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -122,17 +121,7 @@ fun RemindersScreen(
     }
 
     Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Recordatorios") },
-                navigationIcon = {
-                    IconButton(
-                        onClick = { navigator.pop() },
-                        modifier = Modifier.semantics { contentDescription = "Volver" },
-                    ) { Text("‹", style = MaterialTheme.typography.titleLarge) }
-                },
-            )
-        },
+        topBar = { ScreenHeader("Recordatorios", onBack = { navigator.pop() }) },
     ) { padding ->
         val current = settings
         Column(

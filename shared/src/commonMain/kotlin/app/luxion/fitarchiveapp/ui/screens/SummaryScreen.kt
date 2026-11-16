@@ -8,9 +8,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -50,7 +47,9 @@ import app.luxion.fitarchiveapp.ui.components.EmptyStateTone
 import app.luxion.fitarchiveapp.ui.components.StackedMacroBar
 import app.luxion.fitarchiveapp.ui.components.WeightChart
 import app.luxion.fitarchiveapp.ui.components.formatKcal
+import app.luxion.fitarchiveapp.ui.navigation.EasyFoodNavigationBar
 import app.luxion.fitarchiveapp.ui.navigation.Navigator
+import app.luxion.fitarchiveapp.ui.navigation.TopLevelTab
 import app.luxion.fitarchiveapp.ui.theme.Spacing
 import kotlinx.coroutines.CancellationException
 
@@ -108,21 +107,12 @@ fun SummaryScreen(
     }
 
     Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Resumen") },
-                navigationIcon = {
-                    IconButton(
-                        onClick = { navigator.pop() },
-                        modifier = Modifier.semantics { contentDescription = "Volver" },
-                    ) { Text("‹", style = MaterialTheme.typography.titleLarge) }
-                },
-            )
-        },
+        topBar = { ScreenHeader("Resumen", onBack = { navigator.pop() }) },
+        bottomBar = { EasyFoodNavigationBar(TopLevelTab.You, navigator) },
     ) { padding ->
         LazyColumn(
             Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(start = Spacing.screen, end = Spacing.screen, top = Spacing.sm, bottom = Spacing.bottomInset),
+            contentPadding = PaddingValues(start = Spacing.screen, end = Spacing.screen, top = Spacing.sm, bottom = Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
             item("selector") {
@@ -216,12 +206,9 @@ private fun PeriodNavigator(
 
 @Composable
 private fun SummaryCard(title: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Card(
-        modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
-        Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-            Text(title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    YouCard(modifier) {
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+            SectionLabel(title)
             content()
         }
     }

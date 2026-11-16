@@ -68,6 +68,7 @@ import app.luxion.fitarchiveapp.ui.screens.RecipeEditScreen
 import app.luxion.fitarchiveapp.ui.screens.RemindersScreen
 import app.luxion.fitarchiveapp.ui.screens.RecipesScreen
 import app.luxion.fitarchiveapp.ui.screens.ScannerScreen
+import app.luxion.fitarchiveapp.ui.screens.SettingsScreen
 import app.luxion.fitarchiveapp.ui.screens.TemplateEditScreen
 import app.luxion.fitarchiveapp.ui.screens.SummaryScreen
 import app.luxion.fitarchiveapp.ui.screens.WeightScreen
@@ -178,7 +179,7 @@ fun App(
                         } else if (meals.needsSetup) {
                             MealsSetupScreen(onConfirm = meals::choose, error = meals.error, saving = meals.saving)
                         } else when (val route = navigator.current) {
-                            Route.You -> YouScreen(navigator)
+                            Route.You -> YouScreen(navigator, weightStore, goalStore, diaryStore, today, meals.count)
                             Route.Diary -> DiaryScreen(navigator, diaryStore, goalStore, weightStore, today(), meals.count, waterStore, templateStore)
                             is Route.Add -> AddFoodScreen(
                                 navigator,
@@ -210,6 +211,7 @@ fun App(
                             is Route.PlatePhoto -> PlatePhotoScreen(navigator, route, aiModule, searchStore, customFoodStore, diaryStore, today, mealChoices)
                             Route.Ai -> AiScreen(navigator, aiModule, aiAdviceSource, diaryStore, today, mealChoices)
                             Route.AiSettings -> AiSettingsScreen(navigator, aiModule, today)
+                            Route.Settings -> SettingsScreen(navigator)
                         }
                         // Hoja «Añadir» (el «+» de la barra inferior): por encima de cualquier pantalla.
                         if (meals.loaded && !meals.needsSetup) navigator.addSheet?.let {

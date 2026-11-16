@@ -201,7 +201,7 @@ class AiTabFlowsTest {
     private fun ComposeUiTest.goTab(label: String) {
         onNode(isTab("Tú")).performClick()
         waitForIdle()
-        onNode(hasText(if (label == "IA") "Coach IA" else label) and hasClickAction()).performClick()
+        onNode(hasText(if (label == "IA") "Coach IA" else label) and hasClickAction()).performScrollTo().performClick()
         waitForIdle()
     }
 
