@@ -348,6 +348,44 @@ class AppFlowsTest {
     }
 
     @Test
+    fun youScreenShowsWeightSummaryAndEveryShortcut() = runApp(recentWeight = true) { _ ->
+        waitForText("Nada apuntado hoy")
+        onNode(isTab("Tú")).performClick()
+        waitForText("Registrar peso")
+        waitForText("80,0 kg")
+        waitForText("Esta semana")
+        waitForText("Ver resumen completo")
+        listOf("Objetivos", "Coach IA", "Recetas y plantillas", "Ajustes").forEach { waitForText(it) }
+    }
+
+    @Test
+    fun weightCanBeRecordedDirectlyFromYou() = runApp(recentWeight = true) { db ->
+        waitForText("Nada apuntado hoy")
+        onNode(isTab("Tú")).performClick()
+        waitForText("Registrar peso")
+        openWeightForm()
+        onNodeWithText("Fecha").performTextReplacement("2026-11-03")
+        onNodeWithText("Peso").performTextInput("79,5")
+        onNodeWithText("Guardar peso").performClick()
+        waitForText("Peso guardado")
+        kotlin.test.assertEquals(listOf("2026-11-03" to 79.5, "2026-11-04" to 80.0), weights(db).map { it.date to it.weightKg })
+        waitForText("+0,5 kg") // la tarjeta se recarga: de 79,5 (ayer) a 80,0 (hoy)
+    }
+
+    @Test
+    fun settingsLeadToRemindersAiAndData() = runApp(recentWeight = true) { _ ->
+        waitForText("Nada apuntado hoy")
+        goTab("Ajustes")
+        waitForText("Ajustes")
+        listOf("Recordatorios" to "Recordatorios", "Ajustes de IA" to "Ajustes de IA", "Datos y copias de seguridad" to "Datos").forEach { (row, title) ->
+            onNode(hasText(row) and hasClickAction()).performScrollTo().performClick()
+            waitForText(title)
+            onNodeWithContentDescription(if (title == "Ajustes de IA") "Atrás" else "Volver").performClick()
+            waitForText("Avisos de comidas, de pesarte y de beber agua")
+        }
+    }
+
+    @Test
     fun weightReminderLeadsToWeightScreenAndDisappearsOnceRegistered() = runApp { db ->
         waitForText("Toca pesarse")
         waitForText("Aún no has registrado tu peso.")
@@ -1153,11 +1191,21 @@ class AppFlowsTest {
         onNode(isTab("Hoy")).performClick()
     }
 
-    /** Antes una pestaña (Alimentos, Recetas, Mi peso, Objetivos, IA); ahora una fila de «Tú». */
+    /**
+     * Antes una pestaña (Alimentos, Recetas, Mi peso, Objetivos, IA); ahora «Tú»: una fila (Objetivos, Coach IA, Recetas y
+     * plantillas, Ajustes), el enlace «Historial de peso» de la tarjeta de peso, o la hoja «Añadir» para Alimentos.
+     */
     private fun ComposeUiTest.goTab(label: String) {
+        if (label == "Alimentos") { openAddFood(); return }
         onNode(isTab("Tú")).performClick()
         waitForIdle()
-        onNode(hasText(if (label == "IA") "Coach IA" else label) and hasClickAction()).performClick()
+        val target = when (label) {
+            "IA" -> "Coach IA"
+            "Mi peso" -> "Historial de peso"
+            "Recetas" -> "Recetas y plantillas"
+            else -> label
+        }
+        onNode(hasText(target) and hasClickAction()).performScrollTo().performClick()
         waitForIdle()
     }
 

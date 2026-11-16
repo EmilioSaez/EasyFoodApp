@@ -6,28 +6,20 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -46,14 +38,12 @@ import app.luxion.fitarchiveapp.data.WeightStore
 import app.luxion.fitarchiveapp.domain.WeightGoalProgress
 import app.luxion.fitarchiveapp.domain.WeightProgress
 import app.luxion.fitarchiveapp.domain.WeightProjection
-import app.luxion.fitarchiveapp.model.NewWeightEntry
 import app.luxion.fitarchiveapp.model.WeightEntry
-import app.luxion.fitarchiveapp.model.WeightGoal
 import app.luxion.fitarchiveapp.model.WeightParse
+import app.luxion.fitarchiveapp.model.WeightGoal
 import app.luxion.fitarchiveapp.model.WeightRules
 import app.luxion.fitarchiveapp.model.isoDateToEpochDay
 import app.luxion.fitarchiveapp.ui.components.NumberField
-import app.luxion.fitarchiveapp.ui.components.WeightChart
 import app.luxion.fitarchiveapp.ui.navigation.EasyFoodNavigationBar
 import app.luxion.fitarchiveapp.ui.navigation.Navigator
 import app.luxion.fitarchiveapp.ui.navigation.TopLevelTab
@@ -77,11 +67,8 @@ fun WeightScreen(navigator: Navigator, weightStore: WeightStore, today: () -> St
     var loaded by remember { mutableStateOf(false) }
     var period by remember { mutableStateOf(WeightPeriod.ONE_MONTH) }
     var formOpen by remember { mutableStateOf(false) }
-    var dateText by remember { mutableStateOf(todayIso) }
-    var weightText by remember { mutableStateOf("") }
-    var editingDate by remember { mutableStateOf<String?>(null) }
+    var editing by remember { mutableStateOf<WeightEntry?>(null) }
     var pendingDelete by remember { mutableStateOf<WeightEntry?>(null) }
-    var submitted by remember { mutableStateOf(false) }
     var goal by remember { mutableStateOf<WeightGoal?>(null) }
     var editingGoal by remember { mutableStateOf(false) }
     var goalText by remember { mutableStateOf("") }
@@ -103,42 +90,6 @@ fun WeightScreen(navigator: Navigator, weightStore: WeightStore, today: () -> St
         }
     }
     LaunchedEffect(weightStore) { reload() }
-
-    fun resetForm() {
-        editingDate = null; dateText = todayIso; weightText = ""; submitted = false; formOpen = false
-    }
-
-    val dateError = weightDateError(dateText, todayIso)
-    val parsed = WeightRules.parse(weightText)
-    val weightError = (parsed as? WeightParse.Invalid)?.message
-
-    fun save() {
-        submitted = true
-        val kg = (parsed as? WeightParse.Valid)?.kg
-        if (dateError != null || kg == null) return
-        val entry = NewWeightEntry(dateText.trim(), kg)
-        val original = editingDate
-        scope.launch {
-            try {
-                val now = kotlin.time.Clock.System.now().toEpochMilliseconds()
-                val replaced = original == null && entries.any { it.date == entry.date }
-                if (original != null) weightStore.update(original, entry, now) else weightStore.save(entry, now)
-                resetForm()
-                reload()
-                snackbar.showSnackbar(
-                    when {
-                        original != null -> "Registro actualizado"
-                        replaced -> "Ya había un peso ese día: actualizado"
-                        else -> "Peso guardado"
-                    },
-                )
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                snackbar.showSnackbar("No se pudo guardar el peso. Inténtalo de nuevo.")
-            }
-        }
-    }
 
     val goalParsed = WeightRules.parse(goalText)
     val goalError = (goalParsed as? WeightParse.Invalid)?.message
@@ -179,7 +130,7 @@ fun WeightScreen(navigator: Navigator, weightStore: WeightStore, today: () -> St
         scope.launch {
             try {
                 weightStore.delete(entry.date)
-                if (editingDate == entry.date) resetForm()
+                if (editing?.date == entry.date) { editing = null; formOpen = false }
                 reload()
                 snackbar.showSnackbar("Registro borrado")
             } catch (e: CancellationException) {
@@ -190,91 +141,35 @@ fun WeightScreen(navigator: Navigator, weightStore: WeightStore, today: () -> St
         }
     }
 
-    val visible = weightEntriesIn(entries, period, todayIso)
-    val summary = WeightProgress.summary(visible)
-    val chart = WeightProgress.chart(visible)
     val goalProgress = WeightProgress.goalProgress(entries, goal?.targetKg, todayIso)
 
     Scaffold(
-        topBar = { CenterAlignedTopAppBar(title = { Text("Seguimiento de peso") }) },
+        topBar = { ScreenHeader("Mi peso", onBack = { navigator.pop() }) },
         snackbarHost = { SnackbarHost(snackbar) },
-        bottomBar = { EasyFoodNavigationBar(selected = TopLevelTab.You, navigator = navigator) },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { resetForm(); formOpen = true },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-            ) { Text("Registrar peso") }
+        bottomBar = {
+            Column {
+                Button(
+                    onClick = { editing = null; formOpen = true },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screen, vertical = Spacing.md).heightIn(min = 52.dp),
+                ) { Text("Registrar peso") }
+                EasyFoodNavigationBar(selected = TopLevelTab.You, navigator = navigator)
+            }
         },
     ) { padding ->
         LazyColumn(
             Modifier.padding(padding),
-            // Margen inferior para que el FAB no tape la última fila.
-            contentPadding = PaddingValues(start = Spacing.screen, top = Spacing.l, end = Spacing.screen, bottom = Spacing.bottomInset),
+            contentPadding = PaddingValues(start = Spacing.screen, top = Spacing.md, end = Spacing.screen, bottom = Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(Spacing.m),
         ) {
             item("chart") {
-                Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                    when {
-                        !loaded -> Unit
-                        entries.isEmpty() -> Text(
-                            "Aún no has registrado tu peso. Toca «Registrar peso» para guardar el primero y ver cómo evoluciona.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        summary == null || chart == null -> Text(
-                            "No hay registros en este periodo. Prueba con un rango mayor.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        else -> {
-                            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                                Text(formatKg(summary.latest.weightKg), style = MaterialTheme.typography.displayMedium)
-                                if (summary.hasChange) {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
-                                        Surface(
-                                            color = MaterialTheme.colorScheme.tertiaryContainer,
-                                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                                            shape = MaterialTheme.shapes.small,
-                                        ) {
-                                            Text(
-                                                formatKgDelta(summary.deltaKg),
-                                                style = MaterialTheme.typography.labelLarge,
-                                                modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs),
-                                            )
-                                        }
-                                        Text(
-                                            "desde el ${formatDayMonth(summary.first.date)}",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                } else {
-                                    Text(
-                                        "Un solo registro en este periodo (${formatDayMonth(summary.first.date)})",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                        WeightPeriod.entries.forEachIndexed { i, p ->
-                            SegmentedButton(
-                                selected = p == period,
-                                onClick = { period = p },
-                                shape = SegmentedButtonDefaults.itemShape(i, WeightPeriod.entries.size),
-                            ) { Text(p.label) }
-                        }
-                    }
-                    if (loaded && summary != null && chart != null) WeightChart(chart, goalKg = goal?.targetKg)
+                YouCard {
+                    WeightOverview(entries, loaded, goal, todayIso, period, onPeriod = { period = it })
                 }
             }
 
             item("goal") {
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
-                    Column(Modifier.padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                YouCard {
+                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
                         Text("Peso objetivo", style = MaterialTheme.typography.titleMedium)
                         val current = goal
                         if (editingGoal || (loaded && current == null)) {
@@ -297,8 +192,8 @@ fun WeightScreen(navigator: Navigator, weightStore: WeightStore, today: () -> St
                                 LinearProgressIndicator(
                                     progress = { it.percent / 100f },
                                     modifier = Modifier.fillMaxWidth().height(8.dp),
-                                    color = MaterialTheme.colorScheme.tertiary,
-                                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    trackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                                 )
                                 GoalProgressInfo(it)
                             }
@@ -319,7 +214,7 @@ fun WeightScreen(navigator: Navigator, weightStore: WeightStore, today: () -> St
             }
 
             if (entries.isNotEmpty()) {
-                item("history-title") { Text("Registros", style = MaterialTheme.typography.titleMedium) }
+                item("history-title") { SectionLabel("Registros", Modifier.padding(top = Spacing.xs)) }
                 val newestFirst = entries.sortedByDescending { it.date }
                 items(newestFirst.size, key = { newestFirst[it].date }) { i ->
                     val e = newestFirst[i]
@@ -327,50 +222,28 @@ fun WeightScreen(navigator: Navigator, weightStore: WeightStore, today: () -> St
                     WeightRow(
                         entry = e,
                         change = previous?.let { WeightRules.round(e.weightKg - it.weightKg) },
-                        onEdit = {
-                            editingDate = e.date
-                            dateText = e.date
-                            weightText = formatKgInput(e.weightKg)
-                            submitted = false
-                            formOpen = true
-                        },
+                        onEdit = { editing = e; formOpen = true },
                         onDelete = { pendingDelete = e },
                     )
-                    HorizontalDivider(Modifier.padding(top = Spacing.s))
+                    HorizontalDivider(Modifier.padding(top = Spacing.s), color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }
         }
     }
 
     if (formOpen) {
-        AlertDialog(
-            onDismissRequest = ::resetForm,
-            title = { Text(if (editingDate == null) "Nuevo registro" else "Editar registro") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                    OutlinedTextField(
-                        value = dateText,
-                        onValueChange = { dateText = it.filter { c -> c.isDigit() || c == '-' }.take(10) },
-                        label = { Text("Fecha") },
-                        isError = dateError != null,
-                        supportingText = { Text(dateError ?: "AAAA-MM-DD") },
-                        singleLine = true,
-                        shape = MaterialTheme.shapes.extraSmall,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    NumberField(
-                        value = weightText,
-                        onValueChange = { weightText = it },
-                        label = "Peso",
-                        suffix = "kg",
-                        isError = submitted && weightError != null,
-                        supportingText = if (submitted && weightError != null) weightError else null,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
+        WeightEntryDialog(
+            weightStore = weightStore,
+            entries = entries,
+            todayIso = todayIso,
+            editing = editing,
+            onDismiss = { formOpen = false; editing = null },
+            onSaved = { message ->
+                formOpen = false
+                editing = null
+                scope.launch { reload(); snackbar.showSnackbar(message) }
             },
-            confirmButton = { Button(onClick = ::save) { Text(if (editingDate == null) "Guardar peso" else "Guardar cambios") } },
-            dismissButton = { TextButton(onClick = ::resetForm) { Text("Cancelar") } },
+            onError = { message -> scope.launch { snackbar.showSnackbar(message) } },
         )
     }
 
