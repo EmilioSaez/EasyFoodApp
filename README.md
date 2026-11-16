@@ -14,9 +14,9 @@ App multiplataforma (Kotlin Multiplatform + Compose Multiplatform) para **contar
 - **Resumen semanal y mensual**: icono ▥ del Diario. Media de kcal y macros, días cumplidos (objetivo ±10 %), mejor racha, mejor y peor día y peso frente a calorías, con selector semana/mes y navegación entre periodos. Además: peso con media móvil de los últimos 5 pesajes en la gráfica, adherencia mensual (% de días en objetivo) y, en semanas, comparación con la semana anterior (kcal, proteína y días cumplidos). Se deriva de lo ya guardado: sin tabla nueva ni cambios en la exportación.
 - **Agua diaria**: tarjeta en el Diario con «+ Vaso», «+ 500 ml», «+ 1 L» y deshacer, y progreso frente a un objetivo (2 L por defecto, editable en Objetivos).
 - **IA opcional** (pestaña «IA»): usa tu propia clave de API de Anthropic. «¿Qué como?» propone 3–5 opciones para lo que queda del día según tus kcal y macros restantes (con tus favoritos, recientes, plantillas y recetas como candidatos) y las añade al diario como entrada rápida; «¿Cómo voy?» resume y aconseja sobre el día o la semana (kcal, proteína, fibra, sal, azúcares, agua y ejercicio); y puedes preguntar con una conversación corta. Solo se envía un resumen mínimo, con tope de llamadas al día y sin consejo médico. La clave se guarda solo en el dispositivo, de forma protegida (Keystore, Keychain o DPAPI), y nunca entra en la base de datos, en exportar/importar ni en copias de seguridad. Sin clave la IA queda desactivada y el resto de la app no cambia. Ver [docs/ia.md](docs/ia.md).
-- **Alta por foto de la etiqueta** (con la IA activada): cuando un código o una búsqueda no encuentran el alimento, «Fotografiar etiqueta» lee el nombre, la marca, los ingredientes, la porción y la tabla nutricional por 100 g y rellena el formulario de alimento propio para que lo revises antes de guardar. Lo que no se lee queda vacío y marcado, nunca inventado, y se avisa si las kcal no cuadran con los macros. En escritorio se sube una imagen desde un archivo. La foto se envía reducida a Anthropic con tu clave y no se guarda en el dispositivo.
-- **Foto del plato** (con IA): botón «✦ Foto del plato» en la pestaña Alimentos y en el «+» de cada comida. Haces una foto (o subes una imagen en escritorio), la IA lista los alimentos con gramos estimados y cada uno se enlaza con tu base para que las kcal y los macros salgan de datos reales; lo que no encuentra queda marcado como estimado. Revisas y corriges todo (alimento, cantidad, quitar, añadir) y solo al confirmar se apunta en el diario. Las cantidades son estimaciones (error posible del 20–40 %); la foto no se guarda en el dispositivo.
-- **Recordatorios**: notificaciones locales (🔔 en Objetivos) para registrar cada comida a su hora, pesarte una vez a la semana y, si quieres, beber agua; eliges horas y días y no avisan de lo que ya has registrado. En Android funcionan con la app cerrada; en escritorio, solo con la app abierta.
+- **Alta por foto de la etiqueta** (con la IA activada): cuando un código o una búsqueda no encuentran el alimento, «Fotografiar etiqueta» lee el nombre, la marca, los ingredientes, la porción y la tabla nutricional por 100 g y rellena el formulario de alimento propio para que lo revises antes de guardar. Lo que no se lee queda vacío y marcado, nunca inventado, y se avisa si las kcal no cuadran con los macros. La foto se envía reducida a Anthropic con tu clave y no se guarda en el dispositivo.
+- **Foto del plato** (con IA): botón «✦ Foto del plato» en la pestaña Alimentos y en el «+» de cada comida. Haces una foto, la IA lista los alimentos con gramos estimados y cada uno se enlaza con tu base para que las kcal y los macros salgan de datos reales; lo que no encuentra queda marcado como estimado. Revisas y corriges todo (alimento, cantidad, quitar, añadir) y solo al confirmar se apunta en el diario. Las cantidades son estimaciones (error posible del 20–40 %); la foto no se guarda en el dispositivo.
+- **Recordatorios**: notificaciones locales (🔔 en Objetivos) para registrar cada comida a su hora, pesarte una vez a la semana y, si quieres, beber agua; eliges horas y días y no avisan de lo que ya has registrado. En Android funcionan con la app cerrada.
 - **Widget de Android** («EasyFood · Hoy», 4×2): kcal que te quedan hoy (o de más), macros y agua, con los botones «+ Vaso» (abre el Diario, donde está la tarjeta de agua) y «Entrada rápida» (abre esa pantalla). Detalles en [docs/widget-android.md](docs/widget-android.md).
 - **Sin cuentas ni servidor**: los datos viven en el dispositivo (offline-first, SQLDelight).
 
@@ -25,7 +25,6 @@ App multiplataforma (Kotlin Multiplatform + Compose Multiplatform) para **contar
 | Plataforma | Estado |
 |---|---|
 | Android | Funciona, con escáner de cámara (CameraX + ML Kit). |
-| Escritorio (JVM) | Funciona. Sin escáner: se introduce el EAN a mano. |
 | iOS | Compila y pasa los tests en el CI de macOS (simulador, sin firma). Escáner con AVFoundation. **Sin probar en iPhone real** ni TestFlight todavía. Ver [docs/ios.md](docs/ios.md). |
 
 ## Datos: exportar e importar
@@ -40,12 +39,11 @@ El seguimiento de lo que falta está en [ROADMAP.md](ROADMAP.md).
 
 ## Arquitectura
 
-Casi todo el código está en `shared`: una sola base de código para las tres plataformas.
+Casi todo el código está en `shared`: una sola base de código para Android e iOS.
 
 | Módulo | Contenido |
 |---|---|
-| `shared` | Modelo, dominio (TDEE), datos (Open Food Facts con Ktor, repositorios y stores SQLDelight), exportación/transferencia y toda la UI en Compose Multiplatform. Incluye el cliente de la API de Claude (`ai`). Con código específico por plataforma (`androidMain`, `jvmMain`, `iosMain`) para escáner, ajustes, aleatoriedad segura y drivers de base de datos. |
-| `desktopApp` | Aplicación de escritorio (JVM). Solo arranca `App` de `shared`. |
+| `shared` | Modelo, dominio (TDEE), datos (Open Food Facts con Ktor, repositorios y stores SQLDelight), exportación/transferencia y toda la UI en Compose Multiplatform. Incluye el cliente de la API de Claude (`ai`). Con código específico por plataforma (`androidMain`, `iosMain` y `jvmMain`, este último solo como destino de los tests en JVM) para escáner, ajustes, aleatoriedad segura y drivers de base de datos. |
 | `androidApp` | Aplicación Android. |
 | `iosApp` | Proyecto Xcode que embebe el framework `Shared`. |
 
@@ -58,7 +56,6 @@ Paquete: `app.luxion.easyfoodapp` (applicationId de Android: `app.luxion.easyfoo
 Requiere JDK 17 o superior. Android necesita el SDK instalado; iOS, un Mac con Xcode.
 
 ```
-./gradlew :desktopApp:run                  # escritorio: abre la app
 ./gradlew :androidApp:assembleDebug        # Android: genera el APK de depuración
 ./gradlew :androidApp:installDebug         # Android: instala en un dispositivo o emulador
 ```
