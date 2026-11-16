@@ -30,6 +30,8 @@ import app.luxion.fitarchiveapp.data.SqlDelightWaterStore
 import app.luxion.fitarchiveapp.data.SqlDelightWeightStore
 import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
 import app.luxion.fitarchiveapp.data.generic.GenericFoodSeeder
+import app.luxion.fitarchiveapp.data.supermarket.SupermarketImporter
+import app.luxion.fitarchiveapp.data.supermarket.SupermarketSeeder
 import app.luxion.fitarchiveapp.export.SqlDelightImportTarget
 import app.luxion.fitarchiveapp.android.widget.DailyWidget
 import app.luxion.fitarchiveapp.ui.App
@@ -72,6 +74,10 @@ class MainActivity : ComponentActivity() {
         GenericFoodSeeder(GenericFoodImporter(database.productQueries), nowMillis = System::currentTimeMillis)
     }
 
+    private val supermarketSeeder by lazy {
+        SupermarketSeeder(SupermarketImporter(database.productQueries), nowMillis = System::currentTimeMillis)
+    }
+
     /** Destino pedido por el widget (o `null`); la app lo abre encima del Diario y lo olvida. */
     private var launchRoute: Route? by mutableStateOf(null)
 
@@ -109,6 +115,7 @@ class MainActivity : ComponentActivity() {
                     today = { LocalDate.now().toString() },
                     nowMinutes = { LocalTime.now().let { it.hour * 60 + it.minute } },
                     genericSeeder = genericSeeder,
+                    supermarketSeeder = supermarketSeeder,
                     ai = aiModule,
                     backgroundRefresh = true,
                     backupFiles = backupFiles,

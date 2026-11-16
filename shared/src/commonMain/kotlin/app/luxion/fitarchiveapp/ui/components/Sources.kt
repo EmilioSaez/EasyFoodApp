@@ -22,12 +22,14 @@ import app.luxion.fitarchiveapp.ui.theme.easyFoodColors
 enum class DataSource(val label: String, val initial: String) {
     OpenFoodFacts("Open Food Facts", "OFF"),
     Generic("Genérico", "G"),
+    Supermarket("Supermercado", "S"),
     Custom("Propio", "P"),
 }
 
 @Composable
 private fun DataSource.containerColor(): Color = when (this) {
     DataSource.Generic -> MaterialTheme.colorScheme.secondaryContainer
+    DataSource.Supermarket -> MaterialTheme.colorScheme.primaryContainer
     DataSource.OpenFoodFacts -> MaterialTheme.colorScheme.tertiaryContainer
     DataSource.Custom -> MaterialTheme.easyFoodColors.warningContainer
 }
@@ -35,6 +37,7 @@ private fun DataSource.containerColor(): Color = when (this) {
 @Composable
 private fun DataSource.contentColor(): Color = when (this) {
     DataSource.Generic -> MaterialTheme.colorScheme.onSecondaryContainer
+    DataSource.Supermarket -> MaterialTheme.colorScheme.onPrimaryContainer
     DataSource.OpenFoodFacts -> MaterialTheme.colorScheme.onTertiaryContainer
     DataSource.Custom -> MaterialTheme.easyFoodColors.onWarningContainer
 }

@@ -81,12 +81,15 @@ Para comprobar que compilan los targets de iOS sin Mac (solo klibs, no enlaza el
 
 - **Productos con código de barras**: [Open Food Facts](https://world.openfoodfacts.org), base abierta aportada por la comunidad bajo licencia ODbL. Los datos pueden ser incorrectos o estar incompletos; la app los marca para revisión cuando detecta valores dudosos y permite corregirlos en local o abrir el producto en Open Food Facts para corregirlo allí.
 - **Alimentos genéricos** (fruta, pan, carne…): [USDA FoodData Central](https://fdc.nal.usda.gov/), conjunto SR Legacy, dominio público (CC0 1.0). Los nombres están traducidos al español (traducción propia con IA, embebida y offline). Detalles en [docs/generic-foods.md](docs/generic-foods.md).
+- **Catálogo de supermercados** (Mercadona/Hacendado, Dia, Lidl, Carrefour…): subconjunto de [Open Food Facts](https://world.openfoodfacts.org) (productos de España de esas cadenas, sin imágenes) embebido y disponible sin conexión. © Open Food Facts contributors, licencia [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/). **El recurso derivado `shared/src/commonMain/composeResources/files/supermarket_products.tsv` se ofrece también bajo ODbL 1.0**; el código de la app no. La ficha muestra la atribución. Detalles en [docs/supermarket-catalog.md](docs/supermarket-catalog.md).
+- Los datos directos de Mercadona, Dia, Lidl o Carrefour no se usan: no ofrecen licencia que permita redistribuirlos.
 - BEDCA se descartó por no ofrecer licencia de redistribución.
 
 ## Documentación
 
 - [docs/design.md](docs/design.md): especificación de diseño (tokens, pantallas, componentes y navegación).
 - [docs/generic-foods.md](docs/generic-foods.md): base genérica de alimentos, fuente, licencia y formato.
+- [docs/supermarket-catalog.md](docs/supermarket-catalog.md): catálogo de supermercados españoles (Open Food Facts, ODbL).
 - [docs/ia.md](docs/ia.md): IA con la clave del usuario (API de Claude, privacidad, límites y almacenamiento de la clave).
 - [docs/ios.md](docs/ios.md): app de iOS, cómo compilarla y problemas probables.
 - [ROADMAP.md](ROADMAP.md): fases y tareas pendientes.

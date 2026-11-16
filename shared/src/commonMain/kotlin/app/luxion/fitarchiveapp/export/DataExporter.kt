@@ -6,6 +6,7 @@ import app.luxion.fitarchiveapp.data.readAll
 import app.luxion.fitarchiveapp.model.MealTemplate
 import app.luxion.fitarchiveapp.data.toCached
 import app.luxion.fitarchiveapp.data.generic.GenericFoodImporter
+import app.luxion.fitarchiveapp.data.supermarket.SupermarketImporter
 import app.luxion.fitarchiveapp.data.toDomain
 import app.luxion.fitarchiveapp.db.CustomFoodQueries
 import app.luxion.fitarchiveapp.db.DiaryEntryQueries
@@ -55,7 +56,7 @@ class DataExporter(
         exportedAtMillis = nowMillis(),
         // La base genérica viaja con la app (se siembra en cada dispositivo): exportarla multiplicaría el tamaño
         // por ~100 (miles de códigos QR) sin aportar nada. Las entradas del diario la referencian por clave.
-        products = source.products().filter { it.source != GenericFoodImporter.SOURCE },
+        products = source.products().filter { it.source !in EMBEDDED_SOURCES },
         diaryEntries = source.diaryEntries().map { it.toExported() },
         customFoods = source.customFoods(),
         weights = source.weights(),
@@ -203,7 +204,7 @@ class SqlDelightExportSource(
 
     override suspend fun products(): List<ExportedProduct> = withContext(dispatcher) {
         // La base genérica (miles de filas) viaja con la app y se vuelve a cargar sola: no se exporta.
-        productQueries.selectAll().executeAsList().filter { it.source != GenericFoodImporter.SOURCE }.map {
+        productQueries.selectAll().executeAsList().filter { it.source !in EMBEDDED_SOURCES }.map {
             val p = it.toCached().product
             ExportedProduct(
                 barcode = p.barcode, name = p.name, brand = p.brand, imageUrl = p.imageUrl,
@@ -217,3 +218,6 @@ class SqlDelightExportSource(
         diaryQueries.selectAll().executeAsList().map { it.toDomain() }
     }
 }
+
+/** Orígenes cuyos datos viajan con la app (se siembran en cada dispositivo) y por tanto no se exportan. */
+internal val EMBEDDED_SOURCES = setOf(GenericFoodImporter.SOURCE, SupermarketImporter.SOURCE)
