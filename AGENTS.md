@@ -7,13 +7,13 @@ Reglas del repo para agentes y colaboradores (se suman a las preferencias global
 Los datos del usuario viven en el dispositivo; una migración mal hecha los destruye sin remedio. Por eso:
 
 - **Todo cambio de esquema** (tabla, columna, índice, trigger, CHECK) en un `.sq` **lleva su migración** `N.sqm` en
-  `shared/src/commonMain/sqldelight/app/luxion/fitarchiveapp/db/`, y **su test**. Sin los tres, no se fusiona.
+  `shared/src/commonMain/sqldelight/app/luxion/easyfoodapp/db/`, y **su test**. Sin los tres, no se fusiona.
 - `N.sqm` migra de la versión `N` a la `N+1`. El siguiente número libre es el de la última migración + 1; si dos ramas
   usan el mismo número, la segunda en llegar a `develop` renumera la suya (`MigrationsCompletenessTest` y
   `EverySqmHasATestTest` fallan si hay duplicados o huecos).
 - Escribe las migraciones **idempotentes** (`CREATE TABLE IF NOT EXISTS`…) cuando sea posible, y para cambiar un `CHECK`
   reconstruye la tabla conservando filas e ids (ver `7.sqm`). Nunca edites una migración ya publicada: añade otra.
-- **Test obligatorio**: `shared/src/jvmTest/kotlin/app/luxion/fitarchiveapp/data/migration/Migration<N>Test.kt`, usando
+- **Test obligatorio**: `shared/src/jvmTest/kotlin/app/luxion/easyfoodapp/data/migration/Migration<N>Test.kt`, usando
   `MigrationTestKit`:
   ```kotlin
   class Migration11Test {

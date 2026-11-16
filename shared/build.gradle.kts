@@ -10,7 +10,7 @@ plugins {
 sqldelight {
     databases {
         create("EasyFoodDatabase") {
-            packageName.set("app.luxion.fitarchiveapp.db")
+            packageName.set("app.luxion.easyfoodapp.db")
             dialect("app.cash.sqldelight:sqlite-3-35-dialect:${libs.versions.sqldelight.get()}")
         }
     }
@@ -19,7 +19,7 @@ sqldelight {
 kotlin {
     jvm()
     androidLibrary {
-        namespace = "app.luxion.fitarchiveapp.shared"
+        namespace = "app.luxion.easyfoodapp.shared"
         compileSdk = 36
         minSdk = 26
         // Sin esto, los recursos de Compose (base genérica .tsv) no entran en el APK.

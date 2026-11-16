@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "app.luxion.fitarchiveapp.android"
+    namespace = "app.luxion.easyfoodapp.android"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "app.luxion.fitarchiveapp.android"
+        applicationId = "app.luxion.easyfoodapp.android"
         minSdk = 26
         targetSdk = 36
         versionCode = 3
