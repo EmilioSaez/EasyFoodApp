@@ -21,7 +21,7 @@ kotlin {
 
 compose.desktop {
     application {
-        mainClass = "app.luxion.fitarchiveapp.MainKt"
+        mainClass = "app.luxion.easyfoodapp.MainKt"
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Dmg, TargetFormat.Deb)
             modules("java.sql")

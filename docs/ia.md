@@ -1,6 +1,6 @@
 # IA con la clave del usuario
 
-Base técnica de la IA (Fase 13). Cada persona pone su propia clave de la API de Anthropic; no hay servidor nuestro. Interfaz en `docs/design.md` §2.16. Código en `shared/src/*/kotlin/app/luxion/fitarchiveapp/ai/`.
+Base técnica de la IA (Fase 13). Cada persona pone su propia clave de la API de Anthropic; no hay servidor nuestro. Interfaz en `docs/design.md` §2.16. Código en `shared/src/*/kotlin/app/luxion/easyfoodapp/ai/`.
 
 ## Cliente de la API (`ClaudeClient`)
 No hay SDK oficial de Kotlin Multiplatform, así que se usa HTTP directo con Ktor contra `https://api.anthropic.com`:

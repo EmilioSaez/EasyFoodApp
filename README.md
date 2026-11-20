@@ -51,7 +51,7 @@ Casi todo el código está en `shared`: una sola base de código para las tres p
 
 Tecnologías: Kotlin Multiplatform, Compose Multiplatform (Material 3), SQLDelight (esquema en `shared/src/commonMain/sqldelight`), Ktor y kotlinx.serialization.
 
-Paquete: `app.luxion.fitarchiveapp` (applicationId de Android: `app.luxion.fitarchiveapp.android`).
+Paquete: `app.luxion.easyfoodapp` (applicationId de Android: `app.luxion.easyfoodapp.android`).
 
 ## Compilar y ejecutar
 
